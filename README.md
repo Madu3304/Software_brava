@@ -6,11 +6,11 @@ Este projeto busca solucionar um problema real e atual identificado nas Unidades
 
 ## Identificação
 
-Título do Projeto: Software Brava
-Linha de Projeto: Aplicativo.
-Autor: Maria Eduarda Nunes
-Data da Proposta: 10/03/2026
-Versão: 1.0
+- Título do Projeto: Software Brava
+- Linha de Projeto: Aplicativo.
+- Autor: Maria Eduarda Nunes
+- Data da Proposta: 10/03/2026
+- Versão: 1.0
 
 ## Tecnologias previstas
 
