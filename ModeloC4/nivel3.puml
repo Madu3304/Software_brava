@@ -1,0 +1,99 @@
+@startuml c4_Nivel3
+
+!include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Nivel 3 - Componentes Sistema SAMU
+
+Person(admin, "Administrador")
+Person(enfermeiro, "Enfermeiro/Tecnico")
+
+System_Ext(prefeitura, "Banco Prefeitura")
+System_Ext(hospital, "Hospital")
+System_Ext(gps, "GPS")
+System_Ext(pdf, "Servico PDF")
+
+Container_Boundary(api, "API Backend") {
+
+Component(auth, "Auth Controller", "FastAPI", "Login JWT")
+
+Component(user, "User Controller", "FastAPI", "Usuarios")
+
+Component(ficha, "Ficha Controller", "FastAPI", "Fichas SAMU")
+
+Component(unidade, "Unidade Controller", "FastAPI", "Unidades moveis")
+
+Component(sync, "Sync Controller", "FastAPI", "Sincronizacao offline")
+
+Component(dashboard, "Dashboard Controller", "FastAPI", "Metricas")
+
+Component(relatorio, "Relatorio Controller", "FastAPI", "Relatorios PDF")
+
+Component(validation, "Validation Service", "Python", "Validacao")
+
+Component(rbac, "RBAC Service", "JWT", "Permissoes")
+
+Component(crypto, "Crypto Service", "AES256", "Criptografia")
+
+Component(logs, "Log Service", "Python", "Auditoria")
+
+Component(gps_service, "GPS Service", "Python", "Geolocalizacao")
+
+Component(pdf_generator, "PDF Generator", "Python", "Exportacao PDF")
+
+Component(repository, "Repository", "SQLAlchemy", "Persistencia")
+
+Component(sqlite, "SQLite Local", "SQLite", "Offline")
+
+Component(postgres, "PostgreSQL", "PostgreSQL", "Banco central")
+
+}
+
+Rel(admin, auth, "Login")
+
+Rel(admin, dashboard, "Consulta dashboards")
+
+Rel(admin, relatorio, "Exporta relatorios")
+
+Rel(enfermeiro, ficha, "Preenche ficha")
+
+Rel(enfermeiro, sync, "Sincroniza dados")
+
+Rel(auth, rbac, "Valida permissoes")
+
+Rel(auth, crypto, "Valida senha")
+
+Rel(ficha, validation, "Valida campos")
+
+Rel(ficha, gps_service, "Obtem localizacao")
+
+Rel(ficha, repository, "Salva ficha")
+
+Rel(ficha, sqlite, "Offline")
+
+Rel(sync, sqlite, "Le offline")
+
+Rel(sync, repository, "Sincroniza")
+
+Rel(sync, prefeitura, "Integra dados")
+
+Rel(sync, hospital, "Envia ficha")
+
+Rel(repository, postgres, "CRUD")
+
+Rel(relatorio, pdf_generator, "Gera PDF")
+
+Rel(relatorio, repository, "Consulta dados")
+
+Rel(dashboard, repository, "Obtem metricas")
+
+Rel(logs, repository, "Armazena logs")
+
+Rel(gps_service, gps, "Consulta GPS")
+
+Rel(pdf_generator, pdf, "Exporta PDF")
+
+SHOW_LEGEND()
+
+@enduml

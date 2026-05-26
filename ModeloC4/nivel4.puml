@@ -1,0 +1,82 @@
+@startuml
+
+!include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Diagrama de Componentes (Nível 3) - Sistema SAMU
+
+Person(admin, "Administrador")
+Person(enfermeiro, "Enfermeiro/Técnico")
+
+System_Ext(prefeitura, "Banco da Prefeitura")
+System_Ext(gps, "Serviço GPS")
+System_Ext(pdf_service, "Serviço PDF")
+
+Container_Boundary(api, "API Backend") {
+
+    Component(auth_controller, "Auth Controller", "FastAPI", "Login e autenticação")
+
+    Component(user_controller, "User Controller", "FastAPI", "Gerenciamento de usuários")
+
+    Component(atendimento_controller, "Atendimento Controller", "FastAPI", "Gerenciamento de atendimentos")
+
+    Component(unidade_controller, "Unidade Controller", "FastAPI", "Gerenciamento de unidades")
+
+    Component(sync_controller, "Sync Controller", "FastAPI", "Sincronização offline")
+
+    Component(relatorio_controller, "Relatorio Controller", "FastAPI", "Relatórios PDF")
+
+    Component(dashboard_controller, "Dashboard Controller", "FastAPI", "Métricas e dashboards")
+
+    Component(validation_service, "Validation Service", "Python", "Validação automática")
+
+    Component(auth_service, "JWT Service", "JWT", "Controle de autenticação")
+
+    Component(log_service, "Log Service", "Python", "Logs e auditoria")
+
+    Component(repository, "Repository", "SQLAlchemy", "Persistência de dados")
+
+    ComponentDb(db_postgres, "PostgreSQL", "Banco de Dados", "Armazena usuários e atendimentos")
+
+}
+
+Rel(admin, auth_controller, "Login")
+
+Rel(admin, dashboard_controller, "Consulta dashboards")
+
+Rel(admin, relatorio_controller, "Gera relatórios")
+
+Rel(enfermeiro, atendimento_controller, "Registra atendimentos")
+
+Rel(enfermeiro, sync_controller, "Sincroniza dados")
+
+Rel(auth_controller, auth_service, "Valida autenticação")
+
+Rel(user_controller, repository, "Gerencia usuários")
+
+Rel(atendimento_controller, validation_service, "Valida campos")
+
+Rel(atendimento_controller, repository, "Salva fichas")
+
+Rel(unidade_controller, repository, "Gerencia unidades")
+
+Rel(sync_controller, repository, "Sincroniza registros")
+
+Rel(sync_controller, prefeitura, "Integra dados", "HTTPS/API")
+
+Rel(relatorio_controller, repository, "Consulta dados")
+
+Rel(dashboard_controller, repository, "Obtém métricas")
+
+Rel(log_service, repository, "Armazena logs")
+
+Rel(repository, db_postgres, "CRUD SQL")
+
+Rel(atendimento_controller, gps, "Obtém localização")
+
+Rel(relatorio_controller, pdf_service, "Exporta PDF")
+
+SHOW_LEGEND()
+
+@enduml

@@ -1,0 +1,61 @@
+@startuml c4Nivel2
+
+!include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Diagrama de Containers (Nivel 2) - Sistema de Gestao SAMU
+
+Person(admin, "Administrador", "Gerencia usuarios, relatorios e dashboards")
+
+Person(enfermeiro, "Enfermeiro/Tecnico", "Registra atendimentos e consulta informacoes")
+
+System_Boundary(sistema, "Sistema de Gestao SAMU") {
+
+    Container(web, "Dashboard Web", "Flutter/Dart", "Painel administrativo e metricas")
+
+    Container(app, "Aplicativo Mobile", "Flutter/Dart", "Registro de atendimentos e sincronizacao offline")
+
+    Container(api, "API Backend", "Python/FastAPI", "Autenticacao, regras de negocio e integracao")
+
+    ContainerDb(localdb, "Banco Local", "SQLite", "Armazena dados offline")
+
+    ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena fichas, usuarios e logs")
+
+    Container(auth, "Servico de Autenticacao", "JWT", "Controle de login e permissoes")
+
+    Container(logs, "Servico de Logs", "Python", "Auditoria e rastreabilidade")
+
+}
+
+System_Ext(prefeitura, "Banco da Prefeitura", "Integracao de dados municipais")
+
+System_Ext(gps, "Servico de GPS", "Puxa a localizacao automatica")
+
+System_Ext(pdf, "Servico PDF", "Geracao de relatorios PDF")
+
+Rel(admin, web, "Acessa dashboards e relatorios")
+
+Rel(enfermeiro, app, "Registra atendimentos")
+
+Rel(web, api, "Consulta e gerencia dados", "HTTPS")
+
+Rel(app, api, "Sincroniza dados", "HTTPS")
+
+Rel(app, localdb, "Salva dados offline")
+
+Rel(api, postgres, "Le e grava informacoes")
+
+Rel(api, auth, "Valida autenticacao")
+
+Rel(api, logs, "Registra logs")
+
+Rel(api, prefeitura, "Integra dados municipais", "HTTPS/API")
+
+Rel(api, gps, "Obtem localizacao")
+
+Rel(api, pdf, "Gerar relatorios PDF")
+
+SHOW_LEGEND()
+
+@enduml
