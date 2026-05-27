@@ -2,60 +2,55 @@
 
 !include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
 
-LAYOUT_WITH_LEGEND()
+title Diagrama de Containers (Nível 2) - Sistema de Gestão SAMU
 
-title Diagrama de Containers (Nivel 2) - Sistema de Gestao SAMU
+' =========================
+' Pessoas
+' =========================
+Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e métricas do sistema.")
+Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o socorro.")
 
-Person(admin, "Administrador", "Gerencia usuarios, relatorios e dashboards")
+' =========================
+' Limite do Sistema SAMU
+' =========================
+System_Boundary(sistema, "Sistema de Gestão SAMU") {
 
-Person(enfermeiro, "Enfermeiro/Tecnico", "Registra atendimentos e consulta informacoes")
+    Container(app, "Aplicativo Mobile", "Flutter / Dart", "Interface para registro digital dos atendimentos, triagem, captura de coordenadas GPS e sincronização offline.")
 
-System_Boundary(sistema, "Sistema de Gestao SAMU") {
+    ContainerDb(localdb, "Banco Local", "SQLite", "Armazena temporariamente as fichas e dados de atendimento de forma local no dispositivo (Garante funcionamento offline).")
 
-    Container(web, "Dashboard Web", "Flutter/Dart", "Painel administrativo e metricas")
+    Container(api, "API Backend", "Python / FastAPI", "Gerencia regras de negócio, autenticação (JWT), auditoria de logs, geração de relatórios PDF e comunicação com APIs.")
 
-    Container(app, "Aplicativo Mobile", "Flutter/Dart", "Registro de atendimentos e sincronizacao offline")
-
-    Container(api, "API Backend", "Python/FastAPI", "Autenticacao, regras de negocio e integracao")
-
-    ContainerDb(localdb, "Banco Local", "SQLite", "Armazena dados offline")
-
-    ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena fichas, usuarios e logs")
-
-    Container(auth, "Servico de Autenticacao", "JWT", "Controle de login e permissoes")
-
-    Container(logs, "Servico de Logs", "Python", "Auditoria e rastreabilidade")
-
+    ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma persistente e estruturada todas as fichas técnicas, registros operacionais, usuários e logs.")
 }
 
-System_Ext(prefeitura, "Banco da Prefeitura", "Integracao de dados municipais")
+' =========================
+' Sistemas Externos
+' =========================
+System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrada para armazenamento definitivo e controle de dados consolidados.")
+System_Ext(hospital, "Hospital de Destino", "Sistema hospitalar externo notificado previamente sobre a chegada das ambulâncias.")
 
-System_Ext(gps, "Servico de GPS", "Puxa a localizacao automatica")
+' =========================
+' Relacionamentos
+' =========================
 
-System_Ext(pdf, "Servico PDF", "Geracao de relatorios PDF")
+' Interações dos Usuários
+Rel(admin, api, "Monitora métricas, gerencia usuários e extrai relatórios", "HTTPS / JSON")
+Rel(equipe_samu, app, "Preenche fichas técnicas, realiza registros e consultas em campo", "Interface Touch")
 
-Rel(admin, web, "Acessa dashboards e relatorios")
+' Comunicação Interna (Mobile)
+Rel(app, localdb, "Lê e grava dados de atendimento localmente", "SQL / API Interna")
+Rel(app, api, "Sincroniza fichas salvas offline e autentica usuários", "HTTPS / REST API")
 
-Rel(enfermeiro, app, "Registra atendimentos")
+' Comunicação Interna (Backend)
+Rel(api, postgres, "Realiza consultas, inserções e registros de logs", "SQL / SQLAlchemy (PostGIS)")
 
-Rel(web, api, "Consulta e gerencia dados", "HTTPS")
+' Integrações Externas
+Rel(api, prefeitura, "Sincroniza e consolida dados dos atendimentos municipais", "HTTPS / REST API")
+Rel(api, hospital, "Envia automaticamente fichas concluídas de pacientes em rota", "HTTPS / JSON")
 
-Rel(app, api, "Sincroniza dados", "HTTPS")
-
-Rel(app, localdb, "Salva dados offline")
-
-Rel(api, postgres, "Le e grava informacoes")
-
-Rel(api, auth, "Valida autenticacao")
-
-Rel(api, logs, "Registra logs")
-
-Rel(api, prefeitura, "Integra dados municipais", "HTTPS/API")
-
-Rel(api, gps, "Obtem localizacao")
-
-Rel(api, pdf, "Gerar relatorios PDF")
-
+' =========================
+' Configuração de Legenda
+' =========================
 SHOW_LEGEND()
-
 @enduml

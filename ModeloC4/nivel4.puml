@@ -1,82 +1,79 @@
-@startuml
+@startuml c4_nivel3_corrigido
 
 !include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
 
-LAYOUT_WITH_LEGEND()
+title Diagrama de Componentes (Nível 3) - Detalhamento da API Backend (Python/FastAPI)
 
-title Diagrama de Componentes (Nível 3) - Sistema SAMU
+' ========================================================
+' Elementos Externos ao Container (Atores e Outros Containers)
+' ========================================================
+Person(admin, "Administrador", "Gerencia configurações operacionais e extrai métricas.")
+Container(app_mobile, "Aplicativo Mobile", "Flutter / Dart", "Interface usada em campo para coleta de dados, GPS nativo e armazenamento offline.")
 
-Person(admin, "Administrador")
-Person(enfermeiro, "Enfermeiro/Técnico")
+' Containers e Sistemas definidos nos Níveis 1 e 2
+ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma definitiva os registros operacionais e trilhas de auditoria.")
+System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrada para armazenamento definitivo.")
+System_Ext(hospital, "Hospital de Destino", "Sistema de saúde externo que recebe antecipadamente o prontuário de socorro.")
 
-System_Ext(prefeitura, "Banco da Prefeitura")
-System_Ext(gps, "Serviço GPS")
-System_Ext(pdf_service, "Serviço PDF")
+' ========================================================
+' Fronteira do Container em Destaque: API Backend
+' ========================================================
+Container_Boundary(api, "API Backend (Python / FastAPI)") {
 
-Container_Boundary(api, "API Backend") {
+    ' Sub-módulo: Autenticação e Segurança
+    Component(auth_controller, "Auth Controller", "FastAPI Endpoints", "Gerencia as rotas de login, renovação de tokens e controle de sessão.")
+    Component(security_service, "Security Service", "Python (Jose/JWT)", "Valida as permissões do usuário (RBAC) e realiza a criptografia de credenciais.")
 
-    Component(auth_controller, "Auth Controller", "FastAPI", "Login e autenticação")
+    ' Sub-módulo: Processamento de Atendimentos
+    Component(atendimento_controller, "Atendimento Controller", "FastAPI Endpoints", "Disponibiliza rotas para a criação, atualização e listagem de fichas digitais de atendimento.")
+    Component(validation_service, "Validation Service", "Python (Pydantic)", "Valida automaticamente a consistência física dos dados, formatos e campos obrigatórios de saúde.")
 
-    Component(user_controller, "User Controller", "FastAPI", "Gerenciamento de usuários")
+    ' Sub-módulo: Sincronização e Integrações Externas
+    Component(sync_controller, "Sync Controller", "FastAPI Endpoints", "Ponto de entrada para recepção de cargas de dados enviadas em lote pelo SQLite do aplicativo mobile.")
+    Component(integration_service, "Integration Service", "Python (HTTPX)", "Efetua a comunicação de saída com as APIs do Banco da Prefeitura e do Hospital de Destino.")
 
-    Component(atendimento_controller, "Atendimento Controller", "FastAPI", "Gerenciamento de atendimentos")
+    ' Sub-módulo: Relatórios, PDF e Auditoria
+    Component(relatorio_controller, "Report Controller", "FastAPI Endpoints", "Gerencia requisições de exportação de dados históricos e emissões de arquivos.")
+    Component(pdf_generator, "PDF Generator Service", "Python (ReportLab)", "Renderiza internamente as fichas médicas estruturadas convertendo-as para o formato físico PDF.")
+    Component(log_service, "Log Service", "Python (Logging)", "Registra logs de auditoria e operações do sistema para conformidade legal de rastreabilidade.")
 
-    Component(unidade_controller, "Unidade Controller", "FastAPI", "Gerenciamento de unidades")
-
-    Component(sync_controller, "Sync Controller", "FastAPI", "Sincronização offline")
-
-    Component(relatorio_controller, "Relatorio Controller", "FastAPI", "Relatórios PDF")
-
-    Component(dashboard_controller, "Dashboard Controller", "FastAPI", "Métricas e dashboards")
-
-    Component(validation_service, "Validation Service", "Python", "Validação automática")
-
-    Component(auth_service, "JWT Service", "JWT", "Controle de autenticação")
-
-    Component(log_service, "Log Service", "Python", "Logs e auditoria")
-
-    Component(repository, "Repository", "SQLAlchemy", "Persistência de dados")
-
-    ComponentDb(db_postgres, "PostgreSQL", "Banco de Dados", "Armazena usuários e atendimentos")
-
+    ' Camada Compartilhada de Dados
+    Component(repository, "Data Repository Layer", "Python (SQLAlchemy)", "Centraliza as consultas e persistências, isolando as regras de negócio de scripts SQL puros.")
 }
 
-Rel(admin, auth_controller, "Login")
+' ========================================================
+' Relacionamentos / Fluxos de Informação
+' ========================================================
 
-Rel(admin, dashboard_controller, "Consulta dashboards")
+' Interações das Portas de Entrada (Atores e App Mobile)
+Rel(admin, auth_controller, "Efetua autenticação administrativa", "HTTPS / JSON")
+Rel(admin, relatorio_controller, "Requisita emissão de relatórios e métricas", "HTTPS")
 
-Rel(admin, relatorio_controller, "Gera relatórios")
+Rel(app_mobile, auth_controller, "Autentica socorristas em campo", "HTTPS / JSON")
+Rel(app_mobile, atendimento_controller, "Envia fichas preenchidas sob conectividade", "HTTPS / JSON")
+Rel(app_mobile, sync_controller, "Transmite dados offline acumulados", "HTTPS / JSON")
 
-Rel(enfermeiro, atendimento_controller, "Registra atendimentos")
+' Comunicação Interna de Negócio e Segurança
+Rel(auth_controller, security_service, "Encaminha parâmetros de login")
+Rel(security_service, repository, "Consulta contas de usuários no banco")
 
-Rel(enfermeiro, sync_controller, "Sincroniza dados")
+Rel(atendimento_controller, validation_service, "Solicita validação do esquema da ficha")
+Rel(atendimento_controller, repository, "Comanda a gravação de atendimentos válidos")
+Rel(atendimento_controller, log_service, "Dispara eventos operacionais para auditoria")
 
-Rel(auth_controller, auth_service, "Valida autenticação")
+' Fluxos Internos de Sincronização e Disparo para Sistemas Externos
+Rel(sync_controller, repository, "Grava em lote registros sincronizados")
+Rel(sync_controller, integration_service, "Inicia rotina de distribuição de dados externa")
+Rel(integration_service, prefeitura, "Sincroniza dados consolidados com o município", "HTTPS / REST API")
+Rel(integration_service, hospital, "Notifica o hospital sobre a ambulância em rota e envia prontuário", "HTTPS / JSON")
 
-Rel(user_controller, repository, "Gerencia usuários")
+' Fluxos Internos de Relatórios
+Rel(relatorio_controller, repository, "Coleta dados históricos consolidados")
+Rel(relatorio_controller, pdf_generator, "Envia payload estruturado para renderização")
 
-Rel(atendimento_controller, validation_service, "Valida campos")
-
-Rel(atendimento_controller, repository, "Salva fichas")
-
-Rel(unidade_controller, repository, "Gerencia unidades")
-
-Rel(sync_controller, repository, "Sincroniza registros")
-
-Rel(sync_controller, prefeitura, "Integra dados", "HTTPS/API")
-
-Rel(relatorio_controller, repository, "Consulta dados")
-
-Rel(dashboard_controller, repository, "Obtém métricas")
-
-Rel(log_service, repository, "Armazena logs")
-
-Rel(repository, db_postgres, "CRUD SQL")
-
-Rel(atendimento_controller, gps, "Obtém localização")
-
-Rel(relatorio_controller, pdf_service, "Exporta PDF")
+' Saída Unificada para o Container de Persistência (PostgreSQL está FORA da API)
+Rel(repository, postgres, "Executa transações de escrita/leitura", "SQL (TCP/5432)")
+Rel(log_service, repository, "Grava logs persistentes de sistema")
 
 SHOW_LEGEND()
-
 @enduml

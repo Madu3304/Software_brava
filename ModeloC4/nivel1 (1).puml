@@ -1,49 +1,46 @@
 @startuml c4_contexto_nivel1
 
-!include  https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Context.puml
-
-'LAYOUT_WITH_LEGEND()
+!include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Context.puml
 
 title Diagrama de Contexto (Nível 1) - Sistema de Gestão de Atendimentos SAMU
 
 ' =========================
-' Pessoas
+' Pessoas (Usuários do Sistema)
 ' =========================
 
-Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e métricas do sistema.")
+Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e configurações globais do sistema.")
 
-Person(enfermeiro, "Enfermeiro/Técnico", "Realiza o registro digital dos atendimentos e consulta informações.")
-
-System(sistema_samu, "Sistema de Gestão SAMU","Sistema responsável pelo registro digital de atendimentos, autenticação de usuários, funcionamento offline, sincronização de dados, geração de relatórios e monitoramento operacional.")
+Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o registro digital e triagem dos atendimentos.")
 
 ' =========================
-' Sistemas Externos
+' Sistema Principal (Caixa Única)
 ' =========================
 
-System_Ext(prefeitura, "Banco da Prefeitura","Armazena dados integrados dos atendimentos e registros municipais.")
+System(sistema_samu, "Sistema de Gestão SAMU", "Permite o registro digital de fichas técnicas de atendimento, validação de dados, funcionamento offline com sincronização e emissão de relatórios.")
 
-System_Ext(gps, "Serviço de GPS", "Fornece localização automática das ocorrências.")
+' =========================
+' Sistemas Externos (Integrações)
+' =========================
 
-System_Ext(pdf, "Serviço de Exportação PDF","Responsável pela geração e exportação de relatórios em PDF.")
+System_Ext(prefeitura, "Banco da Prefeitura", "Sistema e infraestrutura municipal que armazena centralizadamente os dados integrados e históricos dos atendimentos.")
+
+System_Ext(hospital, "Hospital de Destino", "Sistema hospitalar externo que recebe as fichas técnicas de atendimento para triagem prévia da chegada das ambulâncias.")
 
 ' =========================
 ' Relacionamentos
 ' =========================
 
-Rel(admin, sistema_samu, "Gerencia usuários, unidades, dashboards,relatórios e métricas")
+Rel(admin, sistema_samu, "Gerencia permissões, perfis de usuários e monitora métricas operacionais")
 
-Rel(enfermeiro, sistema_samu, "Registra atendimentos, consulta fichas e utiliza funcionalidades offline") 
+Rel(equipe_samu, sistema_samu, "Preenche fichas técnicas, realiza registros digitais de socorro e consulta históricos de atendimento") 
 
-Rel(sistema_samu, prefeitura, "Sincroniza dados dos atendimentos e registros das unidades", "HTTPS/API")
+Rel(sistema_samu, prefeitura, "Sincroniza e consolida os dados dos atendimentos e registros médicos", "HTTPS / API")
 
-Rel(sistema_samu, gps, "Obtém localização automática do atendimento","GPS")
-
-Rel(sistema_samu, pdf, "Gera e exporta relatórios em PDF")
+Rel(sistema_samu, hospital, "Envia automaticamente a ficha técnica de atendimento concluída", "HTTPS / API / JSON")
 
 ' =========================
-' Legenda Complementar
+' Configuração de Legenda
 ' =========================
 
 SHOW_LEGEND()
 @enduml
-
