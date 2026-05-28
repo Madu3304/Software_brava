@@ -4,53 +4,51 @@
 
 title Diagrama de Containers (Nível 2) - Sistema de Gestão SAMU
 
-' =========================
+' ========================================================
 ' Pessoas
-' =========================
+' ========================================================
 Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e métricas do sistema.")
-Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o socorro.")
+Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o socorro em campo.")
 
-' =========================
+' ========================================================
 ' Limite do Sistema SAMU
-' =========================
+' ========================================================
 System_Boundary(sistema, "Sistema de Gestão SAMU") {
 
-    Container(app, "Aplicativo Mobile", "Flutter / Dart", "Interface para registro digital dos atendimentos, triagem, captura de coordenadas GPS e sincronização offline.")
+    Container(app, "Aplicativo Mobile", "Flutter / Dart", "Interface para registro digital dos atendimentos, triagem, captura de coordenadas GPS, acionamento de impressão térmica local e sincronização offline.")
 
     ContainerDb(localdb, "Banco Local", "SQLite", "Armazena temporariamente as fichas e dados de atendimento de forma local no dispositivo (Garante funcionamento offline).")
 
-    Container(api, "API Backend", "Python / FastAPI", "Gerencia regras de negócio, autenticação (JWT), auditoria de logs, geração de relatórios PDF e comunicação com APIs.")
+    Container(api, "API Backend", "Python / FastAPI", "Gerencia regras de negócio, autenticação (JWT), auditoria de logs, geração e formatação do PDF de atendimento.")
 
     ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma persistente e estruturada todas as fichas técnicas, registros operacionais, usuários e logs.")
 }
 
-' =========================
-' Sistemas Externos
-' =========================
+' ========================================================
+' Sistemas Externos (Única Conexão Sistêmica Restante)
+' ========================================================
 System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrada para armazenamento definitivo e controle de dados consolidados.")
-System_Ext(hospital, "Hospital de Destino", "Sistema hospitalar externo notificado previamente sobre a chegada das ambulâncias.")
 
-' =========================
+' ========================================================
 ' Relacionamentos
-' =========================
+' ========================================================
 
 ' Interações dos Usuários
-Rel(admin, api, "Monitora métricas, gerencia usuários e extrai relatórios", "HTTPS / JSON")
-Rel(equipe_samu, app, "Preenche fichas técnicas, realiza registros e consultas em campo", "Interface Touch")
+Rel(admin, api, "Monitora métricas, gerencia usuários e extrai relatórios gerenciais", "HTTPS / JSON")
+Rel(equipe_samu, app, "Preenche fichas, realiza registros e comanda impressão do PDF físico", "Interface Touch")
 
 ' Comunicação Interna (Mobile)
 Rel(app, localdb, "Lê e grava dados de atendimento localmente", "SQL / API Interna")
-Rel(app, api, "Sincroniza fichas salvas offline e autentica usuários", "HTTPS / REST API")
+Rel(app, api, "Sincroniza fichas salvas offline, baixa arquivos PDF e autentica usuários", "HTTPS / REST API")
 
 ' Comunicação Interna (Backend)
 Rel(api, postgres, "Realiza consultas, inserções e registros de logs", "SQL / SQLAlchemy (PostGIS)")
 
-' Integrações Externas
+' Integrações Externas (O hospital foi removido daqui)
 Rel(api, prefeitura, "Sincroniza e consolida dados dos atendimentos municipais", "HTTPS / REST API")
-Rel(api, hospital, "Envia automaticamente fichas concluídas de pacientes em rota", "HTTPS / JSON")
 
-' =========================
+' ========================================================
 ' Configuração de Legenda
-' =========================
+' ========================================================
 SHOW_LEGEND()
 @enduml

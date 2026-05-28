@@ -1,4 +1,4 @@
-@startuml c4_nivel3_corrigido
+@startuml c4Nivel4
 
 !include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
 
@@ -8,12 +8,12 @@ title Diagrama de Componentes (Nível 3) - Detalhamento da API Backend (Python/F
 ' Elementos Externos ao Container (Atores e Outros Containers)
 ' ========================================================
 Person(admin, "Administrador", "Gerencia configurações operacionais e extrai métricas.")
-Container(app_mobile, "Aplicativo Mobile", "Flutter / Dart", "Interface usada em campo para coleta de dados, GPS nativo e armazenamento offline.")
+Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros e Técnicos que preenchem as fichas e imprimem o PDF em campo.")
+Container(app_mobile, "Aplicativo Mobile", "Flutter / Dart", "Interface usada em campo para coleta de dados, GPS nativo, armazenamento offline e recebimento do PDF para impressão.")
 
 ' Containers e Sistemas definidos nos Níveis 1 e 2
 ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma definitiva os registros operacionais e trilhas de auditoria.")
-System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrada para armazenamento definitivo.")
-System_Ext(hospital, "Hospital de Destino", "Sistema de saúde externo que recebe antecipadamente o prontuário de socorro.")
+System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrada para armazenamento definitivo de dados consolidados.")
 
 ' ========================================================
 ' Fronteira do Container em Destaque: API Backend
@@ -25,16 +25,16 @@ Container_Boundary(api, "API Backend (Python / FastAPI)") {
     Component(security_service, "Security Service", "Python (Jose/JWT)", "Valida as permissões do usuário (RBAC) e realiza a criptografia de credenciais.")
 
     ' Sub-módulo: Processamento de Atendimentos
-    Component(atendimento_controller, "Atendimento Controller", "FastAPI Endpoints", "Disponibiliza rotas para a criação, atualização e listagem de fichas digitais de atendimento.")
+    Component(atendimento_controller, "Atendimento Controller", "FastAPI Endpoints", "Disponibiliza rotas para a criação, atualização, listagem e download de fichas digitais de atendimento.")
     Component(validation_service, "Validation Service", "Python (Pydantic)", "Valida automaticamente a consistência física dos dados, formatos e campos obrigatórios de saúde.")
 
     ' Sub-módulo: Sincronização e Integrações Externas
     Component(sync_controller, "Sync Controller", "FastAPI Endpoints", "Ponto de entrada para recepção de cargas de dados enviadas em lote pelo SQLite do aplicativo mobile.")
-    Component(integration_service, "Integration Service", "Python (HTTPX)", "Efetua a comunicação de saída com as APIs do Banco da Prefeitura e do Hospital de Destino.")
+    Component(integration_service, "Integration Service", "Python (HTTPX)", "Efetua de forma exclusiva a comunicação de saída assíncrona com a API do Banco da Prefeitura.")
 
     ' Sub-módulo: Relatórios, PDF e Auditoria
-    Component(relatorio_controller, "Report Controller", "FastAPI Endpoints", "Gerencia requisições de exportação de dados históricos e emissões de arquivos.")
-    Component(pdf_generator, "PDF Generator Service", "Python (ReportLab)", "Renderiza internamente as fichas médicas estruturadas convertendo-as para o formato físico PDF.")
+    Component(relatorio_controller, "Report Controller", "FastAPI Endpoints", "Gerencia requisições de exportação de dados históricos e emissões de arquivos gerenciais.")
+    Component(pdf_generator, "PDF Generator Service", "Python (ReportLab)", "Renderiza internamente as fichas médicas estruturadas convertendo-as para o formato binário PDF.")
     Component(log_service, "Log Service", "Python (Logging)", "Registra logs de auditoria e operações do sistema para conformidade legal de rastreabilidade.")
 
     ' Camada Compartilhada de Dados
@@ -49,8 +49,9 @@ Container_Boundary(api, "API Backend (Python / FastAPI)") {
 Rel(admin, auth_controller, "Efetua autenticação administrativa", "HTTPS / JSON")
 Rel(admin, relatorio_controller, "Requisita emissão de relatórios e métricas", "HTTPS")
 
+Rel(equipe_samu, app_mobile, "Preenche a ficha e aciona comando de impressão térmica", "Interface Touch")
 Rel(app_mobile, auth_controller, "Autentica socorristas em campo", "HTTPS / JSON")
-Rel(app_mobile, atendimento_controller, "Envia fichas preenchidas sob conectividade", "HTTPS / JSON")
+Rel(app_mobile, atendimento_controller, "Envia fichas concluídas e recebe arquivo PDF de volta", "HTTPS / JSON + Stream")
 Rel(app_mobile, sync_controller, "Transmite dados offline acumulados", "HTTPS / JSON")
 
 ' Comunicação Interna de Negócio e Segurança
@@ -60,20 +61,21 @@ Rel(security_service, repository, "Consulta contas de usuários no banco")
 Rel(atendimento_controller, validation_service, "Solicita validação do esquema da ficha")
 Rel(atendimento_controller, repository, "Comanda a gravação de atendimentos válidos")
 Rel(atendimento_controller, log_service, "Dispara eventos operacionais para auditoria")
+Rel(atendimento_controller, pdf_generator, "Solicita renderização do PDF clínico pós-salvamento", "Chamada de Método")
 
-' Fluxos Internos de Sincronização e Disparo para Sistemas Externos
+' Fluxos Internos de Sincronização e Disparo para Sistemas Externos (Hospital removido completamente)
 Rel(sync_controller, repository, "Grava em lote registros sincronizados")
 Rel(sync_controller, integration_service, "Inicia rotina de distribuição de dados externa")
 Rel(integration_service, prefeitura, "Sincroniza dados consolidados com o município", "HTTPS / REST API")
-Rel(integration_service, hospital, "Notifica o hospital sobre a ambulância em rota e envia prontuário", "HTTPS / JSON")
 
 ' Fluxos Internos de Relatórios
 Rel(relatorio_controller, repository, "Coleta dados históricos consolidados")
-Rel(relatorio_controller, pdf_generator, "Envia payload estruturado para renderização")
+Rel(relatorio_controller, pdf_generator, "Envia payload estruturado para renderização gerencial")
 
-' Saída Unificada para o Container de Persistência (PostgreSQL está FORA da API)
+' Saída Unificada para o Container de Persistência (PostgreSQL)
 Rel(repository, postgres, "Executa transações de escrita/leitura", "SQL (TCP/5432)")
 Rel(log_service, repository, "Grava logs persistentes de sistema")
 
+' Configuração de Legenda Obrigatória do C4
 SHOW_LEGEND()
 @enduml

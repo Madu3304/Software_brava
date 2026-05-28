@@ -1,75 +1,77 @@
-@startuml c4_Nivel3
+@startuml c4Nivel3
 
 !include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
 
 title Diagrama de Componentes (Nível 3) - Detalhamento da API Backend (FastAPI)
 
-' =========================
+' ========================================================
 ' Elementos Externos à API (Atores e Containers do Nível 2)
-' =========================
-Person(admin, "Administrador", "Gerencia configurações do sistema e extrai relatórios.")
-Container(app_mobile, "Aplicativo Mobile", "Flutter / Dart", "Interface usada em campo para registro de fichas e envio de dados offline.")
+' ========================================================
+Person(admin, "Administrador", "Gerencia configurações do sistema e extrai relatórios gerenciais.")
+Container(app_mobile, "Aplicativo Mobile", "Flutter / Dart", "Interface usada em campo para registro de fichas, recebimento do PDF gerado e acionamento da impressão local.")
 
 ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma definitiva os registros operacionais e auditorias.")
 System_Ext(prefeitura, "Banco da Prefeitura", "Sistema municipal receptor dos dados de atendimentos consolidados.")
-System_Ext(hospital, "Hospital de Destino", "Sistema hospitalar notificado sobre a chegada das ambulâncias.")
 
-' =========================
+' ========================================================
 ' Fronteira do Container: API Backend
-' =========================
+' ========================================================
 Container_Boundary(api, "API Backend (Python / FastAPI)") {
 
     ' Módulo de Autenticação e Segurança
-    Component(auth_controller, "Auth Controller", "FastAPI Endpoints", "Recebe requisições de login e renovação de credenciais.")
-    Component(security_service, "Security Service", "Python (Jose/JWT/Passlib)", "Gera tokens de acesso JWT, valida escopos de perfil e criptografa senhas.")
+    Component(auth_controller, "Auth Controller", "FastAPI Endpoints", "Recebe requisições de login e renovação de credenciais de acesso.")
+    Component(security_service, "Security Service", "Python (Jose/JWT/Passlib)", "Gera tokens JWT, valida escopos de perfil por RBAC e criptografa senhas.")
 
     ' Módulo de Processamento de Fichas
-    Component(ficha_controller, "Ficha Controller", "FastAPI Endpoints", "Disponibiliza rotas para criação, busca e listagem de fichas técnicas de atendimento.")
-    Component(validation_service, "Validation Service", "Python (Pydantic)", "Valida a integridade dos dados obrigatórios e formatos das fichas médicas recebidas.")
+    Component(ficha_controller, "Ficha Controller", "FastAPI Endpoints", "Disponibiliza rotas para criação, busca e retorno do binário de fichas técnicas.")
+    Component(validation_service, "Validation Service", "Python (Pydantic)", "Valida a integridade dos dados obrigatórios e regras de negócio de saúde das fichas.")
 
-    ' Módulo de Geração de Relatórios
-    Component(report_controller, "Report Controller", "FastAPI Endpoints", "Disponibiliza rotas para requisição de relatórios administrativos.")
-    Component(pdf_generator, "PDF Generator Service", "Python (ReportLab/WeasyPrint)", "Renderiza dados de atendimento e gera arquivos físicos em formato PDF.")
+    ' Módulo de Geração de Documentos e PDFs
+    Component(pdf_generator, "PDF Generator Service", "Python (ReportLab/WeasyPrint)", "Renderiza os dados clínicos do atendimento em um arquivo binário padronizado PDF para impressão.")
+
+    ' Módulo de Administração e Relatórios Operacionais
+    Component(report_controller, "Report Controller", "FastAPI Endpoints", "Disponibiliza rotas para requisição de relatórios consolidados e dashboards.")
 
     ' Módulo de Sincronização e Integração
-    Component(sync_controller, "Sync Controller", "FastAPI Endpoints", "Recebe pacotes de dados sincronizados vindos do SQLite do aplicativo mobile.")
-    Component(integration_service, "Integration Service", "Python (HTTPX / Requests)", "Orquestra a transmissão de dados com as APIs do Banco da Prefeitura e Hospital de Destino.")
+    Component(sync_controller, "Sync Controller", "FastAPI Endpoints", "Recebe pacotes de dados sincronizados em lote vindos dos dispositivos móveis.")
+    Component(integration_service, "Integration Service", "Python (HTTPX / Requests)", "Orquestra e transmite os dados consolidados exclusivamente para a API da Prefeitura.")
 
     ' Camada de Dados Compartilhada
-    Component(repository, "Data Repository Layer", "Python (SQLAlchemy ORM)", "Abstrai operações de CRUD no banco central através de padrões de repositório.")
+    Component(repository, "Data Repository Layer", "Python (SQLAlchemy ORM)", "Abstrai transações de banco (CRUD) utilizando o padrão de mapeamento relacional.")
 }
 
-' =========================
+' ========================================================
 ' Relacionamentos / Fluxos de Comunicação
-' =========================
+' ========================================================
 
-' Fluxos do Administrador e Aplicativo Mobile para os Endpoints da API
+' Fluxos dos Atores/Containers para os Endpoints da API
 Rel(admin, auth_controller, "Realiza autenticação administrativa", "HTTPS / JSON")
-Rel(admin, report_controller, "Requisita relatórios e métricas", "HTTPS")
+Rel(admin, report_controller, "Requisita relatórios e dados do dashboard", "HTTPS")
 
 Rel(app_mobile, auth_controller, "Autentica usuários operacionais", "HTTPS / JSON")
-Rel(app_mobile, ficha_controller, "Envia fichas preenchidas online", "HTTPS / JSON")
-Rel(app_mobile, sync_controller, "Envia carga de dados salvos no SQLite", "HTTPS / JSON")
+Rel(app_mobile, ficha_controller, "Envia fichas preenchidas online e recebe arquivo PDF", "HTTPS / JSON + Stream")
+Rel(app_mobile, sync_controller, "Envia carga de dados armazenados no SQLite", "HTTPS / JSON")
 
-' Interações Internas do Módulo de Autenticação
-Rel(auth_controller, security_service, "Encaminha credenciais para validação")
-Rel(security_service, repository, "Consulta usuários e permissões cadastrados")
+' Interações Internas do Módulo de Autenticação e Segurança
+Rel(auth_controller, security_service, "Encaminha credenciais enviadas")
+Rel(security_service, repository, "Consulta usuários, hashes de senhas e perfis")
 
-' Interações Internas do Módulo de Fichas
+' Interações Internas do Módulo de Fichas e Geração Automática do PDF
 Rel(ficha_controller, validation_service, "Envia payload para validação de esquema")
-Rel(ficha_controller, repository, "Solicita persistência de fichas válidas")
+Rel(ficha_controller, repository, "Persiste os registros médicos validados")
+Rel(ficha_controller, pdf_generator, "Solicita geração imediata do PDF para envio ao App", "Chamada de Método")
 
 ' Interações Internas do Módulo de Sincronização e Integrações Externas
 Rel(sync_controller, repository, "Salva em lote registros sincronizados")
-Rel(sync_controller, integration_service, "Dispara dados para envio externo")
-Rel(integration_service, prefeitura, "Envia dados consolidados", "HTTPS / REST API")
-Rel(integration_service, hospital, "Notifica e envia ficha técnica do paciente", "HTTPS / JSON")
+Rel(sync_controller, integration_service, "Dispara dados consolidados para sincronismo externo")
+Rel(integration_service, prefeitura, "Transmite dados de atendimentos e estatísticas", "HTTPS / REST API")
 
-' Interações Internas do Módulo de Relatórios e PDFs
-Rel(report_controller, repository, "Busca dados históricos de atendimentos")
-Rel(report_controller, pdf_generator, "Solicita montagem e compilação do arquivo")
+' Interações Internas do Módulo de Relatórios Gerenciais
+Rel(report_controller, repository, "Busca dados históricos agregados")
 
 ' Saída da Camada de Dados para o Container do Banco Central
-Rel(repository, postgres, "Executa transações SQL e persistência", "SQL / Psycopg2")
+Rel(repository, postgres, "Executa transações de escrita e leitura SQL", "SQL / Psycopg2")
 
+' Configuração de Legenda Obrigatória do C4
+SHOW_LEGEND()
 @enduml

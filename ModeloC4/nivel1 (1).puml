@@ -1,46 +1,42 @@
-@startuml c4_contexto_nivel1
+@startuml c4Nivel1
 
 !include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Context.puml
 
 title Diagrama de Contexto (Nível 1) - Sistema de Gestão de Atendimentos SAMU
 
-' =========================
-' Pessoas (Usuários do Sistema)
-' =========================
+' ========================================================
+' Pessoas (Usuários diretos do Sistema)
+' ========================================================
 
-Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e configurações globais do sistema.")
+Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e configurações gerais do sistema.")
 
-Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o registro digital e triagem dos atendimentos.")
+Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o atendimento e geram os relatórios.")
 
-' =========================
+' ========================================================
 ' Sistema Principal (Caixa Única)
-' =========================
+' ========================================================
 
-System(sistema_samu, "Sistema de Gestão SAMU", "Permite o registro digital de fichas técnicas de atendimento, validação de dados, funcionamento offline com sincronização e emissão de relatórios.")
+System(sistema_samu, "Sistema de Gestão SAMU", "Permite o registro digital de fichas de atendimento, validação de dados, funcionamento offline e geração local de relatórios em formato PDF para impressão.")
 
-' =========================
-' Sistemas Externos (Integrações)
-' =========================
+' ========================================================
+' Sistemas Externos (Única Integração Tecnológica Direta)
+' ========================================================
 
-System_Ext(prefeitura, "Banco da Prefeitura", "Sistema e infraestrutura municipal que armazena centralizadamente os dados integrados e históricos dos atendimentos.")
+System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal centralizada que armazena os dados consolidados e históricos dos atendimentos para fins de gestão.")
 
-System_Ext(hospital, "Hospital de Destino", "Sistema hospitalar externo que recebe as fichas técnicas de atendimento para triagem prévia da chegada das ambulâncias.")
-
-' =========================
-' Relacionamentos
-' =========================
+' ========================================================
+' Relacionamentos Eletrônicos / Digitais
+' ========================================================
 
 Rel(admin, sistema_samu, "Gerencia permissões, perfis de usuários e monitora métricas operacionais")
 
-Rel(equipe_samu, sistema_samu, "Preenche fichas técnicas, realiza registros digitais de socorro e consulta históricos de atendimento") 
+Rel(equipe_samu, sistema_samu, "Preenche fichas, realiza registros de socorro e emite o PDF para impressão técnica") 
 
-Rel(sistema_samu, prefeitura, "Sincroniza e consolida os dados dos atendimentos e registros médicos", "HTTPS / API")
+Rel(sistema_samu, prefeitura, "Sincroniza e consolida eletronicamente os dados dos atendimentos", "HTTPS / API")
 
-Rel(sistema_samu, hospital, "Envia automaticamente a ficha técnica de atendimento concluída", "HTTPS / API / JSON")
-
-' =========================
+' ========================================================
 ' Configuração de Legenda
-' =========================
+' ========================================================
 
 SHOW_LEGEND()
 @enduml
