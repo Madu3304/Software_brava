@@ -2,17 +2,29 @@
 
 !include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
 
-title Diagrama de Componentes (Nível 3) - Detalhamento da API Backend (Python/FastAPI)
+
+title Diagrama de Componentes (Nível 4): Detalhamento da API Backend
 
 ' ========================================================
 ' Elementos Externos ao Container (Atores e Outros Containers)
 ' ========================================================
-Person(admin, "Administrador", "Gerencia configurações operacionais e extrai métricas.")
-Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros e Técnicos que preenchem as fichas e imprimem o PDF em campo.")
-Container(app_mobile, "Aplicativo Mobile", "Flutter / Dart", "Interface usada em campo para coleta de dados, GPS nativo, armazenamento offline e recebimento do PDF para impressão.")
+Person(admin, "Administrador", "Gerencia configurações operacionais e extrai métricas.\n\n[Acessa via Interface Web — Entrega Secundária]")
 
-' Containers e Sistemas definidos nos Níveis 1 e 2
-ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma definitiva os registros operacionais e trilhas de auditoria.")
+Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros e Técnicos que preenchem as fichas e imprimem o PDF em campo.\n\n[Acessa via Aplicativo Mobile  — Entrega Principal]")
+
+' --------------------------------------------------------
+' ENTREGA PRINCIPAL — Aplicativo Mobile 
+' --------------------------------------------------------
+Container(app_mobile, "Aplicativo Mobile ", "Flutter / Dart\n[ENTREGA PRINCIPAL]", "Interface principal do projeto. Utilizada nos tablets das equipes de campo para preenchimento da ficha técnica digital, coleta de dados GPS, armazenamento offline e recebimento do PDF para impressão.")
+
+' --------------------------------------------------------
+' ENTREGA SECUNDÁRIA — Interface Web Administrativa
+' --------------------------------------------------------
+Container(app_web, "Interface Web Administrativa", "Flutter Web\n[ENTREGA SECUNDÁRIA]", "Interface complementar do projeto. Acessada via navegador pelo Administrador para visualização de métricas consolidadas no dashboard e gerenciamento de cadastros de profissionais e unidades. Não possui funcionamento offline.")
+
+' Containers e Sistemas definidos nos Níveis anteriores
+ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma definitiva os registros operacionais e trilhas de auditoria de ambas as interfaces.")
+
 System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrada para armazenamento definitivo de dados consolidados.")
 
 ' ========================================================
@@ -20,62 +32,88 @@ System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrad
 ' ========================================================
 Container_Boundary(api, "API Backend (Python / FastAPI)") {
 
+    ' --------------------------------------------------------
     ' Sub-módulo: Autenticação e Segurança
-    Component(auth_controller, "Auth Controller", "FastAPI Endpoints", "Gerencia as rotas de login, renovação de tokens e controle de sessão.")
-    Component(security_service, "Security Service", "Python (Jose/JWT)", "Valida as permissões do usuário (RBAC) e realiza a criptografia de credenciais.")
+    ' Serve tanto o Mobile quanto a Web
+    ' --------------------------------------------------------
+    Component(auth_controller, "Auth Controller", "FastAPI Endpoints\n[Serve Mobile e Web]", "Gerencia as rotas de login, renovação de tokens e controle de sessão. Diferencia o perfil de redirecionamento: equipe de campo é direcionada ao Mobile, Administrador é direcionado à Interface Web.")
 
+    Component(security_service, "Security Service", "Python (Jose/JWT)\n[Serve Mobile e Web]", "Valida as permissões do usuário (RBAC) e realiza a criptografia de credenciais. Garante que cada perfil acesse apenas os endpoints autorizados em sua respectiva interface.")
+
+    ' --------------------------------------------------------
     ' Sub-módulo: Processamento de Atendimentos
-    Component(atendimento_controller, "Atendimento Controller", "FastAPI Endpoints", "Disponibiliza rotas para a criação, atualização, listagem e download de fichas digitais de atendimento.")
-    Component(validation_service, "Validation Service", "Python (Pydantic)", "Valida automaticamente a consistência física dos dados, formatos e campos obrigatórios de saúde.")
+    ' Consumido primariamente pelo Aplicativo Mobile 
+    ' --------------------------------------------------------
+    Component(atendimento_controller, "Atendimento Controller", "FastAPI Endpoints\n[Consumido principalmente pelo Mobile]", "Disponibiliza rotas para criação, atualização, listagem e download de fichas digitais de atendimento — consumidas principalmente pelo Aplicativo Mobile . É o módulo central da entrega principal do projeto.")
 
+    Component(validation_service, "Validation Service", "Python (Pydantic)\n[Acionado principalmente pelo Mobile]", "Valida automaticamente a consistência física dos dados, formatos e campos obrigatórios de saúde. Acionado primariamente pelo fluxo de preenchimento da ficha no Aplicativo Mobile .")
+
+    ' --------------------------------------------------------
     ' Sub-módulo: Sincronização e Integrações Externas
-    Component(sync_controller, "Sync Controller", "FastAPI Endpoints", "Ponto de entrada para recepção de cargas de dados enviadas em lote pelo SQLite do aplicativo mobile.")
-    Component(integration_service, "Integration Service", "Python (HTTPX)", "Efetua de forma exclusiva a comunicação de saída assíncrona com a API do Banco da Prefeitura.")
+    ' Exclusivo do Aplicativo Mobile 
+    ' --------------------------------------------------------
+    Component(sync_controller, "Sync Controller", "FastAPI Endpoints\n[Exclusivo do Mobile]", "Ponto de entrada para recepção de cargas de dados enviadas em lote pelo SQLite do Aplicativo Mobile  após período de operação offline. Não utilizado pela Interface Web.")
 
+    Component(integration_service, "Integration Service", "Python (HTTPX)\n[Acionado pelo fluxo do Mobile]", "Efetua de forma exclusiva a comunicação de saída assíncrona com a API do Banco da Prefeitura. Acionado após a sincronização dos dados provenientes do Mobile.")
+
+    ' --------------------------------------------------------
     ' Sub-módulo: Relatórios, PDF e Auditoria
-    Component(relatorio_controller, "Report Controller", "FastAPI Endpoints", "Gerencia requisições de exportação de dados históricos e emissões de arquivos gerenciais.")
-    Component(pdf_generator, "PDF Generator Service", "Python (ReportLab)", "Renderiza internamente as fichas médicas estruturadas convertendo-as para o formato binário PDF.")
-    Component(log_service, "Log Service", "Python (Logging)", "Registra logs de auditoria e operações do sistema para conformidade legal de rastreabilidade.")
+    ' Report Controller consumido primariamente pela Interface Web
+    ' PDF Generator consumido primariamente pelo Mobile
+    ' --------------------------------------------------------
+    Component(relatorio_controller, "Report Controller", "FastAPI Endpoints\n[Consumido principalmente pela Web]", "Disponibiliza rotas de relatórios consolidados e dashboards — consumidas principalmente pela Interface Web Administrativa. Inclui métricas de atendimentos, faixa etária, tempo de resposta e gestão de cadastros.")
 
+    Component(pdf_generator, "PDF Generator Service", "Python (ReportLab)\n[Consumido principalmente pelo Mobile]", "Renderiza internamente as fichas médicas estruturadas convertendo-as para o formato binário PDF. Acionado primariamente ao finalizar o preenchimento da ficha no Aplicativo Mobile .")
+
+    Component(log_service, "Log Service", "Python (Logging)\n[Serve Mobile e Web]", "Registra logs de auditoria e operações do sistema para conformidade legal de rastreabilidade. Serve ambas as interfaces.")
+
+    ' --------------------------------------------------------
     ' Camada Compartilhada de Dados
-    Component(repository, "Data Repository Layer", "Python (SQLAlchemy)", "Centraliza as consultas e persistências, isolando as regras de negócio de scripts SQL puros.")
+    ' Serve tanto o Mobile quanto a Web
+    ' --------------------------------------------------------
+    Component(repository, "Data Repository Layer", "Python (SQLAlchemy)\n[Compartilhado entre Mobile e Web]", "Centraliza as consultas e persistências, isolando as regras de negócio de scripts SQL puros. Serve tanto os endpoints consumidos pelo Mobile quanto os consumidos pela Interface Web.")
 }
 
 ' ========================================================
 ' Relacionamentos / Fluxos de Informação
 ' ========================================================
 
-' Interações das Portas de Entrada (Atores e App Mobile)
-Rel(admin, auth_controller, "Efetua autenticação administrativa", "HTTPS / JSON")
-Rel(admin, relatorio_controller, "Requisita emissão de relatórios e métricas", "HTTPS")
+' Interações do Aplicativo Mobile  (Entrega Principal)
+Rel(equipe_samu, app_mobile, "Preenche a ficha técnica e aciona comando de impressão", "Interface Touch\n[Entrega Principal]")
+Rel(app_mobile, auth_controller, "Autentica socorristas em campo", "HTTPS / JSON\n[Mobile → API]")
+Rel(app_mobile, atendimento_controller, "Envia fichas concluídas e recebe arquivo PDF de volta", "HTTPS / JSON + Stream\n[Mobile → API]")
+Rel(app_mobile, sync_controller, "Transmite dados offline acumulados no SQLite", "HTTPS / JSON\n[Mobile → API]")
 
-Rel(equipe_samu, app_mobile, "Preenche a ficha e aciona comando de impressão térmica", "Interface Touch")
-Rel(app_mobile, auth_controller, "Autentica socorristas em campo", "HTTPS / JSON")
-Rel(app_mobile, atendimento_controller, "Envia fichas concluídas e recebe arquivo PDF de volta", "HTTPS / JSON + Stream")
-Rel(app_mobile, sync_controller, "Transmite dados offline acumulados", "HTTPS / JSON")
+' Interações da Interface Web Administrativa (Entrega Secundária)
+Rel(admin, app_web, "Acessa dashboard de métricas e gerencia cadastros via navegador", "Navegador Web\n[Entrega Secundária]")
+Rel(app_web, auth_controller, "Autentica o Administrador e valida perfil de acesso web", "HTTPS / JSON\n[Web → API]")
+Rel(app_web, relatorio_controller, "Requisita métricas do dashboard e dados gerenciais", "HTTPS\n[Web → API]")
 
 ' Comunicação Interna de Negócio e Segurança
-Rel(auth_controller, security_service, "Encaminha parâmetros de login")
+Rel(auth_controller, security_service, "Encaminha parâmetros de login para validação")
 Rel(security_service, repository, "Consulta contas de usuários no banco")
 
+' Fluxos Internos do Módulo de Fichas (fluxo principal — Mobile)
 Rel(atendimento_controller, validation_service, "Solicita validação do esquema da ficha")
 Rel(atendimento_controller, repository, "Comanda a gravação de atendimentos válidos")
 Rel(atendimento_controller, log_service, "Dispara eventos operacionais para auditoria")
-Rel(atendimento_controller, pdf_generator, "Solicita renderização do PDF clínico pós-salvamento", "Chamada de Método")
+Rel(atendimento_controller, pdf_generator, "Solicita renderização do PDF clínico pós-salvamento", "Chamada de Método\n[fluxo Mobile]")
 
-' Fluxos Internos de Sincronização e Disparo para Sistemas Externos (Hospital removido completamente)
-Rel(sync_controller, repository, "Grava em lote registros sincronizados")
+' Fluxos Internos de Sincronização (exclusivo Mobile)
+Rel(sync_controller, repository, "Grava em lote registros sincronizados pelo Mobile")
 Rel(sync_controller, integration_service, "Inicia rotina de distribuição de dados externa")
 Rel(integration_service, prefeitura, "Sincroniza dados consolidados com o município", "HTTPS / REST API")
 
-' Fluxos Internos de Relatórios
-Rel(relatorio_controller, repository, "Coleta dados históricos consolidados")
+' Fluxos Internos de Relatórios (fluxo secundário — Web)
+Rel(relatorio_controller, repository, "Coleta dados históricos consolidados para o dashboard web")
 Rel(relatorio_controller, pdf_generator, "Envia payload estruturado para renderização gerencial")
 
-' Saída Unificada para o Container de Persistência (PostgreSQL)
-Rel(repository, postgres, "Executa transações de escrita/leitura", "SQL (TCP/5432)")
+' Saída Unificada para o Container de Persistência
+Rel(repository, postgres, "Executa transações de escrita/leitura de ambas as interfaces", "SQL (TCP/5432)")
 Rel(log_service, repository, "Grava logs persistentes de sistema")
 
-' Configuração de Legenda Obrigatória do C4
+' ========================================================
+' Configuração de Legenda
+' ========================================================
 SHOW_LEGEND()
 @enduml

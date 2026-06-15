@@ -2,30 +2,41 @@
 
 !include https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
 
-title Diagrama de Containers (Nível 2) - Sistema de Gestão SAMU
+title Diagrama de Containers (Nível 2): Sistema de Gestão SAMU
 
 ' ========================================================
 ' Pessoas
 ' ========================================================
-Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e métricas do sistema.")
-Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o socorro em campo.")
+Person(admin, "Administrador", "Gerencia usuários, unidades, relatórios e métricas do sistema.\n\n[Acesso via Interface Web — Entrega Secundária]")
+Person(equipe_samu, "Equipe de Atendimento", "Médicos, Enfermeiros, Técnicos e Motoristas que realizam o socorro em campo.\n\n[Acesso via Aplicativo Mobile  — Entrega Principal]")
 
 ' ========================================================
 ' Limite do Sistema SAMU
 ' ========================================================
 System_Boundary(sistema, "Sistema de Gestão SAMU") {
 
-    Container(app, "Aplicativo Mobile", "Flutter / Dart", "Interface para registro digital dos atendimentos, triagem, captura de coordenadas GPS, acionamento de impressão térmica local e sincronização offline.")
+    ' --------------------------------------------------------
+    ' ENTREGA PRINCIPAL — Aplicativo Mobile 
+    ' --------------------------------------------------------
+    Container(app_mobile, "Aplicativo Mobile ", "Flutter / Dart\n[ENTREGA PRINCIPAL]", "Interface principal do projeto. Utilizada nos tablets das equipes de campo para preenchimento digital da ficha técnica de atendimento. Funciona offline com sincronização posterior. Gera PDF para impressão e captura coordenadas GPS automaticamente.")
 
-    ContainerDb(localdb, "Banco Local", "SQLite", "Armazena temporariamente as fichas e dados de atendimento de forma local no dispositivo (Garante funcionamento offline).")
+    ContainerDb(localdb, "Banco Local", "SQLite", "Exclusivo do Aplicativo Mobile. Armazena temporariamente fichas e dados de atendimento no dispositivo durante operação offline. Não utilizado pela Interface Web.")
 
-    Container(api, "API Backend", "Python / FastAPI", "Gerencia regras de negócio, autenticação (JWT), auditoria de logs, geração e formatação do PDF de atendimento.")
+    ' --------------------------------------------------------
+    ' ENTREGA SECUNDÁRIA — Interface Web Administrativa
+    ' --------------------------------------------------------
+    Container(app_web, "Interface Web Administrativa", "Flutter Web\n[ENTREGA SECUNDÁRIA]", "Interface complementar do projeto. Acessada via navegador exclusivamente pelo Administrador. Permite visualização do dashboard de métricas e gerenciamento de cadastros de profissionais e unidades. Não possui funcionamento offline.")
 
-    ContainerDb(postgres, "Banco Central", "PostgreSQL", "Armazena de forma persistente e estruturada todas as fichas técnicas, registros operacionais, usuários e logs.")
+    ' --------------------------------------------------------
+    ' Backend e Banco Central — compartilhados pelas duas entregas
+    ' --------------------------------------------------------
+    Container(api, "API Backend", "Python / FastAPI", "Compartilhada entre o Aplicativo Mobile e a Interface Web. Gerencia regras de negócio, autenticação (JWT), controle de perfis (RBAC), auditoria de logs, sincronização offline e geração de PDF de atendimento.")
+
+    ContainerDb(postgres, "Banco Central", "PostgreSQL", "Compartilhado entre o Aplicativo Mobile e a Interface Web. Armazena de forma persistente todas as fichas técnicas, registros operacionais, usuários, cadastros e logs.")
 }
 
 ' ========================================================
-' Sistemas Externos (Única Conexão Sistêmica Restante)
+' Sistemas Externos
 ' ========================================================
 System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrada para armazenamento definitivo e controle de dados consolidados.")
 
@@ -33,18 +44,21 @@ System_Ext(prefeitura, "Banco da Prefeitura", "Infraestrutura municipal integrad
 ' Relacionamentos
 ' ========================================================
 
-' Interações dos Usuários
-Rel(admin, api, "Monitora métricas, gerencia usuários e extrai relatórios gerenciais", "HTTPS / JSON")
-Rel(equipe_samu, app, "Preenche fichas, realiza registros e comanda impressão do PDF físico", "Interface Touch")
+' Interações dos Usuários com seus respectivos frontends
+Rel(equipe_samu, app_mobile, "Preenche a ficha técnica digital, realiza registros de socorro e gera PDF para impressão", "Interface Touch\n[Entrega Principal]")
+Rel(admin, app_web, "Acessa dashboard de métricas e gerencia cadastros de profissionais e unidades", "Navegador Web\n[Entrega Secundária]")
 
-' Comunicação Interna (Mobile)
-Rel(app, localdb, "Lê e grava dados de atendimento localmente", "SQL / API Interna")
-Rel(app, api, "Sincroniza fichas salvas offline, baixa arquivos PDF e autentica usuários", "HTTPS / REST API")
+' Comunicação interna do Aplicativo Mobile (possui banco local — offline first)
+Rel(app_mobile, localdb, "Lê e grava dados de atendimento localmente durante operação offline", "SQL / API Interna")
+Rel(app_mobile, api, "Sincroniza fichas salvas offline, baixa arquivos PDF e autentica usuários", "HTTPS / REST API")
 
-' Comunicação Interna (Backend)
-Rel(api, postgres, "Realiza consultas, inserções e registros de logs", "SQL / SQLAlchemy (PostGIS)")
+' Comunicação interna da Interface Web (sem banco local — apenas online)
+Rel(app_web, api, "Consulta métricas, gerencia cadastros e autentica o Administrador", "HTTPS / REST API")
 
-' Integrações Externas (O hospital foi removido daqui)
+' Comunicação interna do Backend com o Banco Central
+Rel(api, postgres, "Realiza consultas, inserções e registros de logs de ambas as interfaces", "SQL / SQLAlchemy")
+
+' Integração externa com a Prefeitura
 Rel(api, prefeitura, "Sincroniza e consolida dados dos atendimentos municipais", "HTTPS / REST API")
 
 ' ========================================================
