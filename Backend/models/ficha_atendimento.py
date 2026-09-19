@@ -45,4 +45,10 @@ class FichaAtendimento(Base):
     condutor = relationship("Usuario", foreign_keys=[id_condutor], back_populates="fichas_condutor")
     paciente = relationship("Paciente", back_populates="fichas")
     hospital_destino = relationship("HospitalDestino", back_populates="fichas")
-    avaliacao_clinica = relationship("AvaliacaoClinica", uselist=False, back_populates="ficha_atendimento")
+    avaliacao_clinica = relationship(
+    "AvaliacaoClinica",
+        uselist=False,
+        back_populates="ficha_atendimento",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
