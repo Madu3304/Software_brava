@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
+from sqlalchemy import Column, Integer, Boolean, func
 from sqlalchemy.orm import relationship
 from database import Base
 
-class Usuario(Base):
+class Utensilios(Base):
     __tablename__ = "utensilios"
 
     id_utensilios = Column(Integer, primary_key=True, index=True)

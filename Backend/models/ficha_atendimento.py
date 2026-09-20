@@ -15,6 +15,7 @@ class FichaAtendimento(Base):
     id_tecnico = Column(Integer, ForeignKey("tecnico.id_tecnico"), nullable=True)
     id_medico = Column(Integer, ForeignKey("medico.id_medico"), nullable=True)
     id_base = Column(Integer, ForeignKey("base.id_base"), nullable=True)
+    id_hospital = Column(Integer, ForeignKey("hospital_destino.id_hospital"), nullable=True)
 
     # Localização / GPS
     cep = Column(String(10), nullable=True)
@@ -44,10 +45,9 @@ class FichaAtendimento(Base):
     # Relacionamentos
     unidade_movel = relationship("UnidadeMovel", back_populates="fichas")
     responsavel = relationship("Usuario", foreign_keys=[id_responsavel], back_populates="fichas_responsaveis")
-    medico_plantao = relationship("Usuario", foreign_keys=[id_medico_plantao], back_populates="fichas_medico_plantao")
+    medico = relationship("Usuario", foreign_keys=[id_medico], back_populates="fichas_atendimento")
     condutor = relationship("Usuario", foreign_keys=[id_condutor], back_populates="fichas_condutor")
     paciente = relationship("Paciente", back_populates="fichas")
-    avaliacao_clinica = relationship("AvaliacaoClinica", uselist=False, back_populates="ficha_atendimento")
     hospital_destino = relationship("HospitalDestino", back_populates="fichas")
     avaliacao_clinica = relationship(
     "AvaliacaoClinica",

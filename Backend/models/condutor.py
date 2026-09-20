@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
-class Medico(Base):
+class Condutor(Base):
     __tablename__ = "condutor"
 
     id_condutor = Column(Integer, primary_key=True, index=True)

@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
-class Medico(Base):
+class Tecnico(Base):
     __tablename__ = "tecnico"
 
     id_tecnico = Column(Integer, primary_key=True, index=True)

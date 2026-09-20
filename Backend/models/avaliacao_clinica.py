@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Numeric, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -6,8 +6,8 @@ class AvaliacaoClinica(Base):
     __tablename__ = "avaliacao_clinica"
 
     id_avaliacao = Column(Integer, primary_key=True, index=True)
-    id_ficha = Column(Integer, ForeignKey("ficha_atendimento.id_ficha", ondelete="CASCADE"), nullable=False, unique=True)
-    id_paciente = Column(Integer, ForeignKey("paciente.id_paciente", ondelete="CASCADE"), nullable=False, unique=True)
+    id_ficha = Column(Integer, ForeignKey("ficha_atendimento.id_ficha", ondelete="CASCADE"))
+    id_paciente = Column(Integer, ForeignKey("paciente.id_paciente", ondelete="CASCADE"))
     pressao_arterial = Column(String(20), nullable=True)
     frequencia_cardiaca = Column(Integer, nullable=True)
     frequencia_respiratoria = Column(Integer, nullable=True)
@@ -28,7 +28,6 @@ class AvaliacaoClinica(Base):
     avc_suspeito = Column(Boolean, nullable=True)
     material_retido = Column(Boolean, nullable=True)
     anotacao_CondutaEnfermeiro = Column(Text, nullable=True)
-    
     procedimentos_realizados = Column(Text, nullable=True)
     medicacoes_administradas = Column(Text, nullable=True)
     conduta = Column(Text, nullable=True)

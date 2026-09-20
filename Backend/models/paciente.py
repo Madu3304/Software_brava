@@ -24,3 +24,4 @@ class Paciente(Base):
 
     # Relacionamentos
     fichas = relationship("FichaAtendimento", back_populates="paciente")
+    fichas_paciente = relationship("FichaAtendimento", foreign_keys="FichaAtendimento.id_paciente", back_populates="paciente")
