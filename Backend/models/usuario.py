@@ -10,7 +10,7 @@ class Usuario(Base):
     email = Column(String(150), unique=True, nullable=True)
     login = Column(String(100), unique=True, nullable=False)
     senha_hash = Column(String(255), nullable=False)
-    perfil = Column(String(50), nullable=False) # 'ADMINISTRADOR', 'ENFERMEIRO', 'TECNICO', 'CONDUTOR', 'MEDICO'
+    perfil = Column(String(50), nullable=False) # 'ADMINISTRADOR', 'ENFERMEIRO', 'TECNICO', 'CONDUTOR'
     registro_profissional = Column(String(50), nullable=True) # CRM, COREN, CNH
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, server_default=func.now())

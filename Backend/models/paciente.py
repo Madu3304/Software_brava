@@ -8,10 +8,19 @@ class Paciente(Base):
     id_paciente = Column(Integer, primary_key=True, index=True)
     nome = Column(String(200), nullable=True)
     idade = Column(Integer, nullable=True)
-    faixa_etaria = Column(String(50), nullable=True) # '0-12', '13-18', '19-59', '60+'
     sexo = Column(String(1), nullable=True) # 'M', 'F', 'O'
     documento = Column(String(30), nullable=True)
     criado_em = Column(DateTime, server_default=func.now())
+    data_nascimento = Column(DateTime, nullable=True)
+    acompanhante = Column(String(200), nullable=True)
+    grau_parentesco = Column(String(50), nullable=True)
+    telefone_acompanhante = Column(String(20), nullable=True)
+    gravidade_previa = Column(String(20), nullable=True)
+    historico_clinico = Column(String(255), nullable=True)
+    alergias = Column(String(255), nullable=True)
+    medicamentoUso_paciente = Column(String(255), nullable=True)
+    observacao_paciente = Column(String(255), nullable=True)
+
 
     # Relacionamentos
     fichas = relationship("FichaAtendimento", back_populates="paciente")
