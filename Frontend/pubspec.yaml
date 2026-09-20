@@ -1,0 +1,27 @@
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Requisições HTTP e conexão à API FastAPI
+  http: ^1.2.0
+  dio: ^5.4.0
+
+  # Persistência Offline-First e Banco Local (SQLite)
+  sqflite: ^2.3.0
+  path: ^1.9.0
+
+  # Detecção de conectividade de rede (para sincronização automática)
+  connectivity_plus: ^5.0.2
+
+  # Captura de Coordenadas GPS da viatura
+  geolocator: ^10.1.0
+
+  # Geração e envio de PDF para a impressora térmica física
+  pdf: ^3.10.7
+  printing: ^5.11.0
+
+  # Gráficos para o Dashboard Administrativo Web
+  fl_chart: ^0.66.0
+
+  # Armazenamento seguro de tokens JWT no dispositivo
+  flutter_secure_storage: ^9.0.0flutter pub get

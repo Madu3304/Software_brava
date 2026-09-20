@@ -10,19 +10,21 @@ class FichaAtendimento(Base):
     
     id_unidade = Column(Integer, ForeignKey("unidade_movel.id_unidade"), nullable=False)
     id_responsavel = Column(Integer, ForeignKey("usuario.id_usuario"), nullable=False)
-    id_medico_plantao = Column(Integer, ForeignKey("usuario.id_usuario"), nullable=False)
     id_condutor = Column(Integer, ForeignKey("usuario.id_usuario"), nullable=True)
     id_paciente = Column(Integer, ForeignKey("paciente.id_paciente"), nullable=True)
-    id_hospital_destino = Column(Integer, ForeignKey("hospital_destino.id_hospital"), nullable=True)
-    
+    id_tecnico = Column(Integer, ForeignKey("tecnico.id_tecnico"), nullable=True)
+    id_medico = Column(Integer, ForeignKey("medico.id_medico"), nullable=True)
+    id_base = Column(Integer, ForeignKey("base.id_base"), nullable=True)
+
     # Localização / GPS
     cep = Column(String(10), nullable=True)
     logradouro = Column(String(255), nullable=True)
     bairro = Column(String(100), nullable=True)
+    numero = Column(String(100), nullable=True)
     latitude = Column(Numeric(10, 7), nullable=True)
     longitude = Column(Numeric(10, 7), nullable=True)
-    gps_pendente = Column(Boolean, default=False)
-    
+    gps_endereco_destino = Column(Boolean, default=False)
+        
     # Horários operacionais
     hora_chamado = Column(DateTime, nullable=True)
     hora_saida_base = Column(DateTime, nullable=True)
@@ -32,11 +34,12 @@ class FichaAtendimento(Base):
     hora_conclusao = Column(DateTime, nullable=True)
     
     # Status e parada
-    status = Column(String(30), default="EM_ANDAMENTO") # 'EM_ANDAMENTO', 'FINALIZADA', 'SINCRONIZADA'
+    codigo_local = Column(String(30), nullable=True)
     unidade_parada = Column(Boolean, default=False)
     motivo_unidade_parada = Column(Text, nullable=True)
     observacoes_gerais = Column(Text, nullable=True)
     criado_em = Column(DateTime, server_default=func.now())
+    data_atendimento = Column(DateTime, server_default=func.now())
 
     # Relacionamentos
     unidade_movel = relationship("UnidadeMovel", back_populates="fichas")
@@ -44,6 +47,7 @@ class FichaAtendimento(Base):
     medico_plantao = relationship("Usuario", foreign_keys=[id_medico_plantao], back_populates="fichas_medico_plantao")
     condutor = relationship("Usuario", foreign_keys=[id_condutor], back_populates="fichas_condutor")
     paciente = relationship("Paciente", back_populates="fichas")
+    avaliacao_clinica = relationship("AvaliacaoClinica", uselist=False, back_populates="ficha_atendimento")
     hospital_destino = relationship("HospitalDestino", back_populates="fichas")
     avaliacao_clinica = relationship(
     "AvaliacaoClinica",
