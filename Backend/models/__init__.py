@@ -8,7 +8,7 @@ from .log_auditoria import LogAuditoria
 from .medico import Medico
 from .tecnico import Tecnico
 from .condutor import Condutor
-from .Utencilios_gastos import UtenciliosGastos  # Caso sua classe tenha esse nome
+from .Utensilios_gastos import Utensilios
 
 __all__ = [
     "Base",
