@@ -17,6 +17,5 @@ class Usuario(Base):
 
     # Relacionamentos
     fichas_responsaveis = relationship("FichaAtendimento", foreign_keys="FichaAtendimento.id_responsavel", back_populates="responsavel")
-    fichas_medico_plantao = relationship("FichaAtendimento", foreign_keys="FichaAtendimento.id_medico_plantao", back_populates="medico_plantao")
     fichas_condutor = relationship("FichaAtendimento", foreign_keys="FichaAtendimento.id_condutor", back_populates="condutor")
     logs = relationship("LogAuditoria", back_populates="usuario")

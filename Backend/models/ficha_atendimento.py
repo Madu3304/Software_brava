@@ -45,12 +45,21 @@ class FichaAtendimento(Base):
     # Relacionamentos
     unidade_movel = relationship("UnidadeMovel", back_populates="fichas")
     responsavel = relationship("Usuario", foreign_keys=[id_responsavel], back_populates="fichas_responsaveis")
-    medico = relationship("Usuario", foreign_keys=[id_medico], back_populates="fichas_atendimento")
+    medico = relationship("Medico", foreign_keys=[id_medico], back_populates="fichas")
+    tecnico = relationship("Tecnico", foreign_keys=[id_tecnico], back_populates="fichas")
+    base = relationship("BaseOperacional", foreign_keys=[id_base], back_populates="fichas")
     condutor = relationship("Usuario", foreign_keys=[id_condutor], back_populates="fichas_condutor")
     paciente = relationship("Paciente", back_populates="fichas")
     hospital_destino = relationship("HospitalDestino", back_populates="fichas")
     avaliacao_clinica = relationship(
-    "AvaliacaoClinica",
+        "AvaliacaoClinica",
+        uselist=False,
+        back_populates="ficha_atendimento",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    utensilios_gastos = relationship(
+        "Utensilios",
         uselist=False,
         back_populates="ficha_atendimento",
         cascade="all, delete-orphan",
