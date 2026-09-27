@@ -1,28 +1,64 @@
+import os
+import uvicorn
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 from database import engine, Base, SessionLocal
-from models import Usuario, UnidadeMovel, Paciente, HospitalDestino, FichaAtendimento, AvaliacaoClinica, LogAuditoria
+from controllers import api_router
+from seed import seed_initial_data
 
 def init_db():
-    print("Criando/verificando tabelas no banco de dados via SQLAlchemy ORM...")
-    # Cria todas as tabelas no PostgreSQL caso não existam
+    """Cria tabelas no banco de dados e executa carga inicial de dados."""
+    print("[DATABASE] Criando/verificando tabelas no banco de dados...")
     Base.metadata.create_all(bind=engine)
-    print("Tabelas criadas com sucesso!")
-
-def testar_conexao():
+    print("[DATABASE] Tabelas verificadas com sucesso!")
+    
     db = SessionLocal()
     try:
-        print("\n--- Testando consulta SQLAlchemy ---")
-        usuarios = db.query(Usuario).all()
-        print(f"Total de usuários cadastrados: {len(usuarios)}")
-        for u in usuarios:
-            print(f"ID: {u.id_usuario} | Nome: {u.nome} | Perfil: {u.perfil}")
-            
-        unidades = db.query(UnidadeMovel).all()
-        print(f"Total de unidades móveis: {len(unidades)}")
+        seed_initial_data(db)
     except Exception as e:
-        print(f"Erro ao consultar o banco: {e}")
+        print(f"[ERRO NO SEED] {e}")
     finally:
         db.close()
 
-if __name__ == "__main__":
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Executado automaticamente no startup do servidor (uvicorn main:app)
     init_db()
-    testar_conexao()
+    yield
+    print("[SHUTDOWN] Encerrando servidor da API...")
+
+app = FastAPI(
+    title="API Backend SAMU Brava (Joinville)",
+    description="API RESTful de comunicação segura entre o Aplicativo Mobile e o Dashboard Web Administrativo, conforme especificação RFC e Diagramas C4 (Níveis 2, 3 e 4).",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# Configuração de CORS para permitir acesso do Flutter Web e Mobile
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Registra todos os módulos de controllers da aplicação sob o prefixo /api
+app.include_router(api_router)
+
+@app.get("/", tags=["Saúde da API"])
+def root():
+    return {
+        "status": "ONLINE",
+        "sistema": "Software Brava SAMU",
+        "documentacao": "/docs",
+        "versao": "1.0.0"
+    }
+
+if __name__ == "__main__":
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 8000))
+    print(f"\n[INFO] Iniciando servidor FastAPI em http://{host}:{port} ...")
+    uvicorn.run("main:app", host=host, port=port, reload=True)

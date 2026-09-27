@@ -35,3 +35,8 @@ class AvaliacaoClinica(Base):
     # Relacionamento
     ficha_atendimento = relationship("FichaAtendimento", back_populates="avaliacao_clinica")
     paciente = relationship("Paciente", back_populates="avaliacao_clinica")
+    utensilios_gastos = relationship(
+        "Utensilios",
+        uselist=False,
+        back_populates="avaliacao_clinica",
+    )

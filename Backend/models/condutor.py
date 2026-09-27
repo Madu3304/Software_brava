@@ -10,5 +10,5 @@ class Condutor(Base):
     codigo_condutor = Column(Integer, nullable=True)
     criado_em = Column(DateTime, server_default=func.now())
 
-    # Relacionamentos
-    fichas = relationship("FichaAtendimento", back_populates="condutor")
+    # Nota: ficha_atendimento referencia o condutor via usuario.id_usuario (perfil CONDUTOR)
+    # fichas = relationship("FichaAtendimento", back_populates="condutor")
