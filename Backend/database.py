@@ -1,18 +1,20 @@
 import os
-
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+# Carrega variáveis do arquivo .env caso exista
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Fallback para desenvolvimento local caso DATABASE_URL não seja informada
 if not DATABASE_URL:
-    raise RuntimeError(
-        "A variável de ambiente DATABASE_URL não foi configurada."
-    )
+    DATABASE_URL = "sqlite:///./brava.db"
+    print("[INFO] DATABASE_URL não configurada. Utilizando fallback local SQLite: sqlite:///./brava.db")
 
-
-engine = create_engine(DATABASE_URL, echo=True)
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args, echo=False)
 
 SessionLocal = sessionmaker(
     autocommit=False,

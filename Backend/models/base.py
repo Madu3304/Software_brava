@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
-class UnidadeMovel(Base):
+class BaseOperacional(Base):
     __tablename__ = "base"
 
     id_base = Column(Integer, primary_key=True, index=True)

@@ -24,4 +24,4 @@ dependencies:
   fl_chart: ^0.66.0
 
   # Armazenamento seguro de tokens JWT no dispositivo
-  flutter_secure_storage: ^9.0.0flutter pub get
+  flutter_secure_storage: ^9.0.0
