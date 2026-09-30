@@ -12,11 +12,13 @@ import 'widgets/registro_field_card.dart';
 class RegistroAtendimentoView extends StatefulWidget {
   final String? tipoViaturaInicial;
   final String? codigoTriagemInicial;
+  final DateTime? dataAtendimentoInicial;
 
   const RegistroAtendimentoView({
     super.key,
     this.tipoViaturaInicial = 'USB',
     this.codigoTriagemInicial = 'Vermelho',
+    this.dataAtendimentoInicial,
   });
 
   @override
@@ -27,9 +29,11 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _registroController = TextEditingController();
-  final TextEditingController _dataController = TextEditingController();
+  final TextEditingController _medicoController = TextEditingController();
   final TextEditingController _tecnicoController = TextEditingController();
   final TextEditingController _condutorController = TextEditingController();
+  final TextEditingController _horaAberturaController = TextEditingController();
+  final TextEditingController _horaSaidaController = TextEditingController();
 
   String _baseSelecionada = 'Selecionar Base';
   bool _isSaving = false;
@@ -42,32 +46,43 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     'Base Pirabeiraba',
   ];
 
+  final List<String> _medicosDisponiveis = [
+    'Dr. Carlos Eduardo - CRM 12345/SC',
+    'Dra. Ana Paula Martins - CRM 23456/SC',
+    'Dr. Marcos Vinicius - CRM 34567/SC',
+    'Dra. Beatriz Santos - CRM 45678/SC',
+    'Dr. Roberto Silva - CRM 56789/SC',
+    'Dra. Juliana Mendes - CRM 67890/SC',
+  ];
+
   @override
   void initState() {
     super.initState();
-    // Preenche com a data atual formatada
+    // Preenche com horário atual formatado para abertura e saída
     final agora = DateTime.now();
-    final dia = agora.day.toString().padLeft(2, '0');
-    final mes = agora.month.toString().padLeft(2, '0');
-    final ano = agora.year;
-    _dataController.text = '$dia/$mes/$ano';
+    final hora = agora.hour.toString().padLeft(2, '0');
+    final minuto = agora.minute.toString().padLeft(2, '0');
+    _horaAberturaController.text = '$hora:$minuto';
+
+    final minutoSaida = ((agora.minute + 2) % 60).toString().padLeft(2, '0');
+    _horaSaidaController.text = '$hora:$minutoSaida';
   }
 
   @override
   void dispose() {
     _registroController.dispose();
-    _dataController.dispose();
+    _medicoController.dispose();
     _tecnicoController.dispose();
     _condutorController.dispose();
+    _horaAberturaController.dispose();
+    _horaSaidaController.dispose();
     super.dispose();
   }
 
-  Future<void> _selecionarData() async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selecionarHora(TextEditingController controller) async {
+    final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      initialTime: TimeOfDay.now(),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -83,11 +98,10 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     );
 
     if (picked != null) {
-      final dia = picked.day.toString().padLeft(2, '0');
-      final mes = picked.month.toString().padLeft(2, '0');
-      final ano = picked.year;
+      final h = picked.hour.toString().padLeft(2, '0');
+      final m = picked.minute.toString().padLeft(2, '0');
       setState(() {
-        _dataController.text = '$dia/$mes/$ano';
+        controller.text = '$h:$m';
       });
     }
   }
@@ -149,6 +163,36 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     );
   }
 
+  void _mostrarMensagemEstrela() {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.star_rounded, color: Color(0xFFFFD54F), size: 22),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "Hora da saída da unidade móvel da base",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFC62828),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
   Future<void> _salvarRegistro() async {
     if (_formKey.currentState!.validate()) {
       if (_baseSelecionada == 'Selecionar Base') {
@@ -166,7 +210,7 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
       final novaFicha = FichaAtendimentoModel(
         id: 'fch_${DateTime.now().millisecondsSinceEpoch}',
         numeroOcorrencia: _registroController.text.trim(),
-        dataHora: DateTime.now(),
+        dataHora: widget.dataAtendimentoInicial ?? DateTime.now(),
         pacienteNome: 'Paciente Ocorrência ${_registroController.text}',
         tipoOcorrencia: 'Atendimento Pré-Hospitalar',
         endereco: _baseSelecionada,
@@ -174,8 +218,11 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
         tipoViatura: widget.tipoViaturaInicial ?? 'USB',
         codigoTriagem: widget.codigoTriagemInicial ?? 'Vermelho',
         base: _baseSelecionada,
+        medicoResponsavel: _medicoController.text.trim(),
         tecnicoResponsavel: _tecnicoController.text.trim(),
         condutorSocorrista: _condutorController.text.trim(),
+        horaAberturaChamado: _horaAberturaController.text.trim(),
+        horaSaidaBase: _horaSaidaController.text.trim(),
       );
 
       // Persiste no SQLite local
@@ -214,7 +261,7 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Card 1: Número de Registro (com ícone vermelho de documento)
+                    // Card 1: Número de Registro
                     RegistroFieldCard(
                       title: "Número de Registro",
                       icon: Icons.description_outlined,
@@ -249,7 +296,7 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 2: Base (com ícone laranja de banco/servidor e botão de seleção)
+                    // Card 2: Base (com botão laranja de seleção)
                     RegistroFieldCard(
                       title: "Base",
                       icon: Icons.storage_rounded,
@@ -260,7 +307,7 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                         child: ElevatedButton(
                           onPressed: _abrirModalSelecaoBase,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF7A00), // Laranja vibrante do Figma
+                            backgroundColor: const Color(0xFFFF7A00),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10.0),
@@ -291,42 +338,61 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 3: Data (com ícone de calendário vermelho e seletor)
+                    // Card 3: Médico responsável (Substitui o antigo campo de data, com busca e seleção de médicos)
                     RegistroFieldCard(
-                      title: "Data",
-                      icon: Icons.calendar_today_outlined,
+                      title: "Médico responsável:",
+                      icon: Icons.medical_services_outlined,
                       iconColor: const Color(0xFFE50914),
-                      child: TextFormField(
-                        controller: _dataController,
-                        readOnly: true,
-                        onTap: _selecionarData,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
-                        decoration: InputDecoration(
-                          hintText: "dd/mm/aaaa",
-                          hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-                          suffixIcon: IconButton(
-                            icon: const Icon(
-                              Icons.calendar_month_outlined,
-                              color: Color(0xFFE50914),
-                              size: 22,
+                      child: Autocomplete<String>(
+                        initialValue: TextEditingValue(text: _medicoController.text),
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          if (textEditingValue.text.isEmpty) {
+                            return _medicosDisponiveis;
+                          }
+                          return _medicosDisponiveis.where((String medico) {
+                            return medico.toLowerCase().contains(
+                                  textEditingValue.text.toLowerCase(),
+                                );
+                          });
+                        },
+                        onSelected: (String selecao) {
+                          _medicoController.text = selecao;
+                        },
+                        fieldViewBuilder: (context, fieldTextEditingController, focusNode, onFieldSubmitted) {
+                          // Mantém sincronizado com o controller da tela
+                          fieldTextEditingController.addListener(() {
+                            _medicoController.text = fieldTextEditingController.text;
+                          });
+
+                          return TextFormField(
+                            controller: fieldTextEditingController,
+                            focusNode: focusNode,
+                            style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
+                            decoration: InputDecoration(
+                              hintText: "Buscar médico responsável",
+                              hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                color: Color(0xFFE50914),
+                                size: 20,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10.0),
+                                borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10.0),
+                                borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
+                              ),
                             ),
-                            onPressed: _selecionarData,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFFFCDD2), width: 1.2),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 4: Técnico de enfermagem responsável (Figma Imagem 2)
+                    // Card 4: Técnico de enfermagem responsável
                     RegistroFieldCard(
                       title: "Técnico de enfermagem responsável:",
                       child: TextFormField(
@@ -354,7 +420,7 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 5: Condutor socorrista (Figma Imagem 2)
+                    // Card 5: Condutor socorrista
                     RegistroFieldCard(
                       title: "Condutor socorrista:",
                       child: TextFormField(
@@ -380,15 +446,137 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Card 6: Hora da abertura do chamado
+                    RegistroFieldCard(
+                      title: "Hora da abertura do chamado",
+                      icon: Icons.access_time_rounded,
+                      iconColor: const Color(0xFFE50914),
+                      child: TextFormField(
+                        controller: _horaAberturaController,
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
+                        decoration: InputDecoration(
+                          hintText: "hh:mm",
+                          hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                          suffixIcon: IconButton(
+                            icon: const Icon(
+                              Icons.schedule_rounded,
+                              color: Color(0xFFE50914),
+                              size: 22,
+                            ),
+                            tooltip: "Selecionar Horário",
+                            onPressed: () => _selecionarHora(_horaAberturaController),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                            borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                            borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Card 7: Hora da saída da unidade da base (com estrela interativa)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16.0),
+                        border: Border.all(color: const Color(0xFFF0F0F0), width: 1.2),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            blurRadius: 14,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.departure_board_rounded,
+                                size: 20,
+                                color: Color(0xFFE50914),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  "Hora da saída da unidade da base",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF2C3437),
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ),
+                              // Estrela que ao clicar em cima mostra a mensagem solicitada
+                              Tooltip(
+                                message: "Clique para ver a descrição",
+                                child: InkWell(
+                                  onTap: _mostrarMensagemEstrela,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4.0),
+                                    child: Icon(
+                                      Icons.star_rounded,
+                                      color: Color(0xFFFFB300), // Dourado
+                                      size: 26,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _horaSaidaController,
+                            style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
+                            decoration: InputDecoration(
+                              hintText: "hh:mm",
+                              hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                              suffixIcon: IconButton(
+                                icon: const Icon(
+                                  Icons.schedule_rounded,
+                                  color: Color(0xFFE50914),
+                                  size: 22,
+                                ),
+                                tooltip: "Selecionar Horário",
+                                onPressed: () => _selecionarHora(_horaSaidaController),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10.0),
+                                borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10.0),
+                                borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 28),
 
-                    // Botão de Ação: "Finalizar Cadastro" (com ícone de check conforme Imagem 3)
+                    // Botão de Ação: "Finalizar Cadastro"
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
                         onPressed: _isSaving ? null : _salvarRegistro,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFC62828), // Vermelho escuro do Figma Imagem 3
+                          backgroundColor: const Color(0xFFC62828),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.0),
@@ -421,7 +609,7 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Opção alternativa de Continuar (Laranja do Figma Imagem 2)
+                    // Opção alternativa de Continuar
                     SizedBox(
                       height: 48,
                       child: TextButton(

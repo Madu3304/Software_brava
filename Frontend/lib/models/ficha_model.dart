@@ -36,8 +36,11 @@ class FichaAtendimentoModel {
   final String tipoViatura; // Ex.: USB, USA
   final String codigoTriagem; // Vermelho, Amarelo, Verde, Azul
   final String? base;
+  final String? medicoResponsavel;
   final String? tecnicoResponsavel;
   final String? condutorSocorrista;
+  final String? horaAberturaChamado;
+  final String? horaSaidaBase;
 
   const FichaAtendimentoModel({
     required this.id,
@@ -57,8 +60,11 @@ class FichaAtendimentoModel {
     this.tipoViatura = 'USB',
     this.codigoTriagem = 'Vermelho',
     this.base,
+    this.medicoResponsavel,
     this.tecnicoResponsavel,
     this.condutorSocorrista,
+    this.horaAberturaChamado,
+    this.horaSaidaBase,
   });
 
   Map<String, dynamic> toMap() {
@@ -80,8 +86,11 @@ class FichaAtendimentoModel {
       'tipoViatura': tipoViatura,
       'codigoTriagem': codigoTriagem,
       'base': base,
+      'medicoResponsavel': medicoResponsavel,
       'tecnicoResponsavel': tecnicoResponsavel,
       'condutorSocorrista': condutorSocorrista,
+      'horaAberturaChamado': horaAberturaChamado,
+      'horaSaidaBase': horaSaidaBase,
     };
   }
 
@@ -111,8 +120,11 @@ class FichaAtendimentoModel {
       tipoViatura: map['tipoViatura'] ?? 'USB',
       codigoTriagem: map['codigoTriagem'] ?? 'Vermelho',
       base: map['base'],
+      medicoResponsavel: map['medicoResponsavel'],
       tecnicoResponsavel: map['tecnicoResponsavel'],
       condutorSocorrista: map['condutorSocorrista'],
+      horaAberturaChamado: map['horaAberturaChamado'],
+      horaSaidaBase: map['horaSaidaBase'],
     );
   }
 
@@ -138,8 +150,11 @@ class FichaAtendimentoModel {
     String? tipoViatura,
     String? codigoTriagem,
     String? base,
+    String? medicoResponsavel,
     String? tecnicoResponsavel,
     String? condutorSocorrista,
+    String? horaAberturaChamado,
+    String? horaSaidaBase,
   }) {
     return FichaAtendimentoModel(
       id: id ?? this.id,
@@ -159,8 +174,11 @@ class FichaAtendimentoModel {
       tipoViatura: tipoViatura ?? this.tipoViatura,
       codigoTriagem: codigoTriagem ?? this.codigoTriagem,
       base: base ?? this.base,
+      medicoResponsavel: medicoResponsavel ?? this.medicoResponsavel,
       tecnicoResponsavel: tecnicoResponsavel ?? this.tecnicoResponsavel,
       condutorSocorrista: condutorSocorrista ?? this.condutorSocorrista,
+      horaAberturaChamado: horaAberturaChamado ?? this.horaAberturaChamado,
+      horaSaidaBase: horaSaidaBase ?? this.horaSaidaBase,
     );
   }
 }

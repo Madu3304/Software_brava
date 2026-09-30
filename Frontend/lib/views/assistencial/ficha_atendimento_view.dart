@@ -1,13 +1,11 @@
-// ============================================================================
-// VIEW ASSISTENCIAL: FICHA DE ATENDIMENTO - ETAPA 1 (FIGMA IMAGEM 1)
-// Arquivo: lib/views/assistencial/ficha_atendimento_view.dart
-// ============================================================================
+//FICHA DE ATENDIMENTO - parte 1
 
 import 'package:flutter/material.dart';
 import '../../core/constants/app_routes.dart';
 import 'widgets/samu_app_bar_header.dart';
 import 'widgets/unidade_tipo_card.dart';
 import 'widgets/codigo_triagem_selector.dart';
+import 'widgets/data_atendimento_card.dart';
 import 'registro_atendimento_view.dart';
 
 class FichaAtendimentoView extends StatefulWidget {
@@ -20,6 +18,8 @@ class FichaAtendimentoView extends StatefulWidget {
 class _FichaAtendimentoViewState extends State<FichaAtendimentoView> {
   String _tipoViatura = 'USB';
   String _codigoTriagem = 'Vermelho';
+  Set<String> _opcoesUsb = {};
+  DateTime _dataAtendimento = DateTime.now();
 
   void _avancarParaRegistro() {
     Navigator.push(
@@ -28,6 +28,7 @@ class _FichaAtendimentoViewState extends State<FichaAtendimentoView> {
         builder: (context) => RegistroAtendimentoView(
           tipoViaturaInicial: _tipoViatura,
           codigoTriagemInicial: _codigoTriagem,
+          dataAtendimentoInicial: _dataAtendimento,
         ),
       ),
     );
@@ -52,9 +53,15 @@ class _FichaAtendimentoViewState extends State<FichaAtendimentoView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Card 1: Botão/Identificador da Viatura (USB) conforme Figma Imagem 1
+                  // Card 1: Botão/Identificador da Viatura (USB com opções expansíveis)
                   UnidadeTipoCard(
                     tipoAtual: _tipoViatura,
+                    opcoesSelecionadas: _opcoesUsb,
+                    onOpcoesChanged: (opcoes) {
+                      setState(() {
+                        _opcoesUsb = opcoes;
+                      });
+                    },
                     onTipoChanged: (novoTipo) {
                       setState(() {
                         _tipoViatura = novoTipo;
@@ -69,6 +76,17 @@ class _FichaAtendimentoViewState extends State<FichaAtendimentoView> {
                     onCodigoSelected: (novoCodigo) {
                       setState(() {
                         _codigoTriagem = novoCodigo;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Card 3: Seletor de Data com opções de Dia, Mês e Ano
+                  DataAtendimentoCard(
+                    dataInicial: _dataAtendimento,
+                    onDateChanged: (novaData) {
+                      setState(() {
+                        _dataAtendimento = novaData;
                       });
                     },
                   ),
