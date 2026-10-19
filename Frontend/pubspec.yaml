@@ -1,3 +1,12 @@
+name: software_brava
+description: "Aplicativo móvel e painel administrativo SAMU Joinville"
+publish_to: 'none' # Previne publicação acidental no pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.0.0
+
 dependencies:
   flutter:
     sdk: flutter
@@ -10,18 +19,26 @@ dependencies:
   sqflite: ^2.3.0
   path: ^1.9.0
 
-  # Detecção de conectividade de rede (para sincronização automática)
+  # Detecção de rede
   connectivity_plus: ^5.0.2
 
-  # Captura de Coordenadas GPS da viatura
+  # Geolocalização GPS
   geolocator: ^10.1.0
 
-  # Geração e envio de PDF para a impressora térmica física
+  # Impressão térmica e PDF
   pdf: ^3.10.7
   printing: ^5.11.0
 
-  # Gráficos para o Dashboard Administrativo Web
+  # Dashboard e Gráficos
   fl_chart: ^0.66.0
 
-  # Armazenamento seguro de tokens JWT no dispositivo
-  flutter_secure_storage: ^9.0.0flutter pub get
+  # Guarda segura de token JWT (LGPD)
+  flutter_secure_storage: ^9.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
