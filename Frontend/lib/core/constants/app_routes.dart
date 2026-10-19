@@ -8,5 +8,7 @@ class AppRoutes {
   static const String dashboard = '/dashboard';
   static const String ficha = '/ficha';
   static const String registroFicha = '/registro-ficha';
+  static const String dadosPaciente = '/dados-paciente';
+  static const String avaliacaoClinica = '/avaliacao-clinica';
   static const String impressaoSucesso = '/impressao-sucesso';
 }

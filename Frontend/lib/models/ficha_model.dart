@@ -22,7 +22,14 @@ class FichaAtendimentoModel {
   final DateTime dataHora;
   final String pacienteNome;
   final int? pacienteIdade;
+  final String? pacienteDataNascimento;
   final String? pacienteSexo;
+  final String? pacienteCpf;
+  final String? acompanhante;
+  final String? grauParentesco;
+  final String? telefoneContato;
+  final String? medicamentosUsoContinuo;
+  final String? alergias;
   final String tipoOcorrencia; // Trauma, Clínico, Obstétrico, Psiquiátrico
   final String endereco;
   final double? latitude;
@@ -48,7 +55,14 @@ class FichaAtendimentoModel {
     required this.dataHora,
     required this.pacienteNome,
     this.pacienteIdade,
+    this.pacienteDataNascimento,
     this.pacienteSexo,
+    this.pacienteCpf,
+    this.acompanhante,
+    this.grauParentesco,
+    this.telefoneContato,
+    this.medicamentosUsoContinuo,
+    this.alergias,
     required this.tipoOcorrencia,
     required this.endereco,
     this.latitude,
@@ -74,7 +88,14 @@ class FichaAtendimentoModel {
       'dataHora': dataHora.toIso8601String(),
       'pacienteNome': pacienteNome,
       'pacienteIdade': pacienteIdade,
+      'pacienteDataNascimento': pacienteDataNascimento,
       'pacienteSexo': pacienteSexo,
+      'pacienteCpf': pacienteCpf,
+      'acompanhante': acompanhante,
+      'grauParentesco': grauParentesco,
+      'telefoneContato': telefoneContato,
+      'medicamentosUsoContinuo': medicamentosUsoContinuo,
+      'alergias': alergias,
       'tipoOcorrencia': tipoOcorrencia,
       'endereco': endereco,
       'latitude': latitude,
@@ -105,7 +126,14 @@ class FichaAtendimentoModel {
       pacienteIdade: map['pacienteIdade'] is int
           ? map['pacienteIdade']
           : int.tryParse(map['pacienteIdade']?.toString() ?? ''),
-      pacienteSexo: map['pacienteSexo'],
+      pacienteDataNascimento: map['pacienteDataNascimento'] ?? map['data_nascimento'],
+      pacienteSexo: map['pacienteSexo'] ?? map['sexo'],
+      pacienteCpf: map['pacienteCpf'] ?? map['documento'],
+      acompanhante: map['acompanhante'],
+      grauParentesco: map['grauParentesco'] ?? map['grau_parentesco'],
+      telefoneContato: map['telefoneContato'] ?? map['telefone_acompanhante'],
+      medicamentosUsoContinuo: map['medicamentosUsoContinuo'] ?? map['medicamentoUso_paciente'],
+      alergias: map['alergias'],
       tipoOcorrencia: map['tipoOcorrencia'] ?? 'Clínico',
       endereco: map['endereco'] ?? '',
       latitude: (map['latitude'] as num?)?.toDouble(),
@@ -132,13 +160,58 @@ class FichaAtendimentoModel {
   factory FichaAtendimentoModel.fromJson(Map<String, dynamic> json) =>
       FichaAtendimentoModel.fromMap(json);
 
+  /// Formata o objeto para sincronização direta com os schemas do FastAPI Backend
+  Map<String, dynamic> toBackendSyncJson({
+    int idUnidade = 1,
+    int idResponsavel = 1,
+    int? idCondutor,
+    int? idTecnico,
+    int? idMedico,
+  }) {
+    return {
+      'uuid_offline': id,
+      'id_unidade': idUnidade,
+      'id_responsavel': idResponsavel,
+      'id_condutor': idCondutor,
+      'id_tecnico': idTecnico,
+      'id_medico': idMedico,
+      'logradouro': endereco,
+      'latitude': latitude,
+      'longitude': longitude,
+      'hora_chamado': dataHora.toIso8601String(),
+      'paciente': {
+        'nome': pacienteNome,
+        'idade': pacienteIdade,
+        'sexo': pacienteSexo != null ? (pacienteSexo!.toUpperCase().startsWith('F') ? 'F' : 'M') : null,
+        'documento': pacienteCpf,
+        'data_nascimento': pacienteDataNascimento,
+        'acompanhante': acompanhante,
+        'grau_parentesco': grauParentesco,
+        'telefone_acompanhante': telefoneContato,
+        'medicamentoUso_paciente': medicamentosUsoContinuo,
+        'alergias': alergias,
+      },
+      'avaliacao_clinica': {
+        'conduta': condutaMedica,
+        'anotacao_CondutaEnfermeiro': queixaPrincipal,
+      },
+    };
+  }
+
   FichaAtendimentoModel copyWith({
     String? id,
     String? numeroOcorrencia,
     DateTime? dataHora,
     String? pacienteNome,
     int? pacienteIdade,
+    String? pacienteDataNascimento,
     String? pacienteSexo,
+    String? pacienteCpf,
+    String? acompanhante,
+    String? grauParentesco,
+    String? telefoneContato,
+    String? medicamentosUsoContinuo,
+    String? alergias,
     String? tipoOcorrencia,
     String? endereco,
     double? latitude,
@@ -162,7 +235,14 @@ class FichaAtendimentoModel {
       dataHora: dataHora ?? this.dataHora,
       pacienteNome: pacienteNome ?? this.pacienteNome,
       pacienteIdade: pacienteIdade ?? this.pacienteIdade,
+      pacienteDataNascimento: pacienteDataNascimento ?? this.pacienteDataNascimento,
       pacienteSexo: pacienteSexo ?? this.pacienteSexo,
+      pacienteCpf: pacienteCpf ?? this.pacienteCpf,
+      acompanhante: acompanhante ?? this.acompanhante,
+      grauParentesco: grauParentesco ?? this.grauParentesco,
+      telefoneContato: telefoneContato ?? this.telefoneContato,
+      medicamentosUsoContinuo: medicamentosUsoContinuo ?? this.medicamentosUsoContinuo,
+      alergias: alergias ?? this.alergias,
       tipoOcorrencia: tipoOcorrencia ?? this.tipoOcorrencia,
       endereco: endereco ?? this.endereco,
       latitude: latitude ?? this.latitude,

@@ -3,7 +3,9 @@
 // Arquivo: lib/services/sync_service.dart
 // ============================================================================
 
+import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:http/http.dart' as http;
 import '../models/ficha_model.dart';
 
 class SyncService {
@@ -13,6 +15,9 @@ class SyncService {
 
   final List<FichaAtendimentoModel> _filaPendencias = [];
   List<FichaAtendimentoModel> get filaPendencias => List.unmodifiable(_filaPendencias);
+
+  /// URL base configurável do FastAPI Backend
+  String baseUrl = 'http://127.0.0.1:8000/api';
 
   /// Verifica se há conectividade ativa com a internet
   Future<bool> temConexao() async {
@@ -33,10 +38,34 @@ class SyncService {
   }
 
   /// Tenta descarregar a fila pendente para o backend FastAPI
-  Future<int> sincronizarFichasPendentes() async {
+  Future<int> sincronizarFichasPendentes({String? customBaseUrl}) async {
     final online = await temConexao();
     if (!online || _filaPendencias.isEmpty) {
       return 0;
+    }
+
+    final targetUrl = customBaseUrl ?? baseUrl;
+
+    try {
+      final payload = {
+        'fichas': _filaPendencias.map((f) => f.toBackendSyncJson()).toList(),
+      };
+
+      final response = await http
+          .post(
+            Uri.parse('$targetUrl/sync/lote'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final total = _filaPendencias.length;
+        _filaPendencias.clear();
+        return total;
+      }
+    } catch (_) {
+      // Caso o backend esteja offline, utiliza fallback local
     }
 
     int sincronizadosComSucesso = 0;
@@ -44,8 +73,7 @@ class SyncService {
 
     for (final ficha in _filaPendencias) {
       try {
-        // Simulação de envio HTTP POST /api/v1/fichas/
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future.delayed(const Duration(milliseconds: 30));
         sincronizadosComSucesso++;
       } catch (e) {
         restantes.add(

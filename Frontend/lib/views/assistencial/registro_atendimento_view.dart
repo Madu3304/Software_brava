@@ -5,9 +5,9 @@
 
 import 'package:flutter/material.dart';
 import '../../models/ficha_model.dart';
-import '../../services/database_service.dart';
 import 'widgets/samu_app_bar_header.dart';
 import 'widgets/registro_field_card.dart';
+import 'dados_paciente_view.dart';
 
 class RegistroAtendimentoView extends StatefulWidget {
   final String? tipoViaturaInicial;
@@ -36,7 +36,6 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
   final TextEditingController _horaSaidaController = TextEditingController();
 
   String _baseSelecionada = 'Selecionar Base';
-  bool _isSaving = false;
 
   final List<String> _basesDisponiveis = [
     'Base Central - SAMU Joinville',
@@ -193,51 +192,41 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     );
   }
 
-  Future<void> _salvarRegistro() async {
-    if (_formKey.currentState!.validate()) {
-      if (_baseSelecionada == 'Selecionar Base') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Por favor, selecione a Base Operacional."),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
+  void _avancarParaDadosPaciente() {
+    final numOcorrencia = _registroController.text.trim().isEmpty
+        ? 'REG-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}'
+        : _registroController.text.trim();
 
-      setState(() => _isSaving = true);
+    final baseFinal = _baseSelecionada == 'Selecionar Base'
+        ? 'Base Central - SAMU Joinville'
+        : _baseSelecionada;
 
-      final novaFicha = FichaAtendimentoModel(
-        id: 'fch_${DateTime.now().millisecondsSinceEpoch}',
-        numeroOcorrencia: _registroController.text.trim(),
-        dataHora: widget.dataAtendimentoInicial ?? DateTime.now(),
-        pacienteNome: 'Paciente Ocorrência ${_registroController.text}',
-        tipoOcorrencia: 'Atendimento Pré-Hospitalar',
-        endereco: _baseSelecionada,
-        unidadeResponsavel: widget.tipoViaturaInicial ?? 'USB',
-        tipoViatura: widget.tipoViaturaInicial ?? 'USB',
-        codigoTriagem: widget.codigoTriagemInicial ?? 'Vermelho',
-        base: _baseSelecionada,
-        medicoResponsavel: _medicoController.text.trim(),
-        tecnicoResponsavel: _tecnicoController.text.trim(),
-        condutorSocorrista: _condutorController.text.trim(),
-        horaAberturaChamado: _horaAberturaController.text.trim(),
-        horaSaidaBase: _horaSaidaController.text.trim(),
-      );
+    final fichaParcial = FichaAtendimentoModel(
+      id: 'fch_${DateTime.now().millisecondsSinceEpoch}',
+      numeroOcorrencia: numOcorrencia,
+      dataHora: widget.dataAtendimentoInicial ?? DateTime.now(),
+      pacienteNome: 'Paciente Ocorrência $numOcorrencia',
+      tipoOcorrencia: 'Atendimento Pré-Hospitalar',
+      endereco: baseFinal,
+      unidadeResponsavel: widget.tipoViaturaInicial ?? 'USB',
+      tipoViatura: widget.tipoViaturaInicial ?? 'USB',
+      codigoTriagem: widget.codigoTriagemInicial ?? 'Vermelho',
+      base: baseFinal,
+      medicoResponsavel: _medicoController.text.trim(),
+      tecnicoResponsavel: _tecnicoController.text.trim(),
+      condutorSocorrista: _condutorController.text.trim(),
+      horaAberturaChamado: _horaAberturaController.text.trim(),
+      horaSaidaBase: _horaSaidaController.text.trim(),
+    );
 
-      // Persiste no SQLite local
-      await DatabaseService().inserirFicha(novaFicha);
-
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-
-      // Redireciona para o comprovante de impressão / sucesso
-      Navigator.pushReplacementNamed(
-        context,
-        '/impressao-sucesso',
-        arguments: _registroController.text.trim(),
-      );
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DadosPacienteView(
+          fichaParcial: fichaParcial,
+        ),
+      ),
+    );
   }
 
   @override
@@ -509,29 +498,29 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                                 color: Color(0xFFE50914),
                               ),
                               const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  "Hora da saída da unidade da base",
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF2C3437),
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                              ),
-                              // Estrela que ao clicar em cima mostra a mensagem solicitada
-                              Tooltip(
-                                message: "Clique para ver a descrição",
+                              Expanded(
                                 child: InkWell(
                                   onTap: _mostrarMensagemEstrela,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(4.0),
-                                    child: Icon(
-                                      Icons.star_rounded,
-                                      color: Color(0xFFFFB300), // Dourado
-                                      size: 26,
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: const Text.rich(
+                                    TextSpan(
+                                      text: "Hora da saída da unidade da base",
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF2C3437),
+                                        letterSpacing: -0.2,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: " *",
+                                          style: TextStyle(
+                                            color: Color(0xFFE50914),
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -570,11 +559,11 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                     ),
                     const SizedBox(height: 28),
 
-                    // Botão de Ação: "Finalizar Cadastro"
+                    // Botão de Ação: "Dados do Paciente"
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isSaving ? null : _salvarRegistro,
+                        onPressed: _avancarParaDadosPaciente,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFC62828),
                           foregroundColor: Colors.white,
@@ -583,46 +572,25 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                           ),
                           elevation: 2,
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    "Finalizar Cadastro",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ],
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                "Dados do Paciente",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 0.3,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Opção alternativa de Continuar
-                    SizedBox(
-                      height: 48,
-                      child: TextButton(
-                        onPressed: _isSaving ? null : _salvarRegistro,
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFFF5722),
-                        ),
-                        child: const Text(
-                          "Continuar preenchimento assistencial",
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
+                          ],
                         ),
                       ),
                     ),

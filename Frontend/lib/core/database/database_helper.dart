@@ -25,7 +25,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         // Tabela de Fichas de Atendimento (Offline-first)
         await db.execute('''
@@ -35,7 +35,14 @@ class DatabaseHelper {
             dataHora TEXT,
             pacienteNome TEXT,
             pacienteIdade INTEGER,
+            pacienteDataNascimento TEXT,
             pacienteSexo TEXT,
+            pacienteCpf TEXT,
+            acompanhante TEXT,
+            grauParentesco TEXT,
+            telefoneContato TEXT,
+            medicamentosUsoContinuo TEXT,
+            alergias TEXT,
             tipoOcorrencia TEXT,
             endereco TEXT,
             latitude REAL,
@@ -71,6 +78,18 @@ class DatabaseHelper {
             matricula TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          try {
+            await db.execute('ALTER TABLE fichas ADD COLUMN pacienteDataNascimento TEXT');
+            await db.execute('ALTER TABLE fichas ADD COLUMN pacienteCpf TEXT');
+            await db.execute('ALTER TABLE fichas ADD COLUMN grauParentesco TEXT');
+            await db.execute('ALTER TABLE fichas ADD COLUMN telefoneContato TEXT');
+            await db.execute('ALTER TABLE fichas ADD COLUMN medicamentosUsoContinuo TEXT');
+            await db.execute('ALTER TABLE fichas ADD COLUMN alergias TEXT');
+          } catch (_) {}
+        }
       },
     );
   }

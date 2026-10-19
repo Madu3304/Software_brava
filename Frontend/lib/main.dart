@@ -3,6 +3,8 @@ import 'views/auth/login_view.dart';
 import 'views/admin/dashboard/dashboard_view.dart';
 import 'views/assistencial/ficha_atendimento_view.dart';
 import 'views/assistencial/registro_atendimento_view.dart';
+import 'views/assistencial/dados_paciente_view.dart';
+import 'views/assistencial/avaliacao_clinica_view.dart';
 import 'views/assistencial/impressao_sucesso_view.dart';
 import 'core/constants/app_routes.dart';
 
@@ -29,6 +31,8 @@ class SoftwareBravaApp extends StatelessWidget {
         AppRoutes.dashboard: (context) => const DashboardView(),
         AppRoutes.ficha: (context) => const FichaAtendimentoView(),
         AppRoutes.registroFicha: (context) => const RegistroAtendimentoView(),
+        AppRoutes.dadosPaciente: (context) => const DadosPacienteView(),
+        AppRoutes.avaliacaoClinica: (context) => const AvaliacaoClinicaView(),
         AppRoutes.impressaoSucesso: (context) => const ImpressaoSucessoView(),
       },
     );
