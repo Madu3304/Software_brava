@@ -6,15 +6,16 @@
 import 'package:flutter/material.dart';
 
 class ImpressaoSucessoView extends StatelessWidget {
-  final String numeroOcorrencia;
-
+  final String? numeroOcorrencia;
   const ImpressaoSucessoView({
     super.key,
-    this.numeroOcorrencia = '192-JOINVILLE',
+    this.numeroOcorrencia,
   });
-
   @override
   Widget build(BuildContext context) {
+    // Resgata os argumentos passados via Navigator
+    final routeArgs = ModalRoute.of(context)?.settings.arguments as String?;
+    final ocorrenciaExibida = routeArgs ?? numeroOcorrencia ?? '192-JOINVILLE';
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
