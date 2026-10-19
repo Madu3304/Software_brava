@@ -69,12 +69,13 @@ class ImpressaoSucessoView extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "Ocorrência nº $numeroOcorrencia enviada para a impressora térmica.",
+                "Ocorrência nº $ocorrenciaExibida enviada para a impressora térmica.",
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF757575),
                 ),
+              ),
               ),
               const SizedBox(height: 28),
               SizedBox(
