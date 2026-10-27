@@ -24,3 +24,4 @@ class Paciente(Base):
 
     # Relacionamentos
     fichas = relationship("FichaAtendimento", back_populates="paciente")
+    avaliacao_clinica = relationship("AvaliacaoClinica", back_populates="paciente")
