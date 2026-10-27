@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from database import get_db
+from dependencies import get_usuario_atual
 from models import FichaAtendimento
 from schemas import SyncLoteRequest, SyncLoteResponse
 from services.sync_service import processar_pacote_sync_offline
 
-router = APIRouter(prefix="/sync", tags=["Sincronização Offline-First (C4 Nível 3/4 - Mobile Exclusivo)"])
+router = APIRouter(
+    prefix="/sync",
+    tags=["Sincronização Offline-First (C4 Nível 3/4 - Mobile Exclusivo)"],
+    dependencies=[Depends(get_usuario_atual)],
+)
 
 # Exclusivo do Mobile. Recebe pacotes de dados gravados em lote pelo SQLite offline, garantindo idempotência via uuid_offline para evitar duplicações.
 
