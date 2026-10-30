@@ -4,12 +4,18 @@ from typing import List, Optional
 import hashlib
 
 from database import get_db
+from dependencies import exigir_perfil
 from models import Usuario
 from schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
 from services.security_service import gerar_hash_senha
 from services.log_service import registrar_auditoria
 
-router = APIRouter(prefix="/usuarios", tags=["Gestão de Usuários e Perfis RBAC (RN01, RN13)"])
+# Rotas restritas ao perfil ADMINISTRADOR (token JWT obrigatório)
+router = APIRouter(
+    prefix="/usuarios",
+    tags=["Gestão de Usuários e Perfis RBAC (RN01, RN13)"],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
 
 # Gerencia contas, senhas com hash SHA-256 e perfis (Administrador, Enfermeiro, Técnico, Condutor).
 

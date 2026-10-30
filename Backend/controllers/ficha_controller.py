@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 
 from database import get_db
+from dependencies import get_usuario_atual
 from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios
 from schemas import (
     FichaAtendimentoCreate,
@@ -27,7 +28,12 @@ from services.log_service import registrar_auditoria
 #GET /api/fichas/reposicao e POST /api/fichas/reposicao/{id} (Reposição do técnico de enfermagem)
 #GET /api/fichas/{id}/pdf (Exportação/download de PDF para hospital/impressão).
 
-router = APIRouter(prefix="/fichas", tags=["Fichas e Atendimentos (C4 Nível 3/4)"])
+# Todas as rotas exigem usuário autenticado (token JWT)
+router = APIRouter(
+    prefix="/fichas",
+    tags=["Fichas e Atendimentos (C4 Nível 3/4)"],
+    dependencies=[Depends(get_usuario_atual)],
+)
 
 @router.get("/", response_model=List[FichaDetalhadaReposicaoResponse])
 def listar_fichas(
