@@ -5,6 +5,7 @@ Componente: Security Service
 Responsabilidade: Criptografia de senhas, validação de tokens e controle de acesso RBAC.
 """
 import hashlib
+import hmac
 import secrets
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -17,10 +18,14 @@ def gerar_hash_senha(senha: str) -> str:
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
 def verificar_senha(senha_fornecida: str, senha_armazenada: str) -> bool:
-    """Compara senha em texto plano ou com hash."""
-    if senha_fornecida == senha_armazenada:
-        return True
-    return gerar_hash_senha(senha_fornecida) == senha_armazenada
+    """
+    Compara o hash da senha fornecida com o hash armazenado.
+    Nunca compara a senha fornecida diretamente com o valor do banco: isso permitiria
+    logar usando o próprio hash como senha. A comparação usa tempo constante (hmac).
+    """
+    if not senha_fornecida or not senha_armazenada:
+        return False
+    return hmac.compare_digest(gerar_hash_senha(senha_fornecida), senha_armazenada)
 
 def gerar_token_acesso(id_usuario: int, login: str, perfil: str) -> str:
     """Gera um token criptográfico único para controle de sessão."""

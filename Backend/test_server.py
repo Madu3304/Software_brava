@@ -29,4 +29,10 @@ with TestClient(app) as client:
     print("5. Unidades Cadastradas:", len(res_unidades.json()))
     assert len(res_unidades.json()) >= 4
 
+    # 6. Login usando o hash armazenado como senha deve ser recusado (401)
+    from services.security_service import gerar_hash_senha
+    res_hash = client.post("/api/auth/login", json={"login": "admin", "senha": gerar_hash_senha("admin123")})
+    print("6. Login com hash como senha:", res_hash.status_code)
+    assert res_hash.status_code == 401
+
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")
