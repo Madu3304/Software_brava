@@ -1,74 +1,84 @@
 # Backend/seed.py
 """
 Script de Carga Inicial de Dados (Seed Data)
-Cadastra os usuários padrão (Administrador e Equipe de Campo),
+Cadastra os usuários padrão (Administrador e Equipe de Campo, com senhas lidas do .env),
 as 4 Unidades Móveis (Brava 1 a 4), Médicos Reguladores e Hospitais de Destino.
 """
+import os
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database import SessionLocal, Base, engine
 from models import Usuario, UnidadeMovel, Medico, Tecnico, Condutor, HospitalDestino, BaseOperacional
 from services.security_service import gerar_hash_senha
+
+load_dotenv()
 
 def seed_initial_data(db: Session):
     """Popula o banco com os dados mínimos necessários caso estejam vazios."""
     print("[SEED] Verificando dados iniciais do sistema...")
 
     # 1. Usuários Padrão (RN01, RN13)
-    admin = db.query(Usuario).filter(Usuario.login == "admin").first()
-    if not admin:
-        print("[SEED] Criando usuário Administrador (login: admin, senha: admin123)...")
-        admin = Usuario(
-            nome="Administrador do Sistema",
-            email="admin@joinville.sc.gov.br",
-            login="admin",
-            senha_hash=gerar_hash_senha("admin123"),
-            perfil="ADMINISTRADOR",
-            registro_profissional="ADM-001",
-            ativo=True,
-        )
-        db.add(admin)
+    # As senhas iniciais vêm do .env (ADMIN_PASSWORD e EQUIPE_PASSWORD) e nunca são exibidas nos logs.
+    # Todos os usuários criados aqui precisam trocar a senha no primeiro acesso.
+    senha_admin = os.getenv("ADMIN_PASSWORD")
+    senha_equipe = os.getenv("EQUIPE_PASSWORD")
 
-    enfermeiro = db.query(Usuario).filter(Usuario.login == "enfermeiro").first()
-    if not enfermeiro:
-        print("[SEED] Criando usuário Enfermeiro (login: enfermeiro, senha: brava123)...")
-        enfermeiro = Usuario(
-            nome="Enf. Joaquim (Brava 2)",
-            email="joaquim@samu.joinville.sc.gov.br",
-            login="enfermeiro",
-            senha_hash=gerar_hash_senha("brava123"),
-            perfil="ENFERMEIRO",
-            registro_profissional="COREN-SC 102030",
-            ativo=True,
-        )
-        db.add(enfermeiro)
+    usuarios_iniciais = [
+        {
+            "nome": "Administrador do Sistema",
+            "email": "admin@joinville.sc.gov.br",
+            "login": "admin",
+            "senha": senha_admin,
+            "variavel_senha": "ADMIN_PASSWORD",
+            "perfil": "ADMINISTRADOR",
+            "registro_profissional": "ADM-001",
+        },
+        {
+            "nome": "Enf. Joaquim (Brava 2)",
+            "email": "joaquim@samu.joinville.sc.gov.br",
+            "login": "enfermeiro",
+            "senha": senha_equipe,
+            "variavel_senha": "EQUIPE_PASSWORD",
+            "perfil": "ENFERMEIRO",
+            "registro_profissional": "COREN-SC 102030",
+        },
+        {
+            "nome": "Téc. Ana (Brava 2)",
+            "email": "ana@samu.joinville.sc.gov.br",
+            "login": "tecnico",
+            "senha": senha_equipe,
+            "variavel_senha": "EQUIPE_PASSWORD",
+            "perfil": "TECNICO",
+            "registro_profissional": "COREN-SC 203040",
+        },
+        {
+            "nome": "Cond. Marcos (Brava 2)",
+            "email": "marcos@samu.joinville.sc.gov.br",
+            "login": "condutor",
+            "senha": senha_equipe,
+            "variavel_senha": "EQUIPE_PASSWORD",
+            "perfil": "CONDUTOR",
+            "registro_profissional": "CNH-D 405060",
+        },
+    ]
 
-    tecnico_usr = db.query(Usuario).filter(Usuario.login == "tecnico").first()
-    if not tecnico_usr:
-        print("[SEED] Criando usuário Técnico (login: tecnico, senha: brava123)...")
-        tecnico_usr = Usuario(
-            nome="Téc. Ana (Brava 2)",
-            email="ana@samu.joinville.sc.gov.br",
-            login="tecnico",
-            senha_hash=gerar_hash_senha("brava123"),
-            perfil="TECNICO",
-            registro_profissional="COREN-SC 203040",
+    for dados in usuarios_iniciais:
+        if db.query(Usuario).filter(Usuario.login == dados["login"]).first():
+            continue
+        if not dados["senha"]:
+            print(f"[SEED] AVISO: {dados['variavel_senha']} não configurada no .env. Usuário '{dados['login']}' não foi criado.")
+            continue
+        print(f"[SEED] Criando usuário {dados['perfil']} (login: {dados['login']}) com troca de senha obrigatória no primeiro acesso...")
+        db.add(Usuario(
+            nome=dados["nome"],
+            email=dados["email"],
+            login=dados["login"],
+            senha_hash=gerar_hash_senha(dados["senha"]),
+            perfil=dados["perfil"],
+            registro_profissional=dados["registro_profissional"],
             ativo=True,
-        )
-        db.add(tecnico_usr)
-
-    condutor_usr = db.query(Usuario).filter(Usuario.login == "condutor").first()
-    if not condutor_usr:
-        print("[SEED] Criando usuário Condutor Socorrista (login: condutor, senha: brava123)...")
-        condutor_usr = Usuario(
-            nome="Cond. Marcos (Brava 2)",
-            email="marcos@samu.joinville.sc.gov.br",
-            login="condutor",
-            senha_hash=gerar_hash_senha("brava123"),
-            perfil="CONDUTOR",
-            registro_profissional="CNH-D 405060",
-            ativo=True,
-        )
-        db.add(condutor_usr)
+            trocar_senha=True,
+        ))
 
     # 2. Unidades Móveis (As 4 Bravas do SAMU de Joinville - RF10, RF12)
     bravas = [

@@ -19,6 +19,11 @@ class TokenResponse(BaseModel):
     perfil: str # 'ADMINISTRADOR', 'ENFERMEIRO', 'TECNICO', 'CONDUTOR'
     redirecionamento: str # 'WEB' (para Administrador) ou 'MOBILE' (para equipe de campo)
 
+class TrocarSenhaRequest(BaseModel):
+    login: str
+    senha_atual: str
+    nova_senha: str = Field(..., min_length=8, description="Mínimo de 8 caracteres")
+
 class UsuarioBase(BaseModel):
     nome: str
     email: Optional[str] = None
@@ -40,6 +45,7 @@ class UsuarioUpdate(BaseModel):
 
 class UsuarioResponse(UsuarioBase):
     id_usuario: int
+    trocar_senha: bool = False
     criado_em: Optional[datetime] = None
 
     class Config:

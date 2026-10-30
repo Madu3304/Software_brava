@@ -4,9 +4,10 @@ from datetime import datetime
 
 from database import get_db
 from models import Usuario
-from schemas import LoginRequest, TokenResponse, UsuarioResponse
+from schemas import LoginRequest, TokenResponse, UsuarioResponse, TrocarSenhaRequest
 from services.security_service import (
     verificar_senha,
+    gerar_hash_senha,
     gerar_token_acesso,
     obter_redirecionamento_por_perfil,
 )
@@ -22,6 +23,8 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     Conforme o Modelo C4 e RFC:
     - Administrador é direcionado para a Interface Web Administrativa (Dashboard / Cadastros).
     - Equipe de Campo (Enfermeiro, Técnico, Condutor) é direcionada para o Aplicativo Mobile (Ficha Técnica).
+    Se o usuário estiver com troca de senha obrigatória, o login é recusado (403, codigo TROCA_SENHA_OBRIGATORIA)
+    até que a senha seja trocada em POST /api/auth/trocar-senha.
     """
     usuario = db.query(Usuario).filter(Usuario.login == req.login).first()
     if not usuario:
@@ -40,6 +43,16 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais inválidas: senha incorreta."
+        )
+
+    # Primeiro acesso ou senha redefinida pelo Administrador: exige troca antes de liberar o acesso
+    if usuario.trocar_senha:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "codigo": "TROCA_SENHA_OBRIGATORIA",
+                "mensagem": "É necessário trocar a senha antes do primeiro acesso.",
+            },
         )
 
     # Determina o redirecionamento com base no perfil (RBAC)
@@ -67,6 +80,45 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
         perfil=usuario.perfil,
         redirecionamento=redirecionamento,
     )
+
+@router.post("/trocar-senha")
+def trocar_senha(req: TrocarSenhaRequest, request: Request, db: Session = Depends(get_db)):
+    """
+    Troca a senha do usuário (obrigatória no primeiro acesso ou após redefinição pelo Administrador).
+    Exige login e senha atual. A nova senha deve ter no mínimo 8 caracteres e ser diferente da atual.
+    """
+    usuario = db.query(Usuario).filter(Usuario.login == req.login).first()
+    if not usuario or not verificar_senha(req.senha_atual, usuario.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas."
+        )
+
+    if not usuario.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuário inativo. Contate o Administrador."
+        )
+
+    if req.nova_senha == req.senha_atual:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A nova senha deve ser diferente da senha atual."
+        )
+
+    usuario.senha_hash = gerar_hash_senha(req.nova_senha)
+    usuario.trocar_senha = False
+    db.commit()
+
+    ip_origem = request.client.host if request.client else "127.0.0.1"
+    registrar_auditoria(
+        db=db,
+        acao="TROCAR_SENHA",
+        detalhes="Senha alterada pelo próprio usuário.",
+        id_usuario=usuario.id_usuario,
+        ip_origem=ip_origem,
+    )
+    return {"mensagem": "Senha alterada com sucesso. Faça login com a nova senha."}
 
 @router.post("/logout")
 def logout(id_usuario: int, request: Request, db: Session = Depends(get_db)):

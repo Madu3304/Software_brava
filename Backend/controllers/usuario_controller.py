@@ -58,6 +58,7 @@ def criar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db)):
         perfil=dados.perfil.upper(),
         registro_profissional=dados.registro_profissional,
         ativo=dados.ativo,
+        trocar_senha=True, # Senha definida pelo Administrador: troca obrigatória no primeiro acesso
     )
     db.add(novo_usuario)
     db.flush()
@@ -93,6 +94,7 @@ def atualizar_usuario(id_usuario: int, dados: UsuarioUpdate, db: Session = Depen
         usuario.ativo = dados.ativo
     if dados.senha is not None and dados.senha.strip():
         usuario.senha_hash = gerar_hash_senha(dados.senha)
+        usuario.trocar_senha = True # Senha redefinida pelo Administrador: troca obrigatória no próximo login
 
     db.commit()
     registrar_auditoria(
