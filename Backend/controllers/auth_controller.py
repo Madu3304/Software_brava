@@ -71,13 +71,16 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
 @router.post("/logout")
 def logout(id_usuario: int, request: Request, db: Session = Depends(get_db)):
     """Encerra a sessão e registra log de auditoria."""
+    usuario = db.query(Usuario).filter(Usuario.id_usuario == id_usuario).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
     ip_origem = request.client.host if request.client else "127.0.0.1"
-    log = LogAuditoria(
-        id_usuario=id_usuario,
+    registrar_auditoria(
+        db=db,
         acao="LOGOUT",
-        detalhes_metadados="Sessão finalizada pelo usuário.",
+        detalhes="Sessão finalizada pelo usuário.",
+        id_usuario=usuario.id_usuario,
         ip_origem=ip_origem,
     )
-    db.add(log)
-    db.commit()
     return {"mensagem": "Logout efetuado com sucesso."}
