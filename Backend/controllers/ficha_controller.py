@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status, Response
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
 
 from database import get_db
-from dependencies import get_usuario_atual, obter_ip_origem
+from dependencies import get_usuario_atual, exigir_perfil, obter_ip_origem
 from models import Usuario, FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios
 from schemas import (
     FichaAtendimentoCreate,
@@ -12,6 +12,8 @@ from schemas import (
     FichaDetalhadaReposicaoResponse,
     MarcarReposicaoRequest,
     DashboardReposicaoResumoResponse,
+    IntegracaoStatusResponse,
+    IntegracaoReenvioResponse,
 )
 from services.ficha_service import (
     listar_fichas_com_sinais_vitais,
@@ -23,6 +25,13 @@ from services.ficha_service import (
 from services.validation_service import validar_regras_clinicas_ficha
 from services.pdf_service import gerar_pdf_ficha_atendimento
 from services.log_service import registrar_auditoria
+from services.integration_service import (
+    enviar_ficha_para_prefeitura,
+    enviar_fichas_para_prefeitura,
+    STATUS_PENDENTE,
+    STATUS_ENVIADO,
+    STATUS_ERRO,
+)
 
 #GET /api/fichas/detalhes/{id} (Ex: ficha 011 consolidada)
 #GET /api/fichas/reposicao e POST /api/fichas/reposicao/{id} (Reposição do técnico de enfermagem)
@@ -71,6 +80,7 @@ def get_ficha_detalhada_reposicao(id_ficha: int, db: Session = Depends(get_db)):
 def criar_ficha_atendimento(
     dados: FichaAtendimentoCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
@@ -78,6 +88,7 @@ def criar_ficha_atendimento(
     Cria uma nova ficha digital de atendimento (RF01, RF02, RF03).
     Persiste simultaneamente os dados da Ficha, Paciente, Avaliação Clínica e Utensílios Gastos.
     O profissional responsável (RN10) é o usuário autenticado pelo token.
+    Depois do commit, a ficha é enviada à Prefeitura (RF06) em segundo plano.
     """
     # 0. Validação Clínica e de Negócio (Validation Service - C4 Nível 3/4)
     valido, erros = validar_regras_clinicas_ficha(dados)
@@ -202,7 +213,82 @@ def criar_ficha_atendimento(
         ip_origem=obter_ip_origem(request),
     )
 
+    # 6. Envio à Prefeitura (RF06) somente depois do commit, em segundo plano
+    background_tasks.add_task(enviar_ficha_para_prefeitura, nova_ficha.id_ficha)
+
     return buscar_ficha_consolidada_reposicao(db, nova_ficha.id_ficha)
+
+# Integração com a Prefeitura (RF06): acompanhamento e reenvio, somente Administrador
+
+@router.get(
+    "/integracao/status",
+    response_model=IntegracaoStatusResponse,
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
+def get_status_integracao(db: Session = Depends(get_db)):
+    """Resumo do envio das fichas à Prefeitura e lista das que falharam (últimas 100)."""
+    def contar(status_envio: str) -> int:
+        return db.query(FichaAtendimento).filter(FichaAtendimento.status_envio_prefeitura == status_envio).count()
+
+    fichas_erro = (
+        db.query(FichaAtendimento)
+        .filter(FichaAtendimento.status_envio_prefeitura == STATUS_ERRO)
+        .order_by(FichaAtendimento.ultima_tentativa_envio.desc())
+        .limit(100)
+        .all()
+    )
+    return IntegracaoStatusResponse(
+        pendentes=contar(STATUS_PENDENTE),
+        enviados=contar(STATUS_ENVIADO),
+        com_erro=contar(STATUS_ERRO),
+        fichas_com_erro=[
+            {
+                "id_ficha": f.id_ficha,
+                "uuid_offline": f.uuid_offline,
+                "tentativas_envio": f.tentativas_envio,
+                "ultima_tentativa_envio": f.ultima_tentativa_envio,
+                "erro_envio": f.erro_envio,
+            }
+            for f in fichas_erro
+        ],
+    )
+
+@router.post(
+    "/integracao/reenviar",
+    response_model=IntegracaoReenvioResponse,
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
+def reenviar_fichas_prefeitura(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    usuario: Usuario = Depends(get_usuario_atual),
+    id_ficha: Optional[int] = Query(None, description="Reenviar só esta ficha. Sem o parâmetro, reenvia todas com status PENDENTE ou ERRO."),
+    db: Session = Depends(get_db),
+):
+    """Agenda o (re)envio à Prefeitura das fichas que ainda não foram enviadas com sucesso."""
+    query = db.query(FichaAtendimento.id_ficha).filter(
+        FichaAtendimento.status_envio_prefeitura.in_([STATUS_PENDENTE, STATUS_ERRO])
+    )
+    if id_ficha is not None:
+        query = query.filter(FichaAtendimento.id_ficha == id_ficha)
+    ids = [linha.id_ficha for linha in query.all()]
+
+    if id_ficha is not None and not ids:
+        raise HTTPException(status_code=404, detail=f"Ficha #{id_ficha} não encontrada ou já enviada à Prefeitura.")
+
+    if ids:
+        background_tasks.add_task(enviar_fichas_para_prefeitura, ids)
+    registrar_auditoria(
+        db=db,
+        acao="REENVIO_PREFEITURA",
+        detalhes=f"Reenvio à Prefeitura agendado para {len(ids)} ficha(s).",
+        id_usuario=usuario.id_usuario,
+        ip_origem=obter_ip_origem(request),
+    )
+    return IntegracaoReenvioResponse(
+        fichas_agendadas=len(ids),
+        mensagem=f"Reenvio agendado para {len(ids)} ficha(s).",
+    )
 
 @router.get("/reposicao", response_model=List[FichaDetalhadaReposicaoResponse])
 def get_fichas_para_reposicao(

@@ -285,6 +285,8 @@ class FichaDetalhadaReposicaoResponse(BaseModel):
     id_ficha: int
     uuid_offline: Optional[str] = None
     data_atendimento: Optional[datetime] = None
+    status_envio_prefeitura: Optional[str] = None # 'PENDENTE', 'ENVIADO', 'ERRO' (RF06)
+    protocolo_prefeitura: Optional[str] = None
     placa_unidade: Optional[str] = None
     bairro: Optional[str] = None
     nome_paciente: Optional[str] = "Não informado"
@@ -322,6 +324,16 @@ class FichaSyncItem(BaseModel):
     paciente: Optional[PacienteCreate] = None
     avaliacao_clinica: Optional[AvaliacaoClinicaResumoSchema] = None
     utensilios_gastos: Optional[UtensiliosGastosSchema] = None
+
+class IntegracaoStatusResponse(BaseModel):
+    pendentes: int
+    enviados: int
+    com_erro: int
+    fichas_com_erro: List[Dict[str, Any]]
+
+class IntegracaoReenvioResponse(BaseModel):
+    fichas_agendadas: int
+    mensagem: str
 
 class SyncLoteRequest(BaseModel):
     fichas: List[FichaSyncItem]

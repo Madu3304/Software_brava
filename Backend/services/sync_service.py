@@ -4,31 +4,32 @@ Módulo de Sincronização Offline (Modelo C4 - Níveis 3 e 4)
 Componente: Sync Controller / Service
 Responsabilidade: Processamento de cargas de dados em lote originadas do SQLite do Aplicativo Mobile.
 """
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 
 from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, LogAuditoria
 from schemas import FichaSyncItem, SyncLoteResponse
-from services.integration_service import transmitir_atendimento_para_prefeitura
 
 def processar_pacote_sync_offline(
     db: Session,
     itens: List[FichaSyncItem],
     id_responsavel: int,
     ip_origem: Optional[str] = None,
-) -> SyncLoteResponse:
+) -> Tuple[SyncLoteResponse, List[int]]:
     """
     Persiste lote de fichas com integridade relacional e idempotência baseada no uuid_offline.
     id_responsavel e ip_origem vêm do token e da conexão (nunca do corpo da requisição).
     Cada item é gravado dentro de um savepoint (begin_nested): um item com erro é desfeito
     sozinho e entra na lista de erros, sem afetar os demais itens nem o commit final do lote.
-    Ao final de cada persistência, encaminha o atendimento para o Integration Service.
+    Retorna o resumo do lote e os ids das fichas criadas. O envio à Prefeitura (RF06) é feito
+    pelo controller DEPOIS do commit, em segundo plano.
     """
     processados = len(itens)
     sucessos = 0
     duplicados = 0
     erros = []
+    ids_fichas_criadas = []
 
     for item in itens:
         try:
@@ -133,14 +134,7 @@ def processar_pacote_sync_offline(
                     db.add(utensilios)
 
             sucessos += 1
-
-            # 6. Dispara integração externa com o banco da prefeitura (C4 Nível 3)
-            transmitir_atendimento_para_prefeitura({
-                "id_ficha": ficha.id_ficha,
-                "uuid_offline": item.uuid_offline,
-                "id_unidade": item.id_unidade,
-                "data": ficha.data_atendimento.isoformat() if ficha.data_atendimento else None,
-            })
+            ids_fichas_criadas.append(ficha.id_ficha)
 
         except Exception as e:
             erros.append(f"Erro no item {item.uuid_offline}: {str(e)}")
@@ -155,9 +149,10 @@ def processar_pacote_sync_offline(
     db.add(log)
     db.commit()
 
-    return SyncLoteResponse(
+    resumo = SyncLoteResponse(
         processados=processados,
         sucessos=sucessos,
         duplicados_ignorados=duplicados,
         erros=erros
     )
+    return resumo, ids_fichas_criadas

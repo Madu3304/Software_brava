@@ -11,6 +11,9 @@ os.environ.setdefault("EQUIPE_PASSWORD", "brava123")
 os.environ["CORS_ORIGINS"] = "http://localhost:8080"
 # Limite de tentativas de autenticação usado no teste (o passo 21 confere o bloqueio)
 os.environ["LOGIN_RATE_LIMIT"] = "20/minute"
+# Integração com a Prefeitura desligada nos passos iniciais (o passo 24 em diante simula a API)
+os.environ["PREFEITURA_API_URL"] = ""
+os.environ["PREFEITURA_API_TOKEN"] = ""
 SENHA_ADMIN = os.environ["ADMIN_PASSWORD"]
 SENHA_EQUIPE = os.environ["EQUIPE_PASSWORD"]
 
@@ -265,5 +268,93 @@ with TestClient(app) as client:
     res_reenvio = client.post("/api/sync/lote", headers=headers_enf2, json=lote)
     print("23. Reenvio do mesmo lote:", res_reenvio.status_code, res_reenvio.json())
     assert res_reenvio.json()["duplicados_ignorados"] == 2 and len(res_reenvio.json()["erros"]) == 1
+
+    # 24. B13: sem PREFEITURA_API_URL/TOKEN a integração fica desligada e a ficha fica PENDENTE
+    res_det = client.get(f"/api/fichas/detalhes/{id_ficha}", headers=headers_admin)
+    print("24. Ficha sem integração configurada:", res_det.json()["status_envio_prefeitura"])
+    assert res_det.json()["status_envio_prefeitura"] == "PENDENTE"
+
+    # 25. B13: API da Prefeitura simulada (httpx.MockTransport) — nenhuma chamada real é feita no teste
+    import httpx
+    import services.integration_service as integracao
+    os.environ["PREFEITURA_API_URL"] = "https://prefeitura.teste/api"
+    os.environ["PREFEITURA_API_TOKEN"] = "token-de-teste"
+    chamadas = []
+    modo_api = {"resposta": "erro"}
+
+    def api_prefeitura_simulada(req: httpx.Request) -> httpx.Response:
+        import json
+        corpo = json.loads(req.content)
+        # O envio acontece DEPOIS do commit: a ficha já está gravada quando a Prefeitura é chamada
+        db_check = SessionLocal()
+        try:
+            gravada = db_check.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == corpo["id_ficha_sistema"]).count() == 1
+        finally:
+            db_check.close()
+        chamadas.append({"url": str(req.url), "auth": req.headers.get("authorization"), "id_ficha": corpo["id_ficha_sistema"], "ficha_ja_gravada": gravada})
+        if modo_api["resposta"] == "erro":
+            return httpx.Response(500, text="Servidor da Prefeitura indisponível")
+        if modo_api["resposta"] == "sem_conexao":
+            raise httpx.ConnectError("Conexão recusada")
+        return httpx.Response(201, json={"protocolo": f"PMJ-TESTE-{corpo['id_ficha_sistema']}"})
+
+    integracao.criar_cliente_http = lambda timeout: httpx.Client(transport=httpx.MockTransport(api_prefeitura_simulada), timeout=timeout)
+
+    # 25.1 Prefeitura fora do ar: a ficha é criada normalmente (201) e o envio fica com ERRO
+    res_ficha_b13 = client.post("/api/fichas/", headers=headers_enf2, json={"id_unidade": 1, "id_medico": 1, "paciente": {"nome": "Paciente B13"}})
+    assert res_ficha_b13.status_code == 201
+    id_ficha_b13 = res_ficha_b13.json()["id_ficha"]
+    res_det = client.get(f"/api/fichas/detalhes/{id_ficha_b13}", headers=headers_admin)
+    print("25.1 Ficha com a Prefeitura fora do ar:", res_ficha_b13.status_code, res_det.json()["status_envio_prefeitura"])
+    assert res_det.json()["status_envio_prefeitura"] == "ERRO"
+    assert chamadas[-1]["url"] == "https://prefeitura.teste/api/atendimentos"
+    assert chamadas[-1]["auth"] == "Bearer token-de-teste"
+    assert chamadas[-1]["ficha_ja_gravada"] is True
+
+    res_status = client.get("/api/fichas/integracao/status", headers=headers_admin)
+    print("25.2 Status da integração:", {k: v for k, v in res_status.json().items() if k != "fichas_com_erro"})
+    erro_b13 = next(f for f in res_status.json()["fichas_com_erro"] if f["id_ficha"] == id_ficha_b13)
+    print("25.2 Erro registrado:", erro_b13["erro_envio"], "| tentativas:", erro_b13["tentativas_envio"])
+    assert erro_b13["tentativas_envio"] == 1 and "HTTP 500" in erro_b13["erro_envio"]
+
+    # 25.3 Sem conexão com a Prefeitura: também fica ERRO, com a mensagem de falha de comunicação
+    modo_api["resposta"] = "sem_conexao"
+    res_reenvio_falha = client.post("/api/fichas/integracao/reenviar", headers=headers_admin, params={"id_ficha": id_ficha_b13})
+    assert res_reenvio_falha.json()["fichas_agendadas"] == 1
+    erro_b13 = next(f for f in client.get("/api/fichas/integracao/status", headers=headers_admin).json()["fichas_com_erro"] if f["id_ficha"] == id_ficha_b13)
+    print("25.3 Sem conexão:", erro_b13["erro_envio"], "| tentativas:", erro_b13["tentativas_envio"])
+    assert erro_b13["tentativas_envio"] == 2 and "Falha de comunicação" in erro_b13["erro_envio"]
+
+    # 26. B13: Prefeitura volta ao ar -> reenvio (Administrador) envia todas as PENDENTE/ERRO
+    modo_api["resposta"] = "ok"
+    res_reenvio_enf = client.post("/api/fichas/integracao/reenviar", headers=headers_enf2)
+    print("26. Reenvio pelo Enfermeiro:", res_reenvio_enf.status_code)
+    assert res_reenvio_enf.status_code == 403
+    res_reenvio = client.post("/api/fichas/integracao/reenviar", headers=headers_admin)
+    print("26. Reenvio pelo Admin:", res_reenvio.status_code, res_reenvio.json())
+    assert res_reenvio.status_code == 200 and res_reenvio.json()["fichas_agendadas"] >= 2
+    res_det = client.get(f"/api/fichas/detalhes/{id_ficha_b13}", headers=headers_admin).json()
+    print("26. Ficha após o reenvio:", res_det["status_envio_prefeitura"], res_det["protocolo_prefeitura"])
+    assert res_det["status_envio_prefeitura"] == "ENVIADO" and res_det["protocolo_prefeitura"] == f"PMJ-TESTE-{id_ficha_b13}"
+    res_status = client.get("/api/fichas/integracao/status", headers=headers_admin).json()
+    print("26. Status da integração:", {k: v for k, v in res_status.items() if k != "fichas_com_erro"})
+    assert res_status["pendentes"] == 0 and res_status["com_erro"] == 0
+
+    # 26.1 Reenviar uma ficha já ENVIADA não envia de novo (404)
+    res_ja_enviada = client.post("/api/fichas/integracao/reenviar", headers=headers_admin, params={"id_ficha": id_ficha_b13})
+    assert res_ja_enviada.status_code == 404
+
+    # 27. B13: fichas do sync em lote também são enviadas depois do commit
+    total_chamadas = len(chamadas)
+    res_sync_b13 = client.post("/api/sync/lote", headers=headers_enf2, json={"fichas": [{"uuid_offline": "b13-sync", "id_unidade": 1}]})
+    assert res_sync_b13.json()["sucessos"] == 1
+    print("27. Sync enviado à Prefeitura:", chamadas[total_chamadas:])
+    assert len(chamadas) == total_chamadas + 1 and chamadas[-1]["ficha_ja_gravada"] is True
+    db = SessionLocal()
+    try:
+        ficha_sync = db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b13-sync").one()
+        assert ficha_sync.status_envio_prefeitura == "ENVIADO" and ficha_sync.tentativas_envio == 1
+    finally:
+        db.close()
 
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")

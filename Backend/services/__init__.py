@@ -26,8 +26,8 @@ from .pdf_service import (
     gerar_pdf_ficha_atendimento,
 )
 from .integration_service import (
-    transmitir_atendimento_para_prefeitura,
-    sincronizar_lote_com_prefeitura,
+    enviar_ficha_para_prefeitura,
+    enviar_fichas_para_prefeitura,
 )
 from .log_service import (
     registrar_auditoria,
@@ -55,8 +55,8 @@ __all__ = [
     "validar_formato_pressao_arterial",
     "ErroValidacaoClinica",
     "gerar_pdf_ficha_atendimento",
-    "transmitir_atendimento_para_prefeitura",
-    "sincronizar_lote_com_prefeitura",
+    "enviar_ficha_para_prefeitura",
+    "enviar_fichas_para_prefeitura",
     "registrar_auditoria",
     "listar_logs_recentes",
     "processar_pacote_sync_offline",
