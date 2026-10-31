@@ -56,13 +56,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configuração de CORS para permitir acesso do Flutter Web e Mobile
+# Configuração de CORS: somente as origens listadas em CORS_ORIGINS (.env) podem chamar a API pelo navegador.
+# O App Mobile não é afetado (CORS só vale para navegadores, ex.: Flutter Web / Painel Administrativo).
+CORS_ORIGINS = [origem.strip().rstrip("/") for origem in os.getenv("CORS_ORIGINS", "").split(",") if origem.strip()]
+
+if not CORS_ORIGINS:
+    print("[CORS] CORS_ORIGINS não configurada: nenhuma origem web liberada.")
+elif "*" in CORS_ORIGINS:
+    print("[CORS] AVISO: CORS_ORIGINS='*' libera qualquer origem. Use apenas em desenvolvimento.")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=CORS_ORIGINS,
+    # Credenciais (cookies/Authorization automático) nunca são combinadas com '*'
+    allow_credentials="*" not in CORS_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Registra todos os módulos de controllers da aplicação sob o prefixo /api

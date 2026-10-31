@@ -8,6 +8,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(pasta_temporaria, 'teste.
 os.environ["APP_ENV"] = "development"
 os.environ.setdefault("ADMIN_PASSWORD", "admin123")
 os.environ.setdefault("EQUIPE_PASSWORD", "brava123")
+os.environ["CORS_ORIGINS"] = "http://localhost:8080"
 SENHA_ADMIN = os.environ["ADMIN_PASSWORD"]
 SENHA_EQUIPE = os.environ["EQUIPE_PASSWORD"]
 
@@ -82,5 +83,15 @@ with TestClient(app) as client:
     res_login_novo = client.post("/api/auth/login", json={"login": "teste", "senha": "SenhaInicial#1"})
     print("7. Primeiro acesso de usuário criado pelo Admin:", res_login_novo.status_code)
     assert res_login_novo.status_code == 403
+
+    # 8. CORS: só a origem configurada em CORS_ORIGINS é liberada
+    preflight = {"Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "Authorization, Content-Type"}
+    res_cors_ok = client.options("/api/auth/login", headers={"Origin": "http://localhost:8080", **preflight})
+    print("8. CORS origem liberada:", res_cors_ok.status_code, res_cors_ok.headers.get("access-control-allow-origin"))
+    assert res_cors_ok.headers.get("access-control-allow-origin") == "http://localhost:8080"
+    res_cors_bloq = client.options("/api/auth/login", headers={"Origin": "http://site-malicioso.com", **preflight})
+    print("8. CORS origem desconhecida:", res_cors_bloq.status_code, res_cors_bloq.headers.get("access-control-allow-origin"))
+    assert res_cors_bloq.status_code == 400
+    assert res_cors_bloq.headers.get("access-control-allow-origin") is None
 
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")
