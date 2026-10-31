@@ -5,11 +5,17 @@ from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
 from database import get_db
+from dependencies import exigir_perfil
 from models import FichaAtendimento, UnidadeMovel
 from schemas import DashboardMetricasGeraisResponse
 from services.report_service import calcular_metricas_dashboard
 
-router = APIRouter(prefix="/reports", tags=["Relatórios e Dashboard Web (C4 Nível 3/4)"])
+# Rotas restritas ao perfil ADMINISTRADOR (token JWT obrigatório)
+router = APIRouter(
+    prefix="/reports",
+    tags=["Relatórios e Dashboard Web (C4 Nível 3/4)"],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
 
 #GET /api/reports/dashboard (Volume total, atendimentos hoje, tempo médio de resposta, faixas etárias, bairros com maior incidência e consumo de insumos)
 #GET /api/reports/paradas-viaturas (Monitoramento de paradas de ambulâncias e motivos).

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, Response
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
 
 from database import get_db
-from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios
+from dependencies import get_usuario_atual, obter_ip_origem
+from models import Usuario, FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios
 from schemas import (
     FichaAtendimentoCreate,
     FichaResumoResponse,
@@ -27,7 +28,12 @@ from services.log_service import registrar_auditoria
 #GET /api/fichas/reposicao e POST /api/fichas/reposicao/{id} (Reposição do técnico de enfermagem)
 #GET /api/fichas/{id}/pdf (Exportação/download de PDF para hospital/impressão).
 
-router = APIRouter(prefix="/fichas", tags=["Fichas e Atendimentos (C4 Nível 3/4)"])
+# Todas as rotas exigem usuário autenticado (token JWT)
+router = APIRouter(
+    prefix="/fichas",
+    tags=["Fichas e Atendimentos (C4 Nível 3/4)"],
+    dependencies=[Depends(get_usuario_atual)],
+)
 
 @router.get("/", response_model=List[FichaDetalhadaReposicaoResponse])
 def listar_fichas(
@@ -62,10 +68,16 @@ def get_ficha_detalhada_reposicao(id_ficha: int, db: Session = Depends(get_db)):
 
 # POST /api/fichas/ (Criação de atendimento com paciente, avaliação e utensílios)
 @router.post("/", response_model=FichaDetalhadaReposicaoResponse, status_code=status.HTTP_201_CREATED)
-def criar_ficha_atendimento(dados: FichaAtendimentoCreate, db: Session = Depends(get_db)):
+def criar_ficha_atendimento(
+    dados: FichaAtendimentoCreate,
+    request: Request,
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
+):
     """
     Cria uma nova ficha digital de atendimento (RF01, RF02, RF03).
     Persiste simultaneamente os dados da Ficha, Paciente, Avaliação Clínica e Utensílios Gastos.
+    O profissional responsável (RN10) é o usuário autenticado pelo token.
     """
     # 0. Validação Clínica e de Negócio (Validation Service - C4 Nível 3/4)
     valido, erros = validar_regras_clinicas_ficha(dados)
@@ -101,7 +113,7 @@ def criar_ficha_atendimento(dados: FichaAtendimentoCreate, db: Session = Depends
     nova_ficha = FichaAtendimento(
         uuid_offline=dados.uuid_offline,
         id_unidade=dados.id_unidade,
-        id_responsavel=dados.id_responsavel,
+        id_responsavel=usuario.id_usuario,
         id_condutor=dados.id_condutor,
         id_paciente=id_paciente_criado,
         id_tecnico=dados.id_tecnico,
@@ -186,7 +198,8 @@ def criar_ficha_atendimento(dados: FichaAtendimentoCreate, db: Session = Depends
         db=db,
         acao="CRIAR_FICHA",
         detalhes=f"Ficha #{nova_ficha.id_ficha} criada com sucesso para unidade {dados.id_unidade}.",
-        id_usuario=dados.id_responsavel,
+        id_usuario=usuario.id_usuario,
+        ip_origem=obter_ip_origem(request),
     )
 
     return buscar_ficha_consolidada_reposicao(db, nova_ficha.id_ficha)
@@ -202,11 +215,24 @@ def get_fichas_para_reposicao(
     return listar_fichas_para_reposicao(db, apenas_pendentes=apenas_pendentes)
 
 @router.post("/reposicao/{id_ficha}")
-def post_registrar_reposicao(id_ficha: int, req: MarcarReposicaoRequest, db: Session = Depends(get_db)):
+def post_registrar_reposicao(
+    id_ficha: int,
+    req: MarcarReposicaoRequest,
+    request: Request,
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
+):
     """
     Registra que o técnico de enfermagem realizou a reposição dos utensílios da viatura.
     """
     sucesso = registrar_reposicao_utensilios(db, id_ficha, req)
+    registrar_auditoria(
+        db=db,
+        acao="REPOSICAO_UTENSILIOS",
+        detalhes=f"Reposição da ficha #{id_ficha} marcada como {'reposta' if req.reposto else 'pendente'}.",
+        id_usuario=usuario.id_usuario,
+        ip_origem=obter_ip_origem(request),
+    )
     return {"sucesso": sucesso, "mensagem": f"Reposição da ficha #{id_ficha} registrada com sucesso."}
 
 @router.get("/dashboard/metricas", response_model=DashboardReposicaoResumoResponse)
