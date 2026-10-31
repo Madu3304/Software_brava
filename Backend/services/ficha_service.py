@@ -1,5 +1,5 @@
 # Backend/services/ficha_service.py
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -91,6 +91,8 @@ def buscar_ficha_consolidada_reposicao(db: Session, id_ficha: int) -> Optional[F
     return FichaDetalhadaReposicaoResponse(
         id_ficha=ficha.id_ficha,
         data_atendimento=ficha.data_atendimento,
+        status_envio_prefeitura=ficha.status_envio_prefeitura,
+        protocolo_prefeitura=ficha.protocolo_prefeitura,
         placa_unidade=unidade.placa if unidade else None,
         nome_paciente=paciente.nome if paciente else "Não informado",
         idade_paciente=paciente.idade if paciente else None,
@@ -99,10 +101,35 @@ def buscar_ficha_consolidada_reposicao(db: Session, id_ficha: int) -> Optional[F
         utensilios_gastos=utensilios_schema,
     )
 
-def listar_fichas_para_reposicao(db: Session, apenas_pendentes: bool = True) -> List[FichaDetalhadaReposicaoResponse]:
+def aplicar_filtros_fichas(query, id_unidade: Optional[int] = None, data: Optional[date] = None):
+    """Aplica os filtros de unidade móvel e de data do atendimento (dia inteiro) na query de fichas (RF08)."""
+    if id_unidade is not None:
+        query = query.filter(FichaAtendimento.id_unidade == id_unidade)
+    if data is not None:
+        inicio_dia = datetime.combine(data, time.min)
+        query = query.filter(
+            FichaAtendimento.data_atendimento >= inicio_dia,
+            FichaAtendimento.data_atendimento < inicio_dia + timedelta(days=1),
+        )
+    return query
+
+def contar_fichas(db: Session, id_unidade: Optional[int] = None, data: Optional[date] = None) -> int:
+    """Total de fichas com os mesmos filtros da listagem (usado na paginação)."""
+    query = aplicar_filtros_fichas(db.query(func.count(FichaAtendimento.id_ficha)), id_unidade, data)
+    return query.scalar() or 0
+
+def listar_fichas_para_reposicao(
+    db: Session,
+    apenas_pendentes: bool = True,
+    id_unidade: Optional[int] = None,
+    data: Optional[date] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> List[FichaDetalhadaReposicaoResponse]:
     """
     Retorna a listagem para a tela de reposição do Técnico de Enfermagem.
-    Permite filtrar apenas por atendimentos cujos materiais ainda não foram repostos.
+    Permite filtrar apenas por atendimentos cujos materiais ainda não foram repostos,
+    por unidade móvel e por data, com paginação (skip/limit). Mais recentes primeiro.
     """
     query = (
         db.query(FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, UnidadeMovel)
@@ -115,6 +142,13 @@ def listar_fichas_para_reposicao(db: Session, apenas_pendentes: bool = True) -> 
     if apenas_pendentes:
         # Pega onde há utensílios não repostos ou registros sem reposição confirmada
         query = query.filter((Utensilios.reposto == False) | (Utensilios.id_utensilios == None))
+
+    query = aplicar_filtros_fichas(query, id_unidade, data)
+    query = query.order_by(FichaAtendimento.data_atendimento.desc(), FichaAtendimento.id_ficha.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
 
     resultados = query.all()
     lista = []
@@ -162,6 +196,8 @@ def listar_fichas_para_reposicao(db: Session, apenas_pendentes: bool = True) -> 
             FichaDetalhadaReposicaoResponse(
                 id_ficha=ficha.id_ficha,
                 data_atendimento=ficha.data_atendimento,
+                status_envio_prefeitura=ficha.status_envio_prefeitura,
+                protocolo_prefeitura=ficha.protocolo_prefeitura,
                 placa_unidade=unidade.placa if unidade else None,
                 nome_paciente=paciente.nome if paciente else "Não informado",
                 idade_paciente=paciente.idade if paciente else None,

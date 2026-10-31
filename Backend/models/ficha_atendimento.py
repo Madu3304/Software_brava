@@ -40,6 +40,13 @@ class FichaAtendimento(Base):
     motivo_unidade_parada = Column(Text, nullable=True)
     observacoes_gerais = Column(Text, nullable=True)
     criado_em = Column(DateTime, server_default=func.now())
+
+    # Integração com a Prefeitura (RF06): status do envio, para permitir reenvio
+    status_envio_prefeitura = Column(String(20), default="PENDENTE", nullable=False, index=True) # 'PENDENTE', 'ENVIADO', 'ERRO'
+    protocolo_prefeitura = Column(String(64), nullable=True)
+    tentativas_envio = Column(Integer, default=0, nullable=False)
+    ultima_tentativa_envio = Column(DateTime, nullable=True)
+    erro_envio = Column(Text, nullable=True)
     data_atendimento = Column(DateTime, server_default=func.now())
 
     # Relacionamentos
