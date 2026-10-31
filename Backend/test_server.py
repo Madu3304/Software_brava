@@ -226,4 +226,44 @@ with TestClient(app) as client:
     print("21. /token durante o bloqueio (limite compartilhado):", res_token_bloqueado.status_code)
     assert res_token_bloqueado.status_code == 429
 
+    # 22. B12: um item com erro no meio do lote não corrompe os outros (savepoint por item)
+    # O item do meio falha no banco DEPOIS do flush do paciente e da ficha (inteiro grande demais para o SQLite)
+    login_enf2 = client.post("/api/auth/token", data={"username": "enfermeiro", "password": nova_senha_enf})
+    if login_enf2.status_code == 429:
+        from rate_limit import limiter
+        limiter.reset()
+        login_enf2 = client.post("/api/auth/token", data={"username": "enfermeiro", "password": nova_senha_enf})
+    headers_enf2 = {"Authorization": f"Bearer {login_enf2.json()['access_token']}"}
+    lote = {"fichas": [
+        {"uuid_offline": "b12-ok-1", "id_unidade": 1, "paciente": {"nome": "Paciente B12 OK 1"}, "avaliacao_clinica": {"pressao_arterial": "120/80"}},
+        {"uuid_offline": "b12-erro", "id_unidade": 1, "paciente": {"nome": "Paciente B12 ERRO"}, "avaliacao_clinica": {"frequencia_cardiaca": 2 ** 70}},
+        {"uuid_offline": "b12-ok-2", "id_unidade": 1, "paciente": {"nome": "Paciente B12 OK 2"}, "utensilios_gastos": {"material_trauma": True}},
+    ]}
+    res_lote = client.post("/api/sync/lote", headers=headers_enf2, json=lote)
+    print("22. Sync lote com item inválido no meio:", res_lote.status_code, res_lote.json() if res_lote.status_code == 200 else res_lote.text[:80])
+    assert res_lote.status_code == 200
+    assert res_lote.json()["sucessos"] == 2 and len(res_lote.json()["erros"]) == 1
+    assert "b12-erro" in res_lote.json()["erros"][0]
+
+    from models import Paciente, AvaliacaoClinica, Utensilios
+    db = SessionLocal()
+    try:
+        uuids = {f.uuid_offline for f in db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline.like("b12-%"))}
+        pacientes = {p.nome for p in db.query(Paciente).filter(Paciente.nome.like("Paciente B12%"))}
+        print("22. Fichas gravadas:", sorted(uuids), "| Pacientes gravados:", sorted(pacientes))
+        assert uuids == {"b12-ok-1", "b12-ok-2"}
+        # Nada do item com erro ficou pela metade no banco (nem o paciente, nem a ficha)
+        assert pacientes == {"Paciente B12 OK 1", "Paciente B12 OK 2"}
+        ficha_ok1 = db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b12-ok-1").one()
+        ficha_ok2 = db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b12-ok-2").one()
+        assert db.query(AvaliacaoClinica).filter(AvaliacaoClinica.id_ficha == ficha_ok1.id_ficha).count() == 1
+        assert db.query(Utensilios).filter(Utensilios.id_ficha == ficha_ok2.id_ficha).count() == 1
+    finally:
+        db.close()
+
+    # 23. B12: reenviar o lote é seguro (os já gravados são ignorados; o item com erro continua com erro)
+    res_reenvio = client.post("/api/sync/lote", headers=headers_enf2, json=lote)
+    print("23. Reenvio do mesmo lote:", res_reenvio.status_code, res_reenvio.json())
+    assert res_reenvio.json()["duplicados_ignorados"] == 2 and len(res_reenvio.json()["erros"]) == 1
+
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")
