@@ -92,8 +92,25 @@ def root():
         "versao": "1.0.0"
     }
 
+def variavel_booleana(nome: str, padrao: bool = False) -> bool:
+    """Lê uma variável de ambiente como booleano (true/1/sim/yes/on)."""
+    valor = os.getenv(nome)
+    if valor is None:
+        return padrao
+    return valor.strip().lower() in ("true", "1", "sim", "yes", "on")
+
 if __name__ == "__main__":
-    host = os.getenv("HOST", "0.0.0.0")
+    # DEBUG=true: recarrega o servidor ao salvar arquivos (somente desenvolvimento)
+    debug = variavel_booleana("DEBUG")
+    # Padrão 127.0.0.1: só aceita conexões da própria máquina.
+    # Use HOST=0.0.0.0 para aceitar conexões da rede (ex.: testar no tablet ou em produção atrás de proxy).
+    host = os.getenv("HOST", "127.0.0.1")
     port = int(os.getenv("PORT", 8000))
-    print(f"\n[INFO] Iniciando servidor FastAPI em http://{host}:{port} ...")
-    uvicorn.run("main:app", host=host, port=port, reload=True)
+    print(f"\n[INFO] Iniciando servidor FastAPI em http://{host}:{port} (DEBUG={'ativo' if debug else 'desativado'}) ...")
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=debug,
+        log_level="debug" if debug else "info",
+    )
