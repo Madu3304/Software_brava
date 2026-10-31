@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from database import get_db
-from dependencies import get_usuario_atual
-from models import FichaAtendimento
+from dependencies import get_usuario_atual, obter_ip_origem
+from models import FichaAtendimento, Usuario
 from schemas import SyncLoteRequest, SyncLoteResponse
 from services.sync_service import processar_pacote_sync_offline
 
@@ -16,13 +16,24 @@ router = APIRouter(
 # Exclusivo do Mobile. Recebe pacotes de dados gravados em lote pelo SQLite offline, garantindo idempotência via uuid_offline para evitar duplicações.
 
 @router.post("/lote", response_model=SyncLoteResponse, status_code=status.HTTP_200_OK)
-def sincronizar_lote_offline(payload: SyncLoteRequest, db: Session = Depends(get_db)):
+def sincronizar_lote_offline(
+    payload: SyncLoteRequest,
+    request: Request,
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
+):
     """
     Recebe pacote em lote de fichas gravadas no SQLite local do tablet
     durante o modo offline e persiste no PostgreSQL central (RN06 e Modelo C4).
     Garante idempotência verificando o uuid_offline para não duplicar atendimentos.
+    O profissional responsável pelas fichas é o usuário autenticado pelo token.
     """
-    return processar_pacote_sync_offline(db=db, itens=payload.fichas)
+    return processar_pacote_sync_offline(
+        db=db,
+        itens=payload.fichas,
+        id_responsavel=usuario.id_usuario,
+        ip_origem=obter_ip_origem(request),
+    )
 
 @router.get("/status")
 def get_sync_status(db: Session = Depends(get_db)):

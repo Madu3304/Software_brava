@@ -128,4 +128,61 @@ with TestClient(app) as client:
     print("13. Login formulário OAuth2:", res_form.status_code)
     assert res_form.status_code == 200
 
+    # 14. Auditoria: não existe mais POST público em /api/logs (405)
+    res_log_falso = client.post("/api/logs/", headers=headers_admin, json={"id_usuario": 2, "acao": "LOG_FALSO", "ip_origem": "1.2.3.4"})
+    print("14. POST /api/logs (removido):", res_log_falso.status_code)
+    assert res_log_falso.status_code == 405
+
+    # 15. Ficha: o responsável é sempre o usuário do token, mesmo que o corpo informe outro
+    ficha = {
+        "id_unidade": 1,
+        "id_medico": 1,
+        "id_responsavel": id_admin,  # tentativa de se passar por outro usuário: deve ser ignorada
+        "paciente": {"nome": "Paciente Teste", "idade": 40},
+        "avaliacao_clinica": {"pressao_arterial": "120/80"},
+    }
+    res_ficha = client.post("/api/fichas/", headers=headers_enf, json=ficha)
+    print("15. Criar ficha:", res_ficha.status_code)
+    assert res_ficha.status_code == 201
+    id_ficha = res_ficha.json()["id_ficha"]
+
+    # 16. Sync: o responsável também vem do token
+    res_sync = client.post("/api/sync/lote", headers=headers_enf, json={"fichas": [
+        {"uuid_offline": "uuid-teste-b8", "id_unidade": 1, "id_responsavel": id_admin}
+    ]})
+    print("16. Sync lote:", res_sync.status_code, res_sync.json())
+    assert res_sync.status_code == 200 and res_sync.json()["sucessos"] == 1
+
+    # 17. Logout usa o usuário do token
+    res_logout = client.post("/api/auth/logout", headers=headers_enf)
+    print("17. Logout:", res_logout.status_code)
+    assert res_logout.status_code == 200
+
+    # 18. Confere no banco: fichas e logs registrados com o usuário do token e o IP da conexão
+    from database import SessionLocal
+    from models import FichaAtendimento, LogAuditoria
+    db = SessionLocal()
+    try:
+        responsaveis = {
+            f.uuid_offline or f.id_ficha: f.id_responsavel
+            for f in db.query(FichaAtendimento).filter(
+                (FichaAtendimento.id_ficha == id_ficha) | (FichaAtendimento.uuid_offline == "uuid-teste-b8")
+            )
+        }
+        print("18. Responsáveis das fichas:", responsaveis)
+        assert set(responsaveis.values()) == {id_enf}
+
+        for acao in ["CRIAR_FICHA", "SYNC_OFFLINE_LOTE", "LOGOUT"]:
+            log = db.query(LogAuditoria).filter(LogAuditoria.acao == acao).order_by(LogAuditoria.id_log.desc()).first()
+            print(f"18. Log {acao}: usuario={log.id_usuario} ip={log.ip_origem}")
+            assert log.id_usuario == id_enf and log.ip_origem == "testclient"
+
+        log_criar = db.query(LogAuditoria).filter(LogAuditoria.acao == "CRIAR_USUARIO").first()
+        print(f"18. Log CRIAR_USUARIO: usuario={log_criar.id_usuario} (admin={id_admin})")
+        assert log_criar.id_usuario == id_admin
+
+        assert db.query(LogAuditoria).filter(LogAuditoria.acao == "LOG_FALSO").count() == 0
+    finally:
+        db.close()
+
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")

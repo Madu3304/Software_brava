@@ -231,9 +231,9 @@ class AvaliacaoClinicaResumoSchema(BaseModel):
 # ==========================================
 
 class FichaAtendimentoCreate(BaseModel):
+    # O profissional responsável (RN10) é o usuário do token; não é enviado no corpo.
     uuid_offline: Optional[str] = None
     id_unidade: int
-    id_responsavel: int
     id_condutor: Optional[int] = None
     id_paciente: Optional[int] = None
     id_tecnico: Optional[int] = None
@@ -301,9 +301,9 @@ class FichaDetalhadaReposicaoResponse(BaseModel):
 # ==========================================
 
 class FichaSyncItem(BaseModel):
+    # O profissional responsável (RN10) é o usuário do token; não é enviado no corpo.
     uuid_offline: str
     id_unidade: int
-    id_responsavel: int
     id_condutor: Optional[int] = None
     id_tecnico: Optional[int] = None
     id_medico: Optional[int] = None
@@ -356,12 +356,6 @@ class DashboardMetricasGeraisResponse(BaseModel):
 # ==========================================
 # SCHEMAS DE LOG DE AUDITORIA (RNF05)
 # ==========================================
-
-class LogAuditoriaCreate(BaseModel):
-    id_usuario: Optional[int] = None
-    acao: str
-    detalhes_metadados: Optional[str] = None
-    ip_origem: Optional[str] = None
 
 class LogAuditoriaResponse(BaseModel):
     id_log: int

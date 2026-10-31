@@ -4,8 +4,11 @@ Dependências de Autenticação e Autorização (Modelo C4 - Nível 4)
 Uso nos controllers:
 - Depends(get_usuario_atual): exige token JWT válido e devolve o usuário logado
 - Depends(exigir_perfil("ADMINISTRADOR")): exige token válido e perfil autorizado (RBAC)
+- obter_ip_origem(request): IP de origem da conexão, para a auditoria
+
+O usuário e o IP registrados na auditoria vêm sempre do token e da conexão, nunca do corpo da requisição.
 """
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -16,6 +19,10 @@ from services.security_service import (
     decodificar_token_acesso,
     validar_permissao_perfil,
 )
+
+def obter_ip_origem(request: Request) -> str | None:
+    """IP de origem da requisição (atrás de proxy, rode o uvicorn com --proxy-headers)."""
+    return request.client.host if request.client else None
 
 # tokenUrl aponta para o endpoint de formulário usado pelo botão "Authorize" do Swagger (/docs)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from database import get_db
-from dependencies import get_usuario_atual
+from dependencies import get_usuario_atual, obter_ip_origem
 from models import Usuario
 from schemas import LoginRequest, TokenResponse, UsuarioResponse, TrocarSenhaRequest
 from services.security_service import (
@@ -56,7 +56,7 @@ def autenticar_usuario(login: str, senha: str, request: Request, db: Session) ->
     token = gerar_token_acesso(usuario.id_usuario, usuario.login, usuario.perfil)
 
     # Registra Log de Auditoria de Login (RNF05 / Modelo C4)
-    ip_origem = request.client.host if request.client else "127.0.0.1"
+    ip_origem = obter_ip_origem(request)
     registrar_auditoria(
         db=db,
         acao=f"LOGIN_{redirecionamento}",
@@ -131,7 +131,7 @@ def trocar_senha(req: TrocarSenhaRequest, request: Request, db: Session = Depend
     usuario.trocar_senha = False
     db.commit()
 
-    ip_origem = request.client.host if request.client else "127.0.0.1"
+    ip_origem = obter_ip_origem(request)
     registrar_auditoria(
         db=db,
         acao="TROCAR_SENHA",
@@ -148,7 +148,7 @@ def logout(
     db: Session = Depends(get_db),
 ):
     """Encerra a sessão e registra log de auditoria."""
-    ip_origem = request.client.host if request.client else "127.0.0.1"
+    ip_origem = obter_ip_origem(request)
     registrar_auditoria(
         db=db,
         acao="LOGOUT",

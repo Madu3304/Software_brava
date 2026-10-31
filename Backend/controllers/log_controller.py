@@ -5,7 +5,7 @@ from typing import List, Optional
 from database import get_db
 from dependencies import exigir_perfil
 from models import LogAuditoria
-from schemas import LogAuditoriaCreate, LogAuditoriaResponse
+from schemas import LogAuditoriaResponse
 
 # Rotas restritas ao perfil ADMINISTRADOR (token JWT obrigatório)
 router = APIRouter(
@@ -15,6 +15,7 @@ router = APIRouter(
 )
 
 #Trilhas de auditoria das operações, acessos e alterações em conformidade com a LGPD
+# Somente leitura: os registros são gravados pelo próprio backend (log_service), nunca enviados pelo cliente.
 
 @router.get("/", response_model=List[LogAuditoriaResponse])
 def listar_logs_auditoria(
@@ -34,17 +35,3 @@ def listar_logs_auditoria(
         query = query.filter(LogAuditoria.id_usuario == id_usuario)
 
     return query.order_by(LogAuditoria.data_hora.desc()).limit(limite).all()
-
-@router.post("/", response_model=LogAuditoriaResponse, status_code=status.HTTP_201_CREATED)
-def registrar_log(dados: LogAuditoriaCreate, db: Session = Depends(get_db)):
-    """Registra manualmente um evento de auditoria no sistema."""
-    log = LogAuditoria(
-        id_usuario=dados.id_usuario,
-        acao=dados.acao,
-        detalhes_metadados=dados.detalhes_metadados,
-        ip_origem=dados.ip_origem,
-    )
-    db.add(log)
-    db.commit()
-    db.refresh(log)
-    return log

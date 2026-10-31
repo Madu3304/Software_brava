@@ -4,7 +4,7 @@ Módulo de Sincronização Offline (Modelo C4 - Níveis 3 e 4)
 Componente: Sync Controller / Service
 Responsabilidade: Processamento de cargas de dados em lote originadas do SQLite do Aplicativo Mobile.
 """
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -12,9 +12,15 @@ from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, Log
 from schemas import FichaSyncItem, SyncLoteResponse
 from services.integration_service import transmitir_atendimento_para_prefeitura
 
-def processar_pacote_sync_offline(db: Session, itens: List[FichaSyncItem]) -> SyncLoteResponse:
+def processar_pacote_sync_offline(
+    db: Session,
+    itens: List[FichaSyncItem],
+    id_responsavel: int,
+    ip_origem: Optional[str] = None,
+) -> SyncLoteResponse:
     """
     Persiste lote de fichas com integridade relacional e idempotência baseada no uuid_offline.
+    id_responsavel e ip_origem vêm do token e da conexão (nunca do corpo da requisição).
     Ao final de cada persistência, encaminha o atendimento para o Integration Service.
     """
     processados = len(itens)
@@ -59,7 +65,7 @@ def processar_pacote_sync_offline(db: Session, itens: List[FichaSyncItem]) -> Sy
             ficha = FichaAtendimento(
                 uuid_offline=item.uuid_offline,
                 id_unidade=item.id_unidade,
-                id_responsavel=item.id_responsavel,
+                id_responsavel=id_responsavel,
                 id_condutor=item.id_condutor,
                 id_paciente=id_paciente_criado,
                 id_tecnico=item.id_tecnico,
@@ -136,6 +142,8 @@ def processar_pacote_sync_offline(db: Session, itens: List[FichaSyncItem]) -> Sy
 
     # 7. Registra auditoria
     log = LogAuditoria(
+        id_usuario=id_responsavel,
+        ip_origem=ip_origem,
         acao="SYNC_OFFLINE_LOTE",
         detalhes_metadados=f"Sincronização em lote finalizada. Processados: {processados}, Sucessos: {sucessos}, Duplicados: {duplicados}, Erros: {len(erros)}."
     )
