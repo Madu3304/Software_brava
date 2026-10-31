@@ -3,10 +3,16 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from database import get_db
+from dependencies import exigir_perfil
 from models import LogAuditoria
 from schemas import LogAuditoriaCreate, LogAuditoriaResponse
 
-router = APIRouter(prefix="/logs", tags=["Auditoria e Rastreabilidade LGPD (RNF05 / Modelo C4)"])
+# Rotas restritas ao perfil ADMINISTRADOR (token JWT obrigatório)
+router = APIRouter(
+    prefix="/logs",
+    tags=["Auditoria e Rastreabilidade LGPD (RNF05 / Modelo C4)"],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
 
 #Trilhas de auditoria das operações, acessos e alterações em conformidade com a LGPD
 
