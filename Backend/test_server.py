@@ -357,4 +357,66 @@ with TestClient(app) as client:
     finally:
         db.close()
 
+    # 28. B14: filtros de unidade e data e paginação em GET /api/fichas/
+    res_unidade2 = client.post("/api/fichas/", headers=headers_enf2, json={"id_unidade": 2, "id_medico": 1, "paciente": {"nome": "Paciente B14 Unidade 2"}})
+    assert res_unidade2.status_code == 201
+    id_ficha_unidade2 = res_unidade2.json()["id_ficha"]
+
+    res_todas = client.get("/api/fichas/", headers=headers_admin, params={"limit": 200})
+    total = int(res_todas.headers["x-total-count"])
+    print("28. Todas as fichas:", len(res_todas.json()), "| X-Total-Count:", total)
+    assert len(res_todas.json()) == total and total >= 5
+    datas = [f["data_atendimento"] for f in res_todas.json()]
+    assert datas == sorted(datas, reverse=True)  # mais recentes primeiro
+
+    res_u2 = client.get("/api/fichas/", headers=headers_admin, params={"id_unidade": 2})
+    print("28.1 Filtro id_unidade=2:", [f["id_ficha"] for f in res_u2.json()], "| total:", res_u2.headers["x-total-count"])
+    assert [f["id_ficha"] for f in res_u2.json()] == [id_ficha_unidade2] and res_u2.headers["x-total-count"] == "1"
+    res_u1 = client.get("/api/fichas/", headers=headers_admin, params={"id_unidade": 1, "limit": 200})
+    assert id_ficha_unidade2 not in [f["id_ficha"] for f in res_u1.json()]
+    assert int(res_u1.headers["x-total-count"]) == total - 1
+
+    dia_ficha = res_unidade2.json()["data_atendimento"][:10]
+    res_dia = client.get("/api/fichas/", headers=headers_admin, params={"data": dia_ficha, "limit": 200})
+    print(f"28.2 Filtro data={dia_ficha}:", len(res_dia.json()), "fichas")
+    assert id_ficha_unidade2 in [f["id_ficha"] for f in res_dia.json()]
+    assert all(f["data_atendimento"].startswith(dia_ficha) for f in res_dia.json())
+    res_dia_antigo = client.get("/api/fichas/", headers=headers_admin, params={"data": "2020-01-01"})
+    print("28.3 Filtro data=2020-01-01:", res_dia_antigo.json(), "| total:", res_dia_antigo.headers["x-total-count"])
+    assert res_dia_antigo.json() == [] and res_dia_antigo.headers["x-total-count"] == "0"
+    # Uma ficha de outro dia: o filtro de data devolve só ela, e o dia de hoje deixa de incluí-la
+    from datetime import datetime as _dt
+    db = SessionLocal()
+    try:
+        db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b13-sync").update(
+            {FichaAtendimento.data_atendimento: _dt(2025, 1, 15, 23, 59)}
+        )
+        db.commit()
+        id_ficha_antiga = db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b13-sync").one().id_ficha
+    finally:
+        db.close()
+    res_dia_15 = client.get("/api/fichas/", headers=headers_admin, params={"data": "2025-01-15"})
+    print("28.2 Filtro data=2025-01-15:", [f["id_ficha"] for f in res_dia_15.json()])
+    assert [f["id_ficha"] for f in res_dia_15.json()] == [id_ficha_antiga]
+    assert client.get("/api/fichas/", headers=headers_admin, params={"data": "2025-01-16"}).json() == []
+    res_hoje = client.get("/api/fichas/", headers=headers_admin, params={"data": dia_ficha, "limit": 200})
+    assert id_ficha_antiga not in [f["id_ficha"] for f in res_hoje.json()]
+    assert int(res_hoje.headers["x-total-count"]) == total - 1
+
+    res_combinado = client.get("/api/fichas/", headers=headers_admin, params={"data": dia_ficha, "id_unidade": 2})
+    assert [f["id_ficha"] for f in res_combinado.json()] == [id_ficha_unidade2]
+
+    pagina1 = client.get("/api/fichas/", headers=headers_admin, params={"skip": 0, "limit": 2}).json()
+    pagina2 = client.get("/api/fichas/", headers=headers_admin, params={"skip": 2, "limit": 2}).json()
+    ids_paginas = [f["id_ficha"] for f in pagina1 + pagina2]
+    print("28.4 Página 1 e 2 (limit=2):", ids_paginas)
+    assert len(pagina1) == 2 and len(pagina2) == 2 and len(set(ids_paginas)) == 4
+    ordem_atual = [f["id_ficha"] for f in client.get("/api/fichas/", headers=headers_admin, params={"limit": 200}).json()]
+    assert ids_paginas == ordem_atual[:4]
+
+    for params in [{"data": "31/10/2026"}, {"limit": 0}, {"limit": 500}, {"skip": -1}]:
+        res_invalido = client.get("/api/fichas/", headers=headers_admin, params=params)
+        print(f"28.5 Parâmetro inválido {params}:", res_invalido.status_code)
+        assert res_invalido.status_code == 422
+
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")

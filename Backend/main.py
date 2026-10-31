@@ -89,6 +89,8 @@ app.add_middleware(
     allow_credentials="*" not in CORS_ORIGINS,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
+    # Permite ao Flutter Web ler o total da paginação (GET /api/fichas/)
+    expose_headers=["X-Total-Count"],
 )
 
 # Limite de tentativas nas rotas de autenticação (rate_limit.py)

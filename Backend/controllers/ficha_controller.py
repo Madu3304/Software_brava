@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status, Response
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime
+from datetime import date, datetime
 
 from database import get_db
 from dependencies import get_usuario_atual, exigir_perfil, obter_ip_origem
@@ -19,6 +19,7 @@ from services.ficha_service import (
     listar_fichas_com_sinais_vitais,
     buscar_ficha_consolidada_reposicao,
     listar_fichas_para_reposicao,
+    contar_fichas,
     registrar_reposicao_utensilios,
     obter_metricas_reposicao_dashboard,
 )
@@ -46,18 +47,26 @@ router = APIRouter(
 
 @router.get("/", response_model=List[FichaDetalhadaReposicaoResponse])
 def listar_fichas(
+    response: Response,
     id_unidade: Optional[int] = Query(None, description="Filtrar por unidade móvel"),
-    data: Optional[str] = Query(None, description="Filtrar por data (YYYY-MM-DD)"),
+    data: Optional[date] = Query(None, description="Filtrar por data do atendimento (YYYY-MM-DD)"),
+    skip: int = Query(0, ge=0, description="Quantidade de registros a pular (paginação)"),
+    limit: int = Query(50, ge=1, le=200, description="Quantidade máxima de registros por página (1 a 200)"),
     db: Session = Depends(get_db)
 ):
     """
-    Lista fichas de atendimento permitindo busca por data ou unidade (RF08).
+    Lista fichas de atendimento permitindo busca por data ou unidade (RF08), da mais recente para a mais antiga.
+    Paginação com skip/limit; o total de fichas com os filtros aplicados vem no header X-Total-Count.
     """
-    fichas = listar_fichas_para_reposicao(db, apenas_pendentes=False)
-    if id_unidade:
-        # Filtra por id da unidade caso necessário
-        pass
-    return fichas
+    response.headers["X-Total-Count"] = str(contar_fichas(db, id_unidade=id_unidade, data=data))
+    return listar_fichas_para_reposicao(
+        db,
+        apenas_pendentes=False,
+        id_unidade=id_unidade,
+        data=data,
+        skip=skip,
+        limit=limit,
+    )
 
 @router.get("/resumo", response_model=List[FichaResumoResponse])
 def get_resumo_fichas(db: Session = Depends(get_db)):
