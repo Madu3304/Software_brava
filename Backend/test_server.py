@@ -9,6 +9,8 @@ os.environ["APP_ENV"] = "development"
 os.environ.setdefault("ADMIN_PASSWORD", "admin123")
 os.environ.setdefault("EQUIPE_PASSWORD", "brava123")
 os.environ["CORS_ORIGINS"] = "http://localhost:8080"
+# Limite de tentativas de autenticação usado no teste (o passo 21 confere o bloqueio)
+os.environ["LOGIN_RATE_LIMIT"] = "20/minute"
 SENHA_ADMIN = os.environ["ADMIN_PASSWORD"]
 SENHA_EQUIPE = os.environ["EQUIPE_PASSWORD"]
 
@@ -184,5 +186,44 @@ with TestClient(app) as client:
         assert db.query(LogAuditoria).filter(LogAuditoria.acao == "LOG_FALSO").count() == 0
     finally:
         db.close()
+
+    # 19. B9: login inexistente, senha errada e usuário inativo recebem a mesma resposta (401)
+    id_teste = res_novo.json()["id_usuario"]
+    res_inativar = client.put(f"/api/usuarios/{id_teste}", headers=headers_admin, json={"ativo": False})
+    assert res_inativar.status_code == 200
+    respostas = {
+        "inexistente": client.post("/api/auth/login", json={"login": "nao_existe", "senha": "qualquer123"}),
+        "senha errada": client.post("/api/auth/login", json={"login": "admin", "senha": "senha_errada"}),
+        "inativo": client.post("/api/auth/login", json={"login": "teste", "senha": "SenhaInicial#1"}),
+    }
+    for caso, res in respostas.items():
+        print(f"19. Login {caso}:", res.status_code, res.json())
+        assert res.status_code == 401
+        assert res.json() == {"detail": "Credenciais inválidas."}
+
+    # 20. B9: as tentativas que falharam ficam registradas na auditoria
+    db = SessionLocal()
+    try:
+        falhas = db.query(LogAuditoria).filter(LogAuditoria.acao == "LOGIN_FALHA").all()
+        print("20. Logs LOGIN_FALHA:", [(f.id_usuario, f.detalhes_metadados) for f in falhas])
+        detalhes = " | ".join(f.detalhes_metadados for f in falhas)
+        assert "'nao_existe'" in detalhes and "senha incorreta" in detalhes and "usuário inativo" in detalhes
+        assert all(f.ip_origem == "testclient" for f in falhas)
+    finally:
+        db.close()
+
+    # 21. B9: depois do limite de tentativas (LOGIN_RATE_LIMIT), o login é bloqueado (429)
+    status_tentativas = [
+        client.post("/api/auth/login", json={"login": "admin", "senha": "senha_errada"}).status_code
+        for _ in range(25)
+    ]
+    print("21. Tentativas seguidas:", status_tentativas)
+    assert 429 in status_tentativas
+    res_bloqueado = client.post("/api/auth/login", json={"login": "admin", "senha": nova_senha_admin})
+    print("21. Login correto durante o bloqueio:", res_bloqueado.status_code, res_bloqueado.json())
+    assert res_bloqueado.status_code == 429
+    res_token_bloqueado = client.post("/api/auth/token", data={"username": "admin", "password": nova_senha_admin})
+    print("21. /token durante o bloqueio (limite compartilhado):", res_token_bloqueado.status_code)
+    assert res_token_bloqueado.status_code == 429
 
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")

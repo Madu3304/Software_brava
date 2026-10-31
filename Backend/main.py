@@ -7,6 +7,8 @@ from sqlalchemy import inspect, text
 
 from database import engine, Base, SessionLocal
 from controllers import api_router
+from rate_limit import limiter, tratar_limite_excedido
+from slowapi.errors import RateLimitExceeded
 from seed import seed_initial_data
 
 # Ambiente de execução: a carga inicial de dados (seed) só roda em desenvolvimento
@@ -73,6 +75,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# Limite de tentativas nas rotas de autenticação (rate_limit.py)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, tratar_limite_excedido)
 
 # Registra todos os módulos de controllers da aplicação sob o prefixo /api
 app.include_router(api_router)

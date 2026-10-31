@@ -14,30 +14,41 @@ from services.security_service import (
     obter_redirecionamento_por_perfil,
 )
 from services.log_service import registrar_auditoria
+from rate_limit import limite_autenticacao
 
 # Gerencia autenticação e aplica regra de redirecionamento por perfil: Administrador vs Mobile
 router = APIRouter(prefix="/auth", tags=["Autenticação e Sessão (C4 Nível 3/4)"])
+
+# Mensagem única para login inexistente, senha errada ou usuário inativo:
+# a resposta não revela se o login existe (B9)
+MENSAGEM_CREDENCIAIS_INVALIDAS = "Credenciais inválidas."
+
+def recusar_credenciais(db: Session, request: Request, acao: str, login: str, motivo: str, usuario: Usuario | None):
+    """Registra a tentativa que falhou na auditoria e responde sempre com a mesma mensagem (401)."""
+    registrar_auditoria(
+        db=db,
+        acao=acao,
+        detalhes=f"Tentativa recusada para o login '{login[:50]}'. Motivo: {motivo}.",
+        id_usuario=usuario.id_usuario if usuario else None,
+        ip_origem=obter_ip_origem(request),
+    )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=MENSAGEM_CREDENCIAIS_INVALIDAS,
+    )
 
 def autenticar_usuario(login: str, senha: str, request: Request, db: Session) -> TokenResponse:
     """Valida as credenciais, gera o JWT e registra a auditoria do login."""
     usuario = db.query(Usuario).filter(Usuario.login == login).first()
     if not usuario:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas: usuário não encontrado."
-        )
-
-    if not usuario.ativo:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuário inativo. Contate o Administrador."
-        )
+        recusar_credenciais(db, request, "LOGIN_FALHA", login, "usuário não encontrado", None)
 
     if not verificar_senha(senha, usuario.senha_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas: senha incorreta."
-        )
+        recusar_credenciais(db, request, "LOGIN_FALHA", login, "senha incorreta", usuario)
+
+    # O status de inativo só é verificado depois da senha, para não revelar quais logins existem
+    if not usuario.ativo:
+        recusar_credenciais(db, request, "LOGIN_FALHA", login, "usuário inativo", usuario)
 
     # Primeiro acesso ou senha redefinida pelo Administrador: exige troca antes de liberar o acesso
     if usuario.trocar_senha:
@@ -76,6 +87,7 @@ def autenticar_usuario(login: str, senha: str, request: Request, db: Session) ->
     )
 
 @router.post("/login", response_model=TokenResponse)
+@limite_autenticacao
 def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """
     Autentica usuários (Administrador ou Equipe de Campo).
@@ -89,6 +101,7 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     return autenticar_usuario(req.login, req.senha, request, db)
 
 @router.post("/token", response_model=TokenResponse)
+@limite_autenticacao
 def login_formulario(
     request: Request,
     form: OAuth2PasswordRequestForm = Depends(),
@@ -103,23 +116,21 @@ def usuario_logado(usuario: Usuario = Depends(get_usuario_atual)):
     return usuario
 
 @router.post("/trocar-senha")
+@limite_autenticacao
 def trocar_senha(req: TrocarSenhaRequest, request: Request, db: Session = Depends(get_db)):
     """
     Troca a senha do usuário (obrigatória no primeiro acesso ou após redefinição pelo Administrador).
     Exige login e senha atual. A nova senha deve ter no mínimo 8 caracteres e ser diferente da atual.
     """
     usuario = db.query(Usuario).filter(Usuario.login == req.login).first()
-    if not usuario or not verificar_senha(req.senha_atual, usuario.senha_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas."
-        )
+    if not usuario:
+        recusar_credenciais(db, request, "TROCAR_SENHA_FALHA", req.login, "usuário não encontrado", None)
+
+    if not verificar_senha(req.senha_atual, usuario.senha_hash):
+        recusar_credenciais(db, request, "TROCAR_SENHA_FALHA", req.login, "senha atual incorreta", usuario)
 
     if not usuario.ativo:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuário inativo. Contate o Administrador."
-        )
+        recusar_credenciais(db, request, "TROCAR_SENHA_FALHA", req.login, "usuário inativo", usuario)
 
     if req.nova_senha == req.senha_atual:
         raise HTTPException(
