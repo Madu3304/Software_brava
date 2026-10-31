@@ -19,6 +19,11 @@ class TokenResponse(BaseModel):
     perfil: str # 'ADMINISTRADOR', 'ENFERMEIRO', 'TECNICO', 'CONDUTOR'
     redirecionamento: str # 'WEB' (para Administrador) ou 'MOBILE' (para equipe de campo)
 
+class TrocarSenhaRequest(BaseModel):
+    login: str
+    senha_atual: str
+    nova_senha: str = Field(..., min_length=8, description="Mínimo de 8 caracteres")
+
 class UsuarioBase(BaseModel):
     nome: str
     email: Optional[str] = None
@@ -40,6 +45,7 @@ class UsuarioUpdate(BaseModel):
 
 class UsuarioResponse(UsuarioBase):
     id_usuario: int
+    trocar_senha: bool = False
     criado_em: Optional[datetime] = None
 
     class Config:
@@ -225,9 +231,9 @@ class AvaliacaoClinicaResumoSchema(BaseModel):
 # ==========================================
 
 class FichaAtendimentoCreate(BaseModel):
+    # O profissional responsável (RN10) é o usuário do token; não é enviado no corpo.
     uuid_offline: Optional[str] = None
     id_unidade: int
-    id_responsavel: int
     id_condutor: Optional[int] = None
     id_paciente: Optional[int] = None
     id_tecnico: Optional[int] = None
@@ -279,6 +285,8 @@ class FichaDetalhadaReposicaoResponse(BaseModel):
     id_ficha: int
     uuid_offline: Optional[str] = None
     data_atendimento: Optional[datetime] = None
+    status_envio_prefeitura: Optional[str] = None # 'PENDENTE', 'ENVIADO', 'ERRO' (RF06)
+    protocolo_prefeitura: Optional[str] = None
     placa_unidade: Optional[str] = None
     bairro: Optional[str] = None
     nome_paciente: Optional[str] = "Não informado"
@@ -295,9 +303,9 @@ class FichaDetalhadaReposicaoResponse(BaseModel):
 # ==========================================
 
 class FichaSyncItem(BaseModel):
+    # O profissional responsável (RN10) é o usuário do token; não é enviado no corpo.
     uuid_offline: str
     id_unidade: int
-    id_responsavel: int
     id_condutor: Optional[int] = None
     id_tecnico: Optional[int] = None
     id_medico: Optional[int] = None
@@ -316,6 +324,16 @@ class FichaSyncItem(BaseModel):
     paciente: Optional[PacienteCreate] = None
     avaliacao_clinica: Optional[AvaliacaoClinicaResumoSchema] = None
     utensilios_gastos: Optional[UtensiliosGastosSchema] = None
+
+class IntegracaoStatusResponse(BaseModel):
+    pendentes: int
+    enviados: int
+    com_erro: int
+    fichas_com_erro: List[Dict[str, Any]]
+
+class IntegracaoReenvioResponse(BaseModel):
+    fichas_agendadas: int
+    mensagem: str
 
 class SyncLoteRequest(BaseModel):
     fichas: List[FichaSyncItem]
@@ -350,12 +368,6 @@ class DashboardMetricasGeraisResponse(BaseModel):
 # ==========================================
 # SCHEMAS DE LOG DE AUDITORIA (RNF05)
 # ==========================================
-
-class LogAuditoriaCreate(BaseModel):
-    id_usuario: Optional[int] = None
-    acao: str
-    detalhes_metadados: Optional[str] = None
-    ip_origem: Optional[str] = None
 
 class LogAuditoriaResponse(BaseModel):
     id_log: int

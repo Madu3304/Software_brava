@@ -91,6 +91,8 @@ def buscar_ficha_consolidada_reposicao(db: Session, id_ficha: int) -> Optional[F
     return FichaDetalhadaReposicaoResponse(
         id_ficha=ficha.id_ficha,
         data_atendimento=ficha.data_atendimento,
+        status_envio_prefeitura=ficha.status_envio_prefeitura,
+        protocolo_prefeitura=ficha.protocolo_prefeitura,
         placa_unidade=unidade.placa if unidade else None,
         nome_paciente=paciente.nome if paciente else "Não informado",
         idade_paciente=paciente.idade if paciente else None,
@@ -162,6 +164,8 @@ def listar_fichas_para_reposicao(db: Session, apenas_pendentes: bool = True) -> 
             FichaDetalhadaReposicaoResponse(
                 id_ficha=ficha.id_ficha,
                 data_atendimento=ficha.data_atendimento,
+                status_envio_prefeitura=ficha.status_envio_prefeitura,
+                protocolo_prefeitura=ficha.protocolo_prefeitura,
                 placa_unidade=unidade.placa if unidade else None,
                 nome_paciente=paciente.nome if paciente else "Não informado",
                 idade_paciente=paciente.idade if paciente else None,

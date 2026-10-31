@@ -19,7 +19,7 @@ def registrar_auditoria(
     acao: str,
     detalhes: str,
     id_usuario: Optional[int] = None,
-    ip_origem: Optional[str] = "127.0.0.1",
+    ip_origem: Optional[str] = None,
 ) -> LogAuditoria:
     """
     Grava evento de auditoria no PostgreSQL e espelha no logger da aplicação.
