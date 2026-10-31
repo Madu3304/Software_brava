@@ -29,4 +29,17 @@ with TestClient(app) as client:
     print("5. Unidades Cadastradas:", len(res_unidades.json()))
     assert len(res_unidades.json()) >= 4
 
+    # 6. Logout registra auditoria (antes quebrava com NameError / erro 500)
+    id_enf = res_enf.json()["id_usuario"]
+    res_logout = client.post("/api/auth/logout", params={"id_usuario": id_enf})
+    print("6. Logout:", res_logout.status_code, res_logout.json())
+    assert res_logout.status_code == 200
+    res_logs = client.get("/api/logs/", params={"acao": "LOGOUT", "id_usuario": id_enf})
+    assert any(log["acao"] == "LOGOUT" for log in res_logs.json())
+
+    # 7. Logout de usuário inexistente retorna 404
+    res_logout_inexistente = client.post("/api/auth/logout", params={"id_usuario": 999999})
+    print("7. Logout usuário inexistente:", res_logout_inexistente.status_code)
+    assert res_logout_inexistente.status_code == 404
+
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")
