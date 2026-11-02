@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, UnidadeMovel
 from schemas import (
+    FichaAtendimentoCreate,
     FichaResumoResponse,
     FichaDetalhadaReposicaoResponse,
     AvaliacaoClinicaResumoSchema,
@@ -12,6 +13,127 @@ from schemas import (
     MarcarReposicaoRequest,
     DashboardReposicaoResumoResponse,
 )
+from services.validation_service import validar_regras_clinicas_ficha, ErroValidacaoClinica
+
+def criar_ficha_completa(
+    db: Session,
+    dados: FichaAtendimentoCreate,
+    id_responsavel: Optional[int] = None,
+) -> FichaAtendimento:
+
+    # 0. Validação clínica e de regras de negócio
+    valido, erros = validar_regras_clinicas_ficha(dados)
+    if not valido:
+        raise ErroValidacaoClinica(erros)
+
+    # 1. Cria ou vincula paciente
+    id_paciente_criado = dados.id_paciente
+    if dados.paciente and not id_paciente_criado:
+        novo_paciente = Paciente(
+            nome=dados.paciente.nome,
+            idade=dados.paciente.idade,
+            sexo=dados.paciente.sexo,
+            documento=dados.paciente.documento,
+            data_nascimento=dados.paciente.data_nascimento,
+            acompanhante=dados.paciente.acompanhante,
+            grau_parentesco=dados.paciente.grau_parentesco,
+            telefone_acompanhante=dados.paciente.telefone_acompanhante,
+            gravidade_previa=dados.paciente.gravidade_previa,
+            historico_clinico=dados.paciente.historico_clinico,
+            alergias=dados.paciente.alergias,
+            medicamentoUso_paciente=dados.paciente.medicamentoUso_paciente,
+            observacao_paciente=dados.paciente.observacao_paciente,
+        )
+        db.add(novo_paciente)
+        db.flush()
+        id_paciente_criado = novo_paciente.id_paciente
+
+    # 2. Cria ficha de atendimento com todos os campos
+    nova_ficha = FichaAtendimento(
+        uuid_offline=dados.uuid_offline,
+        id_unidade=dados.id_unidade,
+        id_responsavel=id_responsavel,
+        id_condutor=dados.id_condutor,
+        id_paciente=id_paciente_criado,
+        id_tecnico=dados.id_tecnico,
+        id_medico=dados.id_medico,
+        id_base=dados.id_base,
+        id_hospital=dados.id_hospital,
+        cep=dados.cep,
+        logradouro=dados.logradouro,
+        bairro=dados.bairro,
+        numero=dados.numero,
+        latitude=dados.latitude,
+        longitude=dados.longitude,
+        gps_endereco_destino=dados.gps_endereco_destino,
+        hora_chamado=dados.hora_chamado or datetime.utcnow(),
+        hora_saida_base=dados.hora_saida_base,
+        hora_chegada_local=dados.hora_chegada_local,
+        hora_saida_local=dados.hora_saida_local,
+        hora_chegada_hospital=dados.hora_chegada_hospital,
+        hora_conclusao=dados.hora_conclusao,
+        codigo_local=dados.codigo_local,
+        unidade_parada=dados.unidade_parada,
+        motivo_unidade_parada=dados.motivo_unidade_parada,
+        observacoes_gerais=dados.observacoes_gerais,
+    )
+    db.add(nova_ficha)
+    db.flush()
+
+    # 3. Cria Avaliação Clínica completa (com Glasgow e AVC)
+    id_avaliacao_criada = None
+    if dados.avaliacao_clinica:
+        nova_avaliacao = AvaliacaoClinica(
+            id_ficha=nova_ficha.id_ficha,
+            id_paciente=id_paciente_criado,
+            pressao_arterial=dados.avaliacao_clinica.pressao_arterial,
+            frequencia_cardiaca=dados.avaliacao_clinica.frequencia_cardiaca,
+            frequencia_respiratoria=dados.avaliacao_clinica.frequencia_respiratoria,
+            saturacao_o2=dados.avaliacao_clinica.saturacao_o2,
+            glicemia=dados.avaliacao_clinica.glicemia,
+            temperatura=dados.avaliacao_clinica.temperatura,
+            escala_glasgow=dados.avaliacao_clinica.escala_glasgow,
+            abertura_ocular=dados.avaliacao_clinica.abertura_ocular,
+            resposta_verbal=dados.avaliacao_clinica.resposta_verbal,
+            resposta_motora=dados.avaliacao_clinica.resposta_motora,
+            hemoglicoteste=dados.avaliacao_clinica.hemoglicoteste,
+            hora_ictus=dados.avaliacao_clinica.hora_ictus,
+            nome_testemunha=dados.avaliacao_clinica.nome_testemunha,
+            usa_anticoagulante=dados.avaliacao_clinica.usa_anticoagulante,
+            assimetria_facial=dados.avaliacao_clinica.assimetria_facial,
+            queda_braco=dados.avaliacao_clinica.queda_braco,
+            fala=dados.avaliacao_clinica.fala,
+            avc_suspeito=dados.avaliacao_clinica.avc_suspeito,
+            material_retido=dados.avaliacao_clinica.material_retido,
+            anotacao_CondutaEnfermeiro=dados.avaliacao_clinica.anotacao_CondutaEnfermeiro,
+            procedimentos_realizados=dados.avaliacao_clinica.procedimentos_realizados,
+            medicacoes_administradas=dados.avaliacao_clinica.medicacoes_administradas,
+            conduta=dados.avaliacao_clinica.conduta,
+        )
+        db.add(nova_avaliacao)
+        db.flush()
+        id_avaliacao_criada = nova_avaliacao.id_avaliacao
+
+    # 4. Cria Utensílios Gastos
+    if dados.utensilios_gastos:
+        novos_utensilios = Utensilios(
+            id_ficha=nova_ficha.id_ficha,
+            id_avaliacao=id_avaliacao_criada,
+            medicamentos_ampolas=dados.utensilios_gastos.medicamentos_ampolas,
+            medicamentos_controlados=dados.utensilios_gastos.medicamentos_controlados,
+            medicamentos_comprimidos=dados.utensilios_gastos.medicamentos_comprimidos,
+            medicamentos_frascoGotas=dados.utensilios_gastos.medicamentos_frascoGotas,
+            anestesico=dados.utensilios_gastos.anestesico,
+            material_infusao=dados.utensilios_gastos.material_infusao,
+            material_sondagem=dados.utensilios_gastos.material_sondagem,
+            material_trauma=dados.utensilios_gastos.material_trauma,
+            materiais_diversos=dados.utensilios_gastos.materiais_diversos,
+            observacoes_reposicao=dados.utensilios_gastos.observacoes_reposicao,
+            reposto=dados.utensilios_gastos.reposto,
+        )
+        db.add(novos_utensilios)
+
+    return nova_ficha
 
 def listar_fichas_com_sinais_vitais(db: Session) -> list[FichaResumoResponse]:
     """Retorna listagem simples de atendimentos com nome do paciente e PA."""
@@ -220,4 +342,4 @@ def obter_metricas_reposicao_dashboard(db: Session) -> DashboardReposicaoResumoR
         total_pendentes_reposicao=total_pendentes,
         total_repostos=total_repostos,
         consumo_por_categoria=consumo,
-    )
+    )

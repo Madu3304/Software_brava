@@ -301,29 +301,8 @@ class FichaDetalhadaReposicaoResponse(BaseModel):
 # ==========================================
 # SCHEMAS DE SINCRONIZAÇÃO OFFLINE (SYNC)
 # ==========================================
-
-class FichaSyncItem(BaseModel):
-    # O profissional responsável (RN10) é o usuário do token; não é enviado no corpo.
-    uuid_offline: str
-    id_unidade: int
-    id_condutor: Optional[int] = None
-    id_tecnico: Optional[int] = None
-    id_medico: Optional[int] = None
-    id_hospital: Optional[int] = None
-    cep: Optional[str] = None
-    logradouro: Optional[str] = None
-    bairro: Optional[str] = None
-    numero: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    hora_chamado: Optional[datetime] = None
-    hora_saida_base: Optional[datetime] = None
-    hora_chegada_local: Optional[datetime] = None
-    hora_conclusao: Optional[datetime] = None
-    observacoes_gerais: Optional[str] = None
-    paciente: Optional[PacienteCreate] = None
-    avaliacao_clinica: Optional[AvaliacaoClinicaResumoSchema] = None
-    utensilios_gastos: Optional[UtensiliosGastosSchema] = None
+class FichaSyncItem(FichaAtendimentoCreate):
+    pass
 
 class IntegracaoStatusResponse(BaseModel):
     pendentes: int
@@ -336,7 +315,7 @@ class IntegracaoReenvioResponse(BaseModel):
     mensagem: str
 
 class SyncLoteRequest(BaseModel):
-    fichas: List[FichaSyncItem]
+    fichas: List[FichaAtendimentoCreate]
 
 class SyncLoteResponse(BaseModel):
     processados: int
@@ -379,4 +358,4 @@ class LogAuditoriaResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
+

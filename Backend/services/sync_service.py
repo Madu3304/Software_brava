@@ -1,29 +1,22 @@
 # Backend/services/sync_service.py
-"""
-Módulo de Sincronização Offline (Modelo C4 - Níveis 3 e 4)
-Componente: Sync Controller / Service
-Responsabilidade: Processamento de cargas de dados em lote originadas do SQLite do Aplicativo Mobile.
-"""
-from typing import List, Optional, Tuple
-from datetime import datetime
+
+from typing import List, Optional, Tuple, Sequence
 from sqlalchemy.orm import Session
 
-from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, LogAuditoria
-from schemas import FichaSyncItem, SyncLoteResponse
+from models import FichaAtendimento, LogAuditoria
+from schemas import FichaAtendimentoCreate, SyncLoteResponse
+from services.ficha_service import criar_ficha_completa
+from services.validation_service import ErroValidacaoClinica
 
 def processar_pacote_sync_offline(
     db: Session,
-    itens: List[FichaSyncItem],
+    itens: Sequence[FichaAtendimentoCreate],
     id_responsavel: int,
     ip_origem: Optional[str] = None,
 ) -> Tuple[SyncLoteResponse, List[int]]:
     """
-    Persiste lote de fichas com integridade relacional e idempotência baseada no uuid_offline.
-    id_responsavel e ip_origem vêm do token e da conexão (nunca do corpo da requisição).
-    Cada item é gravado dentro de um savepoint (begin_nested): um item com erro é desfeito
-    sozinho e entra na lista de erros, sem afetar os demais itens nem o commit final do lote.
-    Retorna o resumo do lote e os ids das fichas criadas. O envio à Prefeitura (RF06) é feito
-    pelo controller DEPOIS do commit, em segundo plano.
+    Usa criar_ficha_completa() dentro de um savepoint (begin_nested) para cada item:
+    valida regras clínicas e salva todos os campos de forma unificada.
     """
     processados = len(itens)
     sucessos = 0
@@ -34,112 +27,32 @@ def processar_pacote_sync_offline(
     for item in itens:
         try:
             # 1. Checagem de idempotência
-            existente = db.query(FichaAtendimento).filter(
-                FichaAtendimento.uuid_offline == item.uuid_offline
-            ).first()
+            if item.uuid_offline:
+                existente = db.query(FichaAtendimento).filter(
+                    FichaAtendimento.uuid_offline == item.uuid_offline
+                ).first()
 
-            if existente:
-                duplicados += 1
-                continue
+                if existente:
+                    duplicados += 1
+                    continue
 
-            # Savepoint por item: se qualquer etapa abaixo falhar, só este item é desfeito
-            # (paciente, ficha, avaliação e utensílios); os demais itens do lote seguem normalmente.
+            # Savepoint por item: se qualquer validação ou inserção falhar, só este item é desfeito
             with db.begin_nested():
-                # 2. Paciente
-                id_paciente_criado = None
-                if item.paciente:
-                    paciente = Paciente(
-                        nome=item.paciente.nome,
-                        idade=item.paciente.idade,
-                        sexo=item.paciente.sexo,
-                        documento=item.paciente.documento,
-                        data_nascimento=item.paciente.data_nascimento,
-                        acompanhante=item.paciente.acompanhante,
-                        grau_parentesco=item.paciente.grau_parentesco,
-                        telefone_acompanhante=item.paciente.telefone_acompanhante,
-                        gravidade_previa=item.paciente.gravidade_previa,
-                        historico_clinico=item.paciente.historico_clinico,
-                        alergias=item.paciente.alergias,
-                        medicamentoUso_paciente=item.paciente.medicamentoUso_paciente,
-                        observacao_paciente=item.paciente.observacao_paciente,
-                    )
-                    db.add(paciente)
-                    db.flush()
-                    id_paciente_criado = paciente.id_paciente
-
-                # 3. Ficha
-                ficha = FichaAtendimento(
-                    uuid_offline=item.uuid_offline,
-                    id_unidade=item.id_unidade,
+                nova_ficha = criar_ficha_completa(
+                    db=db,
+                    dados=item,
                     id_responsavel=id_responsavel,
-                    id_condutor=item.id_condutor,
-                    id_paciente=id_paciente_criado,
-                    id_tecnico=item.id_tecnico,
-                    id_medico=item.id_medico,
-                    id_hospital=item.id_hospital,
-                    cep=item.cep,
-                    logradouro=item.logradouro,
-                    bairro=item.bairro,
-                    numero=item.numero,
-                    latitude=item.latitude,
-                    longitude=item.longitude,
-                    hora_chamado=item.hora_chamado or datetime.utcnow(),
-                    hora_saida_base=item.hora_saida_base,
-                    hora_chegada_local=item.hora_chegada_local,
-                    hora_conclusao=item.hora_conclusao,
-                    observacoes_gerais=item.observacoes_gerais,
                 )
-                db.add(ficha)
-                db.flush()
-
-                # 4. Avaliação Clínica
-                id_avaliacao_criada = None
-                if item.avaliacao_clinica:
-                    avaliacao = AvaliacaoClinica(
-                        id_ficha=ficha.id_ficha,
-                        id_paciente=id_paciente_criado,
-                        pressao_arterial=item.avaliacao_clinica.pressao_arterial,
-                        frequencia_cardiaca=item.avaliacao_clinica.frequencia_cardiaca,
-                        frequencia_respiratoria=item.avaliacao_clinica.frequencia_respiratoria,
-                        saturacao_o2=item.avaliacao_clinica.saturacao_o2,
-                        glicemia=item.avaliacao_clinica.glicemia,
-                        temperatura=item.avaliacao_clinica.temperatura,
-                        escala_glasgow=item.avaliacao_clinica.escala_glasgow,
-                        conduta=item.avaliacao_clinica.conduta,
-                        anotacao_CondutaEnfermeiro=item.avaliacao_clinica.anotacao_CondutaEnfermeiro,
-                        procedimentos_realizados=item.avaliacao_clinica.procedimentos_realizados,
-                        medicacoes_administradas=item.avaliacao_clinica.medicacoes_administradas,
-                    )
-                    db.add(avaliacao)
-                    db.flush()
-                    id_avaliacao_criada = avaliacao.id_avaliacao
-
-                # 5. Utensílios Gastos
-                if item.utensilios_gastos:
-                    utensilios = Utensilios(
-                        id_ficha=ficha.id_ficha,
-                        id_avaliacao=id_avaliacao_criada,
-                        medicamentos_ampolas=item.utensilios_gastos.medicamentos_ampolas,
-                        medicamentos_controlados=item.utensilios_gastos.medicamentos_controlados,
-                        medicamentos_comprimidos=item.utensilios_gastos.medicamentos_comprimidos,
-                        medicamentos_frascoGotas=item.utensilios_gastos.medicamentos_frascoGotas,
-                        anestesico=item.utensilios_gastos.anestesico,
-                        material_infusao=item.utensilios_gastos.material_infusao,
-                        material_sondagem=item.utensilios_gastos.material_sondagem,
-                        material_trauma=item.utensilios_gastos.material_trauma,
-                        materiais_diversos=item.utensilios_gastos.materiais_diversos,
-                        observacoes_reposicao=item.utensilios_gastos.observacoes_reposicao,
-                        reposto=item.utensilios_gastos.reposto,
-                    )
-                    db.add(utensilios)
 
             sucessos += 1
-            ids_fichas_criadas.append(ficha.id_ficha)
+            ids_fichas_criadas.append(nova_ficha.id_ficha)
 
+        except ErroValidacaoClinica as e:
+            erros.append(f"Erro no item {item.uuid_offline}: Falha de validação clínica - {'; '.join(e.erros)}")
         except Exception as e:
             erros.append(f"Erro no item {item.uuid_offline}: {str(e)}")
 
-    # 7. Registra auditoria
+    # Registra auditoria da sincronização
     log = LogAuditoria(
         id_usuario=id_responsavel,
         ip_origem=ip_origem,
