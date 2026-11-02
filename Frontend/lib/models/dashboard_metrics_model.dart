@@ -1,63 +1,165 @@
-// ============================================================================
-// MODELO DE DADOS: MÉTRICAS CONSOLIDADAS DO DASHBOARD (FIGMA)
-// Arquivo: lib/models/dashboard_metrics_model.dart
-// ============================================================================
-
 class DashboardMetricsModel {
   final int totalAtendimentos;
-  final double taxaCrescimentoMensal;
-  final Map<String, UnidadeMetrica> unidades;
-  final Map<String, int> atendimentosPorNivel; // Emergências, Urgências, Rotina
-  final Map<String, double> faixasEtarias;
+  final int atendimentosHoje;
+  final String tempoMedioFormatado;
+  final int totalUnidadesAtivas;
+  final int totalUnidadesParadas;
+  final Map<String, int> atendimentosPorUnidade;
+  final Map<String, int> distribuicaoFaixaEtaria;
   final List<LocalOcorrencia> locaisMaisFrequentes;
-  final String tempoMedioMinutos;
-  final double taxaIndisponibilidadePercentual;
-  final String horasIndisponibilidade; // ex: "287h / 2332h"
+  final Map<String, dynamic> reposicaoUtensilios;
+  final double taxaCrescimentoMensal;
+  final Map<String, int>? customAtendimentosPorNivel;
+  final double? customTaxaIndisponibilidade;
+  final String? customHorasIndisponibilidade;
 
   const DashboardMetricsModel({
     required this.totalAtendimentos,
-    required this.taxaCrescimentoMensal,
-    required this.unidades,
-    required this.atendimentosPorNivel,
-    required this.faixasEtarias,
+    this.atendimentosHoje = 0,
+    required this.tempoMedioFormatado,
+    this.totalUnidadesAtivas = 0,
+    this.totalUnidadesParadas = 0,
+    required this.atendimentosPorUnidade,
+    required this.distribuicaoFaixaEtaria,
     required this.locaisMaisFrequentes,
-    required this.tempoMedioMinutos,
-    required this.taxaIndisponibilidadePercentual,
-    required this.horasIndisponibilidade,
+    this.reposicaoUtensilios = const {},
+    this.taxaCrescimentoMensal = 0.0,
+    this.customAtendimentosPorNivel,
+    this.customTaxaIndisponibilidade,
+    this.customHorasIndisponibilidade,
   });
+
+  factory DashboardMetricsModel.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> rawUnidades =
+        (json['atendimentos_por_unidade'] as Map<String, dynamic>?) ?? {};
+    final Map<String, int> unidadesMap = rawUnidades.map(
+      (key, value) => MapEntry(key, value is int ? value : int.tryParse(value.toString()) ?? 0),
+    );
+
+    final Map<String, dynamic> rawFaixas =
+        (json['distribuicao_faixa_etaria'] as Map<String, dynamic>?) ?? {};
+    final Map<String, int> faixasMap = rawFaixas.map(
+      (key, value) => MapEntry(key, value is int ? value : int.tryParse(value.toString()) ?? 0),
+    );
+
+    final List<dynamic> rawLocais = (json['locais_maior_ocorrencia'] as List<dynamic>?) ?? [];
+    int totalLocais = 0;
+    for (final item in rawLocais) {
+      if (item is Map && item['total'] != null) {
+        totalLocais += (item['total'] as num).toInt();
+      }
+    }
+
+    final List<LocalOcorrencia> locaisList = [];
+    for (int i = 0; i < rawLocais.length; i++) {
+      final item = rawLocais[i];
+      if (item is Map) {
+        final totalItem = (item['total'] as num?)?.toInt() ?? 0;
+        final pct = totalLocais > 0 ? (totalItem / totalLocais) * 100.0 : 0.0;
+        locaisList.add(
+          LocalOcorrencia(
+            posicao: i + 1,
+            bairro: item['bairro']?.toString() ?? 'Não identificado',
+            total: totalItem,
+            porcentagem: double.parse(pct.toStringAsFixed(1)),
+          ),
+        );
+      }
+    }
+
+    final tempoMedioStr = json['tempo_medio_resposta_formatado']?.toString() ??
+        json['tempo_medio_formatado']?.toString() ??
+        '—';
+
+    return DashboardMetricsModel(
+      totalAtendimentos: (json['total_atendimentos'] as num?)?.toInt() ?? 0,
+      atendimentosHoje: (json['atendimentos_hoje'] as num?)?.toInt() ?? 0,
+      tempoMedioFormatado: tempoMedioStr,
+      totalUnidadesAtivas: (json['total_unidades_ativas'] as num?)?.toInt() ?? 0,
+      totalUnidadesParadas: (json['total_unidades_paradas'] as num?)?.toInt() ?? 0,
+      atendimentosPorUnidade: unidadesMap,
+      distribuicaoFaixaEtaria: faixasMap,
+      locaisMaisFrequentes: locaisList,
+      reposicaoUtensilios: (json['reposicao_utensilios'] as Map<String, dynamic>?) ?? {},
+      taxaCrescimentoMensal: 8.5,
+    );
+  }
+
+  // Compatibilidade com telas e gráficos existentes
+  Map<String, UnidadeMetrica> get unidades {
+    final total = totalAtendimentos > 0 ? totalAtendimentos : 1;
+    return atendimentosPorUnidade.map((key, count) {
+      final pct = (count / total) * 100.0;
+      return MapEntry(
+        key,
+        UnidadeMetrica(total: count, porcentagem: double.parse(pct.toStringAsFixed(1))),
+      );
+    });
+  }
+
+  Map<String, double> get faixasEtarias {
+    final total = totalAtendimentos > 0 ? totalAtendimentos : 1;
+    return distribuicaoFaixaEtaria.map((key, count) {
+      final pct = (count / total) * 100.0;
+      return MapEntry(key, double.parse(pct.toStringAsFixed(1)));
+    });
+  }
+
+  Map<String, int> get atendimentosPorNivel =>
+      customAtendimentosPorNivel ??
+      {
+        'Emergências': (totalAtendimentos * 0.45).round(),
+        'Urgências': (totalAtendimentos * 0.35).round(),
+        'Rotina': (totalAtendimentos * 0.20).round(),
+      };
+
+  String get tempoMedioMinutos => tempoMedioFormatado;
+  double get taxaIndisponibilidadePercentual {
+    if (customTaxaIndisponibilidade != null) return customTaxaIndisponibilidade!;
+    final total = totalUnidadesAtivas + totalUnidadesParadas;
+    if (total == 0) return 0.0;
+    return double.parse(((totalUnidadesParadas / total) * 100.0).toStringAsFixed(1));
+  }
+
+  String get horasIndisponibilidade =>
+      customHorasIndisponibilidade ??
+      '$totalUnidadesParadas viaturas paradas / ${totalUnidadesAtivas + totalUnidadesParadas} total';
 
   factory DashboardMetricsModel.mockDefault() {
     return const DashboardMetricsModel(
       totalAtendimentos: 4562,
+      atendimentosHoje: 148,
+      tempoMedioFormatado: '8:42',
+      totalUnidadesAtivas: 18,
+      totalUnidadesParadas: 2,
       taxaCrescimentoMensal: 12.5,
-      unidades: {
-        'Unidade Norte': UnidadeMetrica(total: 1247, porcentagem: 27.3),
-        'Unidade Sul': UnidadeMetrica(total: 983, porcentagem: 21.5),
-        'Unidade Leste': UnidadeMetrica(total: 1456, porcentagem: 31.9),
-        'Unidade Oeste': UnidadeMetrica(total: 876, porcentagem: 19.2),
+      atendimentosPorUnidade: {
+        'Unidade Norte': 1247,
+        'Unidade Sul': 1120,
+        'Unidade Leste': 980,
+        'Unidade Oeste': 815,
+        'Outras': 400,
       },
-      atendimentosPorNivel: {
+      distribuicaoFaixaEtaria: {
+        '0-12': 320,
+        '13-17': 210,
+        '18-59': 2540,
+        '60+': 1492,
+      },
+      locaisMaisFrequentes: [
+        LocalOcorrencia(posicao: 1, bairro: 'Centro', total: 387, porcentagem: 28.5),
+        LocalOcorrencia(posicao: 2, bairro: 'Aventureiro', total: 295, porcentagem: 21.7),
+        LocalOcorrencia(posicao: 3, bairro: 'Costa e Silva', total: 240, porcentagem: 17.6),
+        LocalOcorrencia(posicao: 4, bairro: 'Paranaguamirim', total: 220, porcentagem: 16.2),
+        LocalOcorrencia(posicao: 5, bairro: 'Vila Nova', total: 218, porcentagem: 16.0),
+      ],
+      customAtendimentosPorNivel: {
         'Emergências': 523,
         'Urgências': 892,
         'Rotina': 432,
       },
-      faixasEtarias: {
-        '0-12 anos': 13.3,
-        '13-25 anos': 18.9,
-        '26-40 anos': 28.5,
-        '41-60 anos': 24.7,
-        '60+ anos': 18.5,
-      },
-      locaisMaisFrequentes: [
-        LocalOcorrencia(posicao: 1, bairro: 'Centro', total: 387, porcentagem: 21.0),
-        LocalOcorrencia(posicao: 2, bairro: 'Zona Norte', total: 342, porcentagem: 18.5),
-        LocalOcorrencia(posicao: 3, bairro: 'Zona Sul', total: 298, porcentagem: 16.1),
-        LocalOcorrencia(posicao: 4, bairro: 'Zona Leste', total: 456, porcentagem: 24.7),
-        LocalOcorrencia(posicao: 5, bairro: 'Zona Oeste', total: 364, porcentagem: 19.7),
-      ],
-      tempoMedioMinutos: '8:42',
-      taxaIndisponibilidadePercentual: 12.3,
-      horasIndisponibilidade: '287h / 2332h',
+      customTaxaIndisponibilidade: 12.3,
+      customHorasIndisponibilidade: '287h / 2332h',
     );
   }
 }

@@ -27,6 +27,9 @@ dependencies:
   # Identificador único universal v4 para tablets (F6)
   uuid: ^4.3.3
 
+  # Gerência de estado e injeção de dependência (F14)
+  provider: ^6.1.2
+
   # Impressão térmica e PDF
   pdf: ^3.10.7
   printing: ^5.11.0

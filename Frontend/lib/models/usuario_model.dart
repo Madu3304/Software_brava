@@ -61,13 +61,16 @@ class UsuarioModel {
   }
 
   factory UsuarioModel.fromMap(Map<String, dynamic> map) {
+    final userMap = map['usuario'] is Map<String, dynamic>
+        ? map['usuario'] as Map<String, dynamic>
+        : map;
     return UsuarioModel(
-      id: (map['id_usuario'] ?? map['id'])?.toString() ?? '',
-      nome: map['nome'] ?? '',
-      login: map['login'] ?? '',
-      perfil: PerfilUsuario.fromString(map['perfil']),
-      token: map['access_token'] ?? map['token'],
-      redirecionamento: map['redirecionamento'],
+      id: (userMap['id_usuario'] ?? userMap['id'] ?? map['id_usuario'] ?? map['id'])?.toString() ?? '',
+      nome: userMap['nome'] ?? map['nome'] ?? '',
+      login: userMap['login'] ?? map['login'] ?? '',
+      perfil: PerfilUsuario.fromString(userMap['perfil'] ?? map['perfil']),
+      token: map['access_token'] ?? map['token'] ?? userMap['access_token'] ?? userMap['token'],
+      redirecionamento: (map['redirecionamento'] ?? userMap['redirecionamento'])?.toString(),
     );
   }
 
