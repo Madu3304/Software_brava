@@ -1,10 +1,6 @@
-// ============================================================================
-// ----------------------------------------------------------------------------
-// TELA DE AUTENTICAÇÃO / LOGIN - SAMU 192 (FIGMA)
-// Arquivo: lib/views/auth/login_view.dart
-// ============================================================================
-
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_routes.dart';
 import '../../services/auth_service.dart';
 
 class LoginView extends StatefulWidget {
@@ -35,16 +31,25 @@ class _LoginViewState extends State<LoginView> {
         if (!mounted) return;
         setState(() => _isLoading = false);
 
-        if (usuario.isAdmin) {
-          Navigator.pushReplacementNamed(context, '/dashboard');
-        } else {
-          Navigator.pushReplacementNamed(context, '/ficha');
-        }
+        final String rotaDestino = (usuario.redirecionamento != null &&
+                usuario.redirecionamento!.isNotEmpty)
+            ? usuario.redirecionamento!
+            : (usuario.isAdmin ? AppRoutes.dashboard : AppRoutes.ficha);
+
+        Navigator.pushReplacementNamed(context, rotaDestino);
       } catch (e) {
         if (!mounted) return;
         setState(() => _isLoading = false);
+
+        final mensagem = (e is AuthException)
+            ? e.message
+            : 'Credenciais inválidas. Verifique seu login e senha.';
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(mensagem),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }

@@ -1,10 +1,6 @@
-// ============================================================================
-// ----------------------------------------------------------------------------
-// [LAYOUT MESTRE] - SHELL DO DASHBOARD ADMINISTRATIVO (FLUTTER WEB)
-// Arquivo: lib/models/dashboard/admin_dashboard_shell.dart
-// ============================================================================
-
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_routes.dart';
+import '../../../../services/auth_service.dart';
 import 'dashboard_overview_screen.dart';
 import '../cadastros/cadastro_medico_screen.dart';
 import '../cadastros/cadastro_enfermagem_screen.dart';
@@ -160,7 +156,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
           // Item Ficha Técnica
           InkWell(
             onTap: () {
-              Navigator.pushNamed(context, '/ficha');
+              Navigator.pushNamed(context, AppRoutes.ficha);
             },
             borderRadius: BorderRadius.circular(10),
             child: Container(
@@ -248,8 +244,11 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
               IconButton(
                 icon: const Icon(Icons.logout_rounded, size: 18, color: Color(0xFF9E9E9E)),
                 tooltip: "Encerrar Sessão",
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/');
+                onPressed: () async {
+                  await AuthService().logout();
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (r) => false);
+                  }
                 },
               ),
             ],

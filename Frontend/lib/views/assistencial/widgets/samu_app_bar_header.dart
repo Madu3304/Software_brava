@@ -48,7 +48,7 @@ class SamuAppBarHeader extends StatelessWidget implements PreferredSizeWidget {
         children: [
           // Marca d'água de ambulância no canto direito (conforme Figma)
           if (showAmbulanceWatermark)
-            Positioned(
+            const Positioned(
               right: 8,
               child: Opacity(
                 opacity: 0.18,

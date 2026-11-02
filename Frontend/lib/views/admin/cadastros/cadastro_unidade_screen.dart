@@ -194,7 +194,7 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
                                   _buildFieldLabel("Tipo de Suporte"),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
-                                    value: _tipoSelecionado,
+                                    initialValue: _tipoSelecionado,
                                     decoration: _inputDecoration(""),
                                     items: _tipos.map((t) {
                                       return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)));
@@ -212,7 +212,7 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
                                   _buildFieldLabel("Região Base"),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
-                                    value: _regiaoSelecionada,
+                                    initialValue: _regiaoSelecionada,
                                     decoration: _inputDecoration(""),
                                     items: _regioes.map((r) {
                                       return DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13)));

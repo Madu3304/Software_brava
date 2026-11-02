@@ -1,18 +1,86 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:software_brava/core/api/api_client.dart';
 import 'package:software_brava/models/usuario_model.dart';
 import 'package:software_brava/services/auth_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('AuthService RBAC Tests', () {
+  group('AuthService RBAC & API Tests', () {
     late AuthService authService;
+    late Interceptor mockAuthInterceptor;
 
     setUp(() {
       authService = AuthService();
+
+      mockAuthInterceptor = QueuedInterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path.contains('/auth/login')) {
+            final data = options.data as Map<String, dynamic>? ?? {};
+            final login = data['login'] as String? ?? '';
+            final senha = data['senha'] as String? ?? '';
+
+            if (login == 'invalido') {
+              return handler.reject(
+                DioException(
+                  requestOptions: options,
+                  response: Response(
+                    requestOptions: options,
+                    statusCode: 401,
+                    data: {'detail': 'Credenciais inválidas. Verifique seu login e senha.'},
+                  ),
+                ),
+              );
+            }
+
+            if (login.contains('adm') || senha.contains('adm')) {
+              return handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'access_token': 'mock_token_admin',
+                    'token_type': 'bearer',
+                    'usuario': {
+                      'id': 'usr_admin',
+                      'nome': 'Administrador Geral',
+                      'login': login,
+                      'perfil': 'administrador',
+                    },
+                    'redirecionamento': '/admin/dashboard',
+                  },
+                ),
+              );
+            } else {
+              return handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'access_token': 'mock_token_atendimento',
+                    'token_type': 'bearer',
+                    'usuario': {
+                      'id': 'usr_atendimento',
+                      'nome': 'Socorrista Bravo',
+                      'login': login,
+                      'perfil': 'atendimento',
+                    },
+                    'redirecionamento': '/ficha',
+                  },
+                ),
+              );
+            }
+          }
+          return handler.next(options);
+        },
+      );
+
+      ApiClient().dio.interceptors.insert(0, mockAuthInterceptor);
     });
 
     tearDown(() async {
+      ApiClient().dio.interceptors.remove(mockAuthInterceptor);
       await authService.logout();
     });
 
@@ -45,6 +113,13 @@ void main() {
       expect(
         () => authService.login('', ''),
         throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('Login com credenciais inválidas (401) deve lançar AuthException amigável', () async {
+      expect(
+        () => authService.login('invalido', 'errada'),
+        throwsA(isA<AuthException>()),
       );
     });
 

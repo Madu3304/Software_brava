@@ -216,7 +216,7 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
                                   _buildFieldLabel("Unidade Responsável"),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
-                                    value: _selectedUnidade,
+                                    initialValue: _selectedUnidade,
                                     hint: const Text(
                                       "Selecione a unidade",
                                       style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),

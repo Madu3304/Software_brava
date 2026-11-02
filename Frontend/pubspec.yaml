@@ -11,8 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Requisições HTTP e conexão à API FastAPI
-  http: ^1.2.0
+  # Cliente HTTP exclusivo com suporte a interceptores e timeouts (F12)
   dio: ^5.4.0
 
   # Persistência Offline-First e Banco Local (SQLite)
@@ -24,6 +23,12 @@ dependencies:
 
   # Geolocalização GPS
   geolocator: ^10.1.0
+
+  # Identificador único universal v4 para tablets (F6)
+  uuid: ^4.3.3
+
+  # Gerência de estado e injeção de dependência (F14)
+  provider: ^6.1.2
 
   # Impressão térmica e PDF
   pdf: ^3.10.7
@@ -41,4 +46,4 @@ dev_dependencies:
   flutter_lints: ^3.0.0
 
 flutter:
-  uses-material-design: true
+  uses-material-design: true

@@ -1,8 +1,3 @@
-// ============================================================================
-// MODELO DE ENTIDADE: PROFISSIONAIS DE SAÚDE E OPERAÇÃO (SAMU)
-// Arquivo: lib/models/profissional_model.dart
-// ============================================================================
-
 enum TipoProfissional {
   medico,
   enfermeiro,
@@ -13,7 +8,7 @@ class ProfissionalModel {
   final String id;
   final String nome;
   final String cpf;
-  final String registroConselho; // CRM, COREN ou CNH
+  final String registroConselho; 
   final TipoProfissional tipo;
   final String unidade;
   final String matricula;
@@ -44,18 +39,39 @@ class ProfissionalModel {
     };
   }
 
-  factory ProfissionalModel.fromMap(Map<String, dynamic> map) {
+  factory ProfissionalModel.fromMap(Map<String, dynamic> map, {TipoProfissional? tipoExplicit}) {
+    final rawId = map['id_medico'] ?? map['id_tecnico'] ?? map['id_condutor'] ?? map['id'];
+    final id = rawId?.toString() ?? '';
+    final nome = map['nome'] ?? '';
+    final registro = (map['codigo_medico'] ??
+            map['codigo_tecnico'] ??
+            map['codigo_condutor'] ??
+            map['registroConselho'])
+        ?.toString() ??
+        '';
+
+    TipoProfissional tipo = tipoExplicit ??
+        (map['tipo'] != null
+            ? TipoProfissional.values.firstWhere(
+                (e) => e.name == map['tipo'],
+                orElse: () => TipoProfissional.enfermeiro,
+              )
+            : (map.containsKey('id_medico')
+                ? TipoProfissional.medico
+                : (map.containsKey('id_tecnico')
+                    ? TipoProfissional.enfermeiro
+                    : (map.containsKey('id_condutor')
+                        ? TipoProfissional.socorrista
+                        : TipoProfissional.enfermeiro))));
+
     return ProfissionalModel(
-      id: map['id']?.toString() ?? '',
-      nome: map['nome'] ?? '',
-      cpf: map['cpf'] ?? '',
-      registroConselho: map['registroConselho'] ?? '',
-      tipo: TipoProfissional.values.firstWhere(
-        (e) => e.name == map['tipo'],
-        orElse: () => TipoProfissional.enfermeiro,
-      ),
-      unidade: map['unidade'] ?? '',
-      matricula: map['matricula'] ?? '',
+      id: id,
+      nome: nome,
+      cpf: map['cpf'] ?? '000.000.000-00',
+      registroConselho: registro.isNotEmpty ? registro : 'REG-SC $id',
+      tipo: tipo,
+      unidade: map['unidade'] ?? 'SAMU Joinville',
+      matricula: map['matricula'] ?? 'MAT-$id',
     );
   }
 

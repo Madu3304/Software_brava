@@ -1,10 +1,5 @@
-// ============================================================================
-// SERVIÇO DE GEOLOCALIZAÇÃO GPS E BUSCA DE ENDEREÇO POR CEP (SAMU 192)
-// Arquivo: lib/services/gps_service.dart
-// ============================================================================
-
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 class EnderecoGpsResult {
@@ -30,11 +25,18 @@ class GpsService {
   factory GpsService() => _instance;
   GpsService._internal();
 
-  /// Captura a posição geográfica atual do dispositivo da viatura via GPS
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 4),
+      receiveTimeout: const Duration(seconds: 4),
+    ),
+  );
+
   Future<Position?> obterPosicaoAtual() async {
     try {
-      bool servicoHabilitado = await Geolocator.isLocationServiceEnabled();
+      final bool servicoHabilitado = await Geolocator.isLocationServiceEnabled();
       if (!servicoHabilitado) {
+        debugPrint('[GpsService] Serviço de localização GPS desativado.');
         return null;
       }
 
@@ -42,36 +44,26 @@ class GpsService {
       if (permissao == LocationPermission.denied) {
         permissao = await Geolocator.requestPermission();
         if (permissao == LocationPermission.denied) {
+          debugPrint('[GpsService] Permissão de localização negada pelo usuário.');
           return null;
         }
       }
 
       if (permissao == LocationPermission.deniedForever) {
+        debugPrint('[GpsService] Permissão de localização permanentemente negada.');
         return null;
       }
 
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 4),
+        timeLimit: const Duration(seconds: 5),
       );
-    } catch (_) {
-      // Coordenadas padrão de Joinville / SC para testes e desenvolvimento
-      return Position(
-        longitude: -48.8464,
-        latitude: -26.3045,
-        timestamp: DateTime.now(),
-        accuracy: 5.0,
-        altitude: 10.0,
-        altitudeAccuracy: 1.0,
-        heading: 0.0,
-        headingAccuracy: 1.0,
-        speed: 0.0,
-        speedAccuracy: 0.0,
-      );
+    } catch (e) {
+      debugPrint('[GpsService] Falha ao obter posição GPS: $e');
+      return null;
     }
   }
 
-  /// Busca dados de endereço automaticamente a partir do CEP com coordenadas GPS
   Future<EnderecoGpsResult?> buscarEnderecoPorCep(String cep) async {
     final cleanCep = cep.replaceAll(RegExp(r'[^0-9]'), '');
     if (cleanCep.length != 8) {
@@ -79,37 +71,25 @@ class GpsService {
     }
 
     try {
-      final response = await http
-          .get(Uri.parse('https://viacep.com.br/ws/$cleanCep/json/'))
-          .timeout(const Duration(seconds: 3));
+      final response = await _dio.get('https://viacep.com.br/ws/$cleanCep/json/');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['erro'] != true) {
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data is Map && data['erro'] != true) {
           final pos = await obterPosicaoAtual();
           return EnderecoGpsResult(
-            logradouro: data['logradouro'] ?? '',
-            bairro: data['bairro'] ?? '',
-            cidade: data['localidade'] ?? 'Joinville',
-            estado: data['uf'] ?? 'SC',
-            latitude: pos?.latitude ?? -26.3045,
-            longitude: pos?.longitude ?? -48.8464,
+            logradouro: data['logradouro']?.toString() ?? '',
+            bairro: data['bairro']?.toString() ?? '',
+            cidade: data['localidade']?.toString() ?? '',
+            estado: data['uf']?.toString() ?? '',
+            latitude: pos?.latitude,
+            longitude: pos?.longitude,
           );
         }
       }
-    } catch (_) {
-      // Fallback offline inteligente para Joinville / SC
+    } catch (e) {
+      debugPrint('[GpsService] Falha ao consultar CEP $cleanCep via Dio: $e');
     }
-
-    // Retorno de contingência com dados prévios para CEP de Joinville
-    final pos = await obterPosicaoAtual();
-    return EnderecoGpsResult(
-      logradouro: 'Rua do Príncipe',
-      bairro: 'Centro',
-      cidade: 'Joinville',
-      estado: 'SC',
-      latitude: pos?.latitude ?? -26.3045,
-      longitude: pos?.longitude ?? -48.8464,
-    );
+    return null;
   }
 }

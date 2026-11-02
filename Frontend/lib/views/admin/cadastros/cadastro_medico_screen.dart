@@ -209,7 +209,7 @@ class _CadastroMedicoScreenState extends State<CadastroMedicoScreen> {
                         _buildFieldLabelWithIcon(Icons.domain_outlined, "Unidade Responsável"),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          value: _selectedUnidade,
+                          initialValue: _selectedUnidade,
                           hint: const Text(
                             "Selecione a unidade",
                             style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
