@@ -20,4 +20,8 @@ venv/
 **/build/
 .flutter-plugins
 .flutter-plugins-dependencies
-*.iml
+*.iml
+# Bancos de dados locais (SQLite) — gerados automaticamente ao iniciar o backend
+*.db
+*.sqlite
+*.sqlite3

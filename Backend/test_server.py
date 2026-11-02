@@ -1,32 +1,511 @@
+import os
+import tempfile
+
+pasta_temporaria = tempfile.mkdtemp()
+os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(pasta_temporaria, 'teste.db')}"
+os.environ["APP_ENV"] = "development"
+os.environ.setdefault("ADMIN_PASSWORD", "admin123")
+os.environ.setdefault("EQUIPE_PASSWORD", "brava123")
+os.environ["CORS_ORIGINS"] = "http://localhost:8080"
+os.environ["LOGIN_RATE_LIMIT"] = "20/minute"
+os.environ["PREFEITURA_API_URL"] = ""
+os.environ["PREFEITURA_API_TOKEN"] = ""
+SENHA_ADMIN = os.environ["ADMIN_PASSWORD"]
+SENHA_EQUIPE = os.environ["EQUIPE_PASSWORD"]
+
 from fastapi.testclient import TestClient
 from main import app
 
 with TestClient(app) as client:
-    # 1. Healthcheck
+    # Healthcheck
     res_root = client.get("/")
     print("1. Root Healthcheck:", res_root.status_code, res_root.json())
     assert res_root.status_code == 200
 
-    # 2. Login Admin (RBAC: deve retornar redirecionamento 'WEB')
-    res_admin = client.post("/api/auth/login", json={"login": "admin", "senha": "admin123"})
-    print("2. Login Admin:", res_admin.status_code, res_admin.json())
+    # Primeiro acesso: login é bloqueado até a troca de senha (403)
+    res_primeiro = client.post("/api/auth/login", json={"login": "admin", "senha": SENHA_ADMIN})
+    print("2. Primeiro acesso Admin:", res_primeiro.status_code, res_primeiro.json())
+    assert res_primeiro.status_code == 403
+    assert res_primeiro.json()["detail"]["codigo"] == "TROCA_SENHA_OBRIGATORIA"
+
+    res_curta = client.post("/api/auth/trocar-senha", json={"login": "admin", "senha_atual": SENHA_ADMIN, "nova_senha": "123"})
+    print("2.1 Nova senha curta:", res_curta.status_code)
+    assert res_curta.status_code == 422
+    res_igual = client.post("/api/auth/trocar-senha", json={"login": "admin", "senha_atual": SENHA_ADMIN, "nova_senha": SENHA_ADMIN})
+    print("2.1 Nova senha igual à atual:", res_igual.status_code)
+    assert res_igual.status_code == 400
+
+    nova_senha_admin = "NovaSenhaAdmin#2026"
+    nova_senha_enf = "NovaSenhaEnf#2026"
+    res_troca = client.post("/api/auth/trocar-senha", json={"login": "admin", "senha_atual": SENHA_ADMIN, "nova_senha": nova_senha_admin})
+    print("2.2 Troca de senha Admin:", res_troca.status_code, res_troca.json())
+    assert res_troca.status_code == 200
+    res_troca_enf = client.post("/api/auth/trocar-senha", json={"login": "enfermeiro", "senha_atual": SENHA_EQUIPE, "nova_senha": nova_senha_enf})
+    assert res_troca_enf.status_code == 200
+
+    res_antiga = client.post("/api/auth/login", json={"login": "admin", "senha": SENHA_ADMIN})
+    print("2.3 Login com senha inicial após a troca:", res_antiga.status_code)
+    assert res_antiga.status_code == 401
+
+    res_admin = client.post("/api/auth/login", json={"login": "admin", "senha": nova_senha_admin})
+    print("2.4 Login Admin:", res_admin.status_code, res_admin.json())
     assert res_admin.status_code == 200
     assert res_admin.json()["redirecionamento"] == "WEB"
+    id_admin = res_admin.json()["id_usuario"]
+    headers_admin = {"Authorization": f"Bearer {res_admin.json()['access_token']}"}
 
-    # 3. Login Enfermeiro (RBAC: deve retornar redirecionamento 'MOBILE')
-    res_enf = client.post("/api/auth/login", json={"login": "enfermeiro", "senha": "brava123"})
+    # Login Enfermeiro (RBAC: deve retornar redirecionamento 'MOBILE')
+    res_enf = client.post("/api/auth/login", json={"login": "enfermeiro", "senha": nova_senha_enf})
     print("3. Login Enfermeiro:", res_enf.status_code, res_enf.json())
     assert res_enf.status_code == 200
     assert res_enf.json()["redirecionamento"] == "MOBILE"
+    id_enf = res_enf.json()["id_usuario"]
+    headers_enf = {"Authorization": f"Bearer {res_enf.json()['access_token']}"}
 
-    # 4. Dashboard Gerencial
-    res_dash = client.get("/api/reports/dashboard")
+    # Dashboard Gerencial
+    res_dash = client.get("/api/reports/dashboard", headers=headers_admin)
     print("4. Dashboard Metricas:", res_dash.status_code, res_dash.json())
     assert res_dash.status_code == 200
+    assert res_dash.json()["tempo_medio_resposta_minutos"] is None
+    assert res_dash.json()["tempo_medio_resposta_formatado"] == "—"
 
-    # 5. Listagem de Unidades Móveis (Bravas)
-    res_unidades = client.get("/api/cadastros/unidades")
+    # Listagem de Unidades Móveis (Bravas)
+    res_unidades = client.get("/api/cadastros/unidades", headers=headers_enf)
     print("5. Unidades Cadastradas:", len(res_unidades.json()))
     assert len(res_unidades.json()) >= 4
+
+    # Login usando o hash armazenado como senha deve ser recusado (401)
+    from services.security_service import gerar_hash_senha
+    res_hash = client.post("/api/auth/login", json={"login": "admin", "senha": gerar_hash_senha(nova_senha_admin)})
+    print("6. Login com hash como senha:", res_hash.status_code)
+    assert res_hash.status_code == 401
+
+    res_novo = client.post("/api/usuarios/", headers=headers_admin, json={"nome": "Usuário Teste", "login": "teste", "perfil": "TECNICO", "senha": "SenhaInicial#1"})
+    assert res_novo.status_code == 201 and res_novo.json()["trocar_senha"] is True
+    res_login_novo = client.post("/api/auth/login", json={"login": "teste", "senha": "SenhaInicial#1"})
+    print("7. Primeiro acesso de usuário criado pelo Admin:", res_login_novo.status_code)
+    assert res_login_novo.status_code == 403
+
+    # CORS: só a origem configurada em CORS_ORIGINS é liberada
+    preflight = {"Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "Authorization, Content-Type"}
+    res_cors_ok = client.options("/api/auth/login", headers={"Origin": "http://localhost:8080", **preflight})
+    print("8. CORS origem liberada:", res_cors_ok.status_code, res_cors_ok.headers.get("access-control-allow-origin"))
+    assert res_cors_ok.headers.get("access-control-allow-origin") == "http://localhost:8080"
+    res_cors_bloq = client.options("/api/auth/login", headers={"Origin": "http://site-malicioso.com", **preflight})
+    print("8. CORS origem desconhecida:", res_cors_bloq.status_code, res_cors_bloq.headers.get("access-control-allow-origin"))
+    assert res_cors_bloq.status_code == 400
+    assert res_cors_bloq.headers.get("access-control-allow-origin") is None
+
+    # otas protegidas sem token devem retornar 401
+    for rota in ["/api/fichas/", "/api/reports/dashboard", "/api/usuarios/", "/api/logs/", "/api/cadastros/unidades"]:
+        res = client.get(rota)
+        print(f"9. Sem token {rota}:", res.status_code)
+        assert res.status_code == 401
+
+    # Token inválido deve retornar 401
+    res_invalido = client.get("/api/fichas/", headers={"Authorization": "Bearer token_invalido"})
+    print("10. Token inválido:", res_invalido.status_code, res_invalido.json())
+    assert res_invalido.status_code == 401
+
+    # Perfil de campo não acessa rotas do Administrador (403)
+    for rota in ["/api/reports/dashboard", "/api/usuarios/", "/api/logs/"]:
+        res = client.get(rota, headers=headers_enf)
+        print(f"11. Enfermeiro em {rota}:", res.status_code)
+        assert res.status_code == 403
+    res_cadastro = client.post("/api/cadastros/medicos", json={"nome": "Teste"}, headers=headers_enf)
+    print("11. Enfermeiro criando médico:", res_cadastro.status_code)
+    assert res_cadastro.status_code == 403
+
+    # 12. Usuário logado (/me)
+    res_me = client.get("/api/auth/me", headers=headers_enf)
+    print("12. Usuário logado:", res_me.status_code, res_me.json()["login"])
+    assert res_me.status_code == 200 and res_me.json()["login"] == "enfermeiro"
+
+    # Login via formulário OAuth2
+    res_form = client.post("/api/auth/token", data={"username": "admin", "password": nova_senha_admin})
+    print("13. Login formulário OAuth2:", res_form.status_code)
+    assert res_form.status_code == 200
+
+    res_log_falso = client.post("/api/logs/", headers=headers_admin, json={"id_usuario": 2, "acao": "LOG_FALSO", "ip_origem": "1.2.3.4"})
+    print("14. POST /api/logs (removido):", res_log_falso.status_code)
+    assert res_log_falso.status_code == 405
+
+    # o responsável é sempre o usuário do token.
+    ficha = {
+        "id_unidade": 1,
+        "id_medico": 1,
+        "id_responsavel": id_admin,  # tentativa de se passar por outro usuário: deve ser ignorada
+        "paciente": {"nome": "Paciente Teste", "idade": 40},
+        "avaliacao_clinica": {"pressao_arterial": "120/80"},
+    }
+    res_ficha = client.post("/api/fichas/", headers=headers_enf, json=ficha)
+    print("15. Criar ficha:", res_ficha.status_code)
+    assert res_ficha.status_code == 201
+    id_ficha = res_ficha.json()["id_ficha"]
+
+    # Sync: o responsável também vem do token
+    res_sync = client.post("/api/sync/lote", headers=headers_enf, json={"fichas": [
+        {"uuid_offline": "uuid-teste-b8", "id_unidade": 1, "id_medico": 1, "id_responsavel": id_admin}
+    ]})
+    print("16. Sync lote:", res_sync.status_code, res_sync.json())
+    assert res_sync.status_code == 200 and res_sync.json()["sucessos"] == 1
+
+    # Logout usa o usuário do token
+    res_logout = client.post("/api/auth/logout", headers=headers_enf)
+    print("17. Logout:", res_logout.status_code)
+    assert res_logout.status_code == 200
+
+    from database import SessionLocal
+    from models import FichaAtendimento, LogAuditoria
+    db = SessionLocal()
+    try:
+        responsaveis = {
+            f.uuid_offline or f.id_ficha: f.id_responsavel
+            for f in db.query(FichaAtendimento).filter(
+                (FichaAtendimento.id_ficha == id_ficha) | (FichaAtendimento.uuid_offline == "uuid-teste-b8")
+            )
+        }
+        print("18. Responsáveis das fichas:", responsaveis)
+        assert set(responsaveis.values()) == {id_enf}
+
+        for acao in ["CRIAR_FICHA", "SYNC_OFFLINE_LOTE", "LOGOUT"]:
+            log = db.query(LogAuditoria).filter(LogAuditoria.acao == acao).order_by(LogAuditoria.id_log.desc()).first()
+            print(f"18. Log {acao}: usuario={log.id_usuario} ip={log.ip_origem}")
+            assert log.id_usuario == id_enf and log.ip_origem == "testclient"
+
+        log_criar = db.query(LogAuditoria).filter(LogAuditoria.acao == "CRIAR_USUARIO").first()
+        print(f"18. Log CRIAR_USUARIO: usuario={log_criar.id_usuario} (admin={id_admin})")
+        assert log_criar.id_usuario == id_admin
+
+        assert db.query(LogAuditoria).filter(LogAuditoria.acao == "LOG_FALSO").count() == 0
+    finally:
+        db.close()
+
+    id_teste = res_novo.json()["id_usuario"]
+    res_inativar = client.put(f"/api/usuarios/{id_teste}", headers=headers_admin, json={"ativo": False})
+    assert res_inativar.status_code == 200
+    respostas = {
+        "inexistente": client.post("/api/auth/login", json={"login": "nao_existe", "senha": "qualquer123"}),
+        "senha errada": client.post("/api/auth/login", json={"login": "admin", "senha": "senha_errada"}),
+        "inativo": client.post("/api/auth/login", json={"login": "teste", "senha": "SenhaInicial#1"}),
+    }
+    for caso, res in respostas.items():
+        print(f"19. Login {caso}:", res.status_code, res.json())
+        assert res.status_code == 401
+        assert res.json() == {"detail": "Credenciais inválidas."}
+
+    db = SessionLocal()
+    try:
+        falhas = db.query(LogAuditoria).filter(LogAuditoria.acao == "LOGIN_FALHA").all()
+        print("20. Logs LOGIN_FALHA:", [(f.id_usuario, f.detalhes_metadados) for f in falhas])
+        detalhes = " | ".join(f.detalhes_metadados for f in falhas)
+        assert "'nao_existe'" in detalhes and "senha incorreta" in detalhes and "usuário inativo" in detalhes
+        assert all(f.ip_origem == "testclient" for f in falhas)
+    finally:
+        db.close()
+
+    status_tentativas = [
+        client.post("/api/auth/login", json={"login": "admin", "senha": "senha_errada"}).status_code
+        for _ in range(25)
+    ]
+    print("21. Tentativas seguidas:", status_tentativas)
+    assert 429 in status_tentativas
+    res_bloqueado = client.post("/api/auth/login", json={"login": "admin", "senha": nova_senha_admin})
+    print("21. Login correto durante o bloqueio:", res_bloqueado.status_code, res_bloqueado.json())
+    assert res_bloqueado.status_code == 429
+    res_token_bloqueado = client.post("/api/auth/token", data={"username": "admin", "password": nova_senha_admin})
+    print("21. /token durante o bloqueio (limite compartilhado):", res_token_bloqueado.status_code)
+    assert res_token_bloqueado.status_code == 429
+
+    login_enf2 = client.post("/api/auth/token", data={"username": "enfermeiro", "password": nova_senha_enf})
+    if login_enf2.status_code == 429:
+        from rate_limit import limiter
+        limiter.reset()
+        login_enf2 = client.post("/api/auth/token", data={"username": "enfermeiro", "password": nova_senha_enf})
+    headers_enf2 = {"Authorization": f"Bearer {login_enf2.json()['access_token']}"}
+    lote = {"fichas": [
+        {
+            "uuid_offline": "b12-ok-1",
+            "id_unidade": 1,
+            "id_medico": 1,
+            "id_base": 1,
+            "codigo_local": "RUA-01",
+            "unidade_parada": True,
+            "motivo_unidade_parada": "Pneu furado",
+            "paciente": {"nome": "Paciente B12 OK 1"},
+            "avaliacao_clinica": {
+                "pressao_arterial": "120/80",
+                "abertura_ocular": 4,
+                "resposta_verbal": 5,
+                "resposta_motora": 6,
+                "avc_suspeito": True,
+                "assimetria_facial": True,
+            },
+        },
+        {"uuid_offline": "b12-erro", "id_unidade": 1, "id_medico": 1, "paciente": {"nome": "Paciente B12 ERRO"}, "avaliacao_clinica": {"frequencia_cardiaca": 2 ** 70}},
+        {"uuid_offline": "b12-ok-2", "id_unidade": 1, "id_medico": 1, "paciente": {"nome": "Paciente B12 OK 2"}, "utensilios_gastos": {"material_trauma": True}},
+    ]}
+    res_lote = client.post("/api/sync/lote", headers=headers_enf2, json=lote)
+    print("22. Sync lote com item inválido no meio:", res_lote.status_code, res_lote.json() if res_lote.status_code == 200 else res_lote.text[:80])
+    assert res_lote.status_code == 200
+    assert res_lote.json()["sucessos"] == 2 and len(res_lote.json()["erros"]) == 1
+    assert "b12-erro" in res_lote.json()["erros"][0]
+
+    from models import Paciente, AvaliacaoClinica, Utensilios
+    db = SessionLocal()
+    try:
+        uuids = {f.uuid_offline for f in db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline.like("b12-%"))}
+        pacientes = {p.nome for p in db.query(Paciente).filter(Paciente.nome.like("Paciente B12%"))}
+        print("22. Fichas gravadas:", sorted(uuids), "| Pacientes gravados:", sorted(pacientes))
+        assert uuids == {"b12-ok-1", "b12-ok-2"}
+        assert pacientes == {"Paciente B12 OK 1", "Paciente B12 OK 2"}
+        ficha_ok1 = db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b12-ok-1").one()
+        ficha_ok2 = db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b12-ok-2").one()
+        assert db.query(AvaliacaoClinica).filter(AvaliacaoClinica.id_ficha == ficha_ok1.id_ficha).count() == 1
+        assert db.query(Utensilios).filter(Utensilios.id_ficha == ficha_ok2.id_ficha).count() == 1
+    finally:
+        db.close()
+
+    res_reenvio = client.post("/api/sync/lote", headers=headers_enf2, json=lote)
+    print("23. Reenvio do mesmo lote:", res_reenvio.status_code, res_reenvio.json())
+    assert res_reenvio.json()["duplicados_ignorados"] == 2 and len(res_reenvio.json()["erros"]) == 1
+
+    res_det = client.get(f"/api/fichas/detalhes/{id_ficha}", headers=headers_admin)
+    print("24. Ficha sem integração configurada:", res_det.json()["status_envio_prefeitura"])
+    assert res_det.json()["status_envio_prefeitura"] == "PENDENTE"
+
+    import httpx
+    import services.integration_service as integracao
+    os.environ["PREFEITURA_API_URL"] = "https://prefeitura.teste/api"
+    os.environ["PREFEITURA_API_TOKEN"] = "token-de-teste"
+    chamadas = []
+    modo_api = {"resposta": "erro"}
+
+    def api_prefeitura_simulada(req: httpx.Request) -> httpx.Response:
+        import json
+        corpo = json.loads(req.content)
+        db_check = SessionLocal()
+        try:
+            gravada = db_check.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == corpo["id_ficha_sistema"]).count() == 1
+        finally:
+            db_check.close()
+        chamadas.append({"url": str(req.url), "auth": req.headers.get("authorization"), "id_ficha": corpo["id_ficha_sistema"], "ficha_ja_gravada": gravada})
+        if modo_api["resposta"] == "erro":
+            return httpx.Response(500, text="Servidor da Prefeitura indisponível")
+        if modo_api["resposta"] == "sem_conexao":
+            raise httpx.ConnectError("Conexão recusada")
+        return httpx.Response(201, json={"protocolo": f"PMJ-TESTE-{corpo['id_ficha_sistema']}"})
+
+    integracao.criar_cliente_http = lambda timeout: httpx.Client(transport=httpx.MockTransport(api_prefeitura_simulada), timeout=timeout)
+
+    res_ficha_b13 = client.post("/api/fichas/", headers=headers_enf2, json={"id_unidade": 1, "id_medico": 1, "paciente": {"nome": "Paciente B13"}})
+    assert res_ficha_b13.status_code == 201
+    id_ficha_b13 = res_ficha_b13.json()["id_ficha"]
+    res_det = client.get(f"/api/fichas/detalhes/{id_ficha_b13}", headers=headers_admin)
+    print("25.1 Ficha com a Prefeitura fora do ar:", res_ficha_b13.status_code, res_det.json()["status_envio_prefeitura"])
+    assert res_det.json()["status_envio_prefeitura"] == "ERRO"
+    assert chamadas[-1]["url"] == "https://prefeitura.teste/api/atendimentos"
+    assert chamadas[-1]["auth"] == "Bearer token-de-teste"
+    assert chamadas[-1]["ficha_ja_gravada"] is True
+
+    res_status = client.get("/api/fichas/integracao/status", headers=headers_admin)
+    print("25.2 Status da integração:", {k: v for k, v in res_status.json().items() if k != "fichas_com_erro"})
+    erro_b13 = next(f for f in res_status.json()["fichas_com_erro"] if f["id_ficha"] == id_ficha_b13)
+    print("25.2 Erro registrado:", erro_b13["erro_envio"], "| tentativas:", erro_b13["tentativas_envio"])
+    assert erro_b13["tentativas_envio"] == 1 and "HTTP 500" in erro_b13["erro_envio"]
+
+    modo_api["resposta"] = "sem_conexao"
+    res_reenvio_falha = client.post("/api/fichas/integracao/reenviar", headers=headers_admin, params={"id_ficha": id_ficha_b13})
+    assert res_reenvio_falha.json()["fichas_agendadas"] == 1
+    erro_b13 = next(f for f in client.get("/api/fichas/integracao/status", headers=headers_admin).json()["fichas_com_erro"] if f["id_ficha"] == id_ficha_b13)
+    print("25.3 Sem conexão:", erro_b13["erro_envio"], "| tentativas:", erro_b13["tentativas_envio"])
+    assert erro_b13["tentativas_envio"] == 2 and "Falha de comunicação" in erro_b13["erro_envio"]
+
+    modo_api["resposta"] = "ok"
+    res_reenvio_enf = client.post("/api/fichas/integracao/reenviar", headers=headers_enf2)
+    print("26. Reenvio pelo Enfermeiro:", res_reenvio_enf.status_code)
+    assert res_reenvio_enf.status_code == 403
+    res_reenvio = client.post("/api/fichas/integracao/reenviar", headers=headers_admin)
+    print("26. Reenvio pelo Admin:", res_reenvio.status_code, res_reenvio.json())
+    assert res_reenvio.status_code == 200 and res_reenvio.json()["fichas_agendadas"] >= 2
+    res_det = client.get(f"/api/fichas/detalhes/{id_ficha_b13}", headers=headers_admin).json()
+    print("26. Ficha após o reenvio:", res_det["status_envio_prefeitura"], res_det["protocolo_prefeitura"])
+    assert res_det["status_envio_prefeitura"] == "ENVIADO" and res_det["protocolo_prefeitura"] == f"PMJ-TESTE-{id_ficha_b13}"
+    res_status = client.get("/api/fichas/integracao/status", headers=headers_admin).json()
+    print("26. Status da integração:", {k: v for k, v in res_status.items() if k != "fichas_com_erro"})
+    assert res_status["pendentes"] == 0 and res_status["com_erro"] == 0
+
+    res_ja_enviada = client.post("/api/fichas/integracao/reenviar", headers=headers_admin, params={"id_ficha": id_ficha_b13})
+    assert res_ja_enviada.status_code == 404
+
+    total_chamadas = len(chamadas)
+    res_sync_b13 = client.post("/api/sync/lote", headers=headers_enf2, json={"fichas": [{"uuid_offline": "b13-sync", "id_unidade": 1, "id_medico": 1}]})
+    assert res_sync_b13.json()["sucessos"] == 1
+    print("27. Sync enviado à Prefeitura:", chamadas[total_chamadas:])
+    assert len(chamadas) == total_chamadas + 1 and chamadas[-1]["ficha_ja_gravada"] is True
+    db = SessionLocal()
+    try:
+        ficha_sync = db.query(FichaAtendimento).filter(FichaAtendimento.uuid_offline == "b13-sync").one()
+        assert ficha_sync.status_envio_prefeitura == "ENVIADO" and ficha_sync.tentativas_envio == 1
+    finally:
+        db.close()
+
+    res_sync_clinica = client.post("/api/sync/lote", headers=headers_enf2, json={"fichas": [
+        {"uuid_offline": "b15-sem-medico", "id_unidade": 1},
+        {"uuid_offline": "b15-pa-invalida", "id_unidade": 1, "id_medico": 1, "avaliacao_clinica": {"pressao_arterial": "pa_invalida"}},
+    ]})
+    print("28. Validação clínica no sync:", res_sync_clinica.status_code, res_sync_clinica.json())
+    assert res_sync_clinica.status_code == 200
+    assert res_sync_clinica.json()["sucessos"] == 0 and len(res_sync_clinica.json()["erros"]) == 2
+    assert "RN11/RN12" in res_sync_clinica.json()["erros"][0]
+    assert "Formato inválido de Pressão Arterial" in res_sync_clinica.json()["erros"][1]
+
+    ficha_b16 = {
+        "uuid_offline": "uuid-b16-consolidada",
+        "bairro": "Centro",
+        "id_unidade": 1,
+        "id_medico": 1,
+        "paciente": {"nome": "Paciente B16 AVC", "idade": 65, "sexo": "M"},
+        "avaliacao_clinica": {
+            "pressao_arterial": "160/100",
+            "frequencia_cardiaca": 88,
+            "saturacao_o2": 96,
+            "escala_glasgow": 13,
+            "abertura_ocular": 3,
+            "resposta_verbal": 4,
+            "resposta_motora": 6,
+            "hemoglicoteste": 110,
+            "avc_suspeito": True,
+            "assimetria_facial": True,
+            "queda_braco": True,
+            "fala": False,
+            "nome_testemunha": "Maria Testemunha",
+            "usa_anticoagulante": True,
+            "conduta": "Encaminhado para TC de cranio imediata",
+        },
+        "utensilios_gastos": {
+            "medicamentos_ampolas": True,
+            "material_infusao": True,
+        }
+    }
+    res_b16 = client.post("/api/fichas/", headers=headers_enf2, json=ficha_b16)
+    assert res_b16.status_code == 201
+    dados_b16 = res_b16.json()
+    id_ficha_b16 = dados_b16["id_ficha"]
+
+    # Valida ficha consolidada
+    assert dados_b16["uuid_offline"] == "uuid-b16-consolidada"
+    assert dados_b16["bairro"] == "Centro"
+    av_b16 = dados_b16["avaliacao_clinica"]
+    assert av_b16["abertura_ocular"] == 3
+    assert av_b16["resposta_verbal"] == 4
+    assert av_b16["resposta_motora"] == 6
+    assert av_b16["hemoglicoteste"] == 110
+    assert av_b16["avc_suspeito"] is True
+    assert av_b16["assimetria_facial"] is True
+    assert av_b16["queda_braco"] is True
+    assert av_b16["fala"] is False
+    assert av_b16["nome_testemunha"] == "Maria Testemunha"
+    assert av_b16["usa_anticoagulante"] is True
+
+    res_det_b16 = client.get(f"/api/fichas/detalhes/{id_ficha_b16}", headers=headers_admin)
+    assert res_det_b16.status_code == 200
+    det_json = res_det_b16.json()
+    assert det_json["uuid_offline"] == "uuid-b16-consolidada"
+    assert det_json["bairro"] == "Centro"
+    assert det_json["avaliacao_clinica"]["abertura_ocular"] == 3
+    assert det_json["avaliacao_clinica"]["hemoglicoteste"] == 110
+    assert det_json["avaliacao_clinica"]["avc_suspeito"] is True
+
+    # Valida geração de PDF sem perda de dados
+    res_pdf = client.get(f"/api/fichas/{id_ficha_b16}/pdf", headers=headers_enf2)
+    print("29. Gerar PDF da Ficha B16:", res_pdf.status_code, len(res_pdf.content))
+    assert res_pdf.status_code == 200
+    assert res_pdf.headers.get("content-type") == "application/pdf"
+    assert res_pdf.content.startswith(b"%PDF-")
+    pdf_text = res_pdf.content.decode("latin-1", errors="ignore").replace(r"\(", "(").replace(r"\)", ")")
+    assert "Centro" in pdf_text
+    assert "uuid-b16-consolidada" in pdf_text
+    assert "Abertura Ocular: 3" in pdf_text
+    assert "Resp. Verbal: 4" in pdf_text
+    assert "Resp. Motora: 6" in pdf_text
+    assert "HGT: 110 mg/dL" in pdf_text
+    assert "AVC Suspeito: SIM (SUSPEITO)" in pdf_text
+    assert "Assimetria Facial: SIM" in pdf_text
+    assert "Queda Braco: SIM" in pdf_text
+    assert "Fala: NAO" in pdf_text
+    assert "Maria Testemunha" in pdf_text
+    assert "Anticoagulante: SIM" in pdf_text
+    assert b"startxref\n500\n%%EOF" not in res_pdf.content
+    assert b"startxref" in res_pdf.content
+    print("29. Ficha consolidada e PDF verificados com sucesso sem perda de dados!")
+
+    from datetime import datetime, timedelta
+    t_base = datetime(2026, 11, 2, 14, 0, 0)
+    ficha_b18_1 = {
+        "id_unidade": 1,
+        "id_medico": 1,
+        "hora_chamado": t_base.isoformat(),
+        "hora_chegada_local": (t_base + timedelta(minutes=10)).isoformat(),
+        "paciente": {"nome": "Paciente Sem Idade B18", "idade": None},
+        "utensilios_gastos": {"medicamentos_ampolas": True, "material_trauma": True}
+    }
+    ficha_b18_2 = {
+        "id_unidade": 1,
+        "id_medico": 1,
+        "hora_chamado": t_base.isoformat(),
+        "hora_chegada_local": (t_base + timedelta(minutes=20)).isoformat(),
+        "paciente": {"nome": "Paciente Crianca B18", "idade": 8},
+        "utensilios_gastos": {"medicamentos_ampolas": True, "anestesico": True}
+    }
+    res_f1 = client.post("/api/fichas/", headers=headers_enf2, json=ficha_b18_1)
+    assert res_f1.status_code == 201
+    res_f2 = client.post("/api/fichas/", headers=headers_enf2, json=ficha_b18_2)
+    assert res_f2.status_code == 201
+
+    res_dash30 = client.get("/api/reports/dashboard", headers=headers_admin)
+    assert res_dash30.status_code == 200
+    d30 = res_dash30.json()
+    print("30. Dashboard Metricas B18:", d30)
+    # Faixa etária "Não informada" deve ser contada
+    assert d30["distribuicao_faixa_etaria"]["Não informada"] >= 1
+    assert d30["distribuicao_faixa_etaria"]["0-12 anos (Crianças)"] >= 1
+    # Tempo médio de resposta calculado dinamicamente
+    assert d30["tempo_medio_resposta_minutos"] is not None
+    assert d30["tempo_medio_resposta_minutos"] > 0
+    assert "min" in d30["tempo_medio_resposta_formatado"]
+    # Consumo calculado via agregação única com func.sum(case)
+    assert d30["reposicao_utensilios"]["consumo_por_categoria"]["ampolas"] >= 2
+    assert d30["reposicao_utensilios"]["consumo_por_categoria"]["anestesico"] >= 1
+    print("30. Métricas do Dashboard B18 validadas com sucesso!")
+
+    res_repo_inexistente = client.post(
+        "/api/fichas/reposicao/999999",
+        headers=headers_enf2,
+        json={"reposto": True, "observacoes_reposicao": "Tentativa de reposição ficha inexistente"}
+    )
+    print("31. Reposição em ficha inexistente:", res_repo_inexistente.status_code, res_repo_inexistente.json())
+    assert res_repo_inexistente.status_code == 404
+    assert "não encontrada" in res_repo_inexistente.json()["detail"]
+
+    # Garante que nenhum registro órfão foi gravado no banco de dados
+    db_check = SessionLocal()
+    try:
+        orfao = db_check.query(Utensilios).filter(Utensilios.id_ficha == 999999).first()
+        assert orfao is None
+    finally:
+        db_check.close()
+
+    # Reposição em ficha existente deve funcionar com sucesso (200)
+    id_valido = res_f1.json()["id_ficha"]
+    res_repo_ok = client.post(
+        f"/api/fichas/reposicao/{id_valido}",
+        headers=headers_enf2,
+        json={"reposto": True, "observacoes_reposicao": "Reposição concluída com sucesso"}
+    )
+    print("31. Reposição em ficha existente:", res_repo_ok.status_code, res_repo_ok.json())
+    assert res_repo_ok.status_code == 200
+    assert res_repo_ok.json()["sucesso"] is True
+    print("31. Verificação de ficha inexistente na reposição (B19) concluída com sucesso!")
 
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")

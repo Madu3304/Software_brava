@@ -8,7 +8,6 @@ class Medico(Base):
     id_medico = Column(Integer, primary_key=True, index=True)
     nome = Column(String(200), nullable=True)
     codigo_medico = Column(Integer, nullable=True)
-    criado_em = Column(DateTime, server_default=func.now())
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relacionamentos
     fichas = relationship("FichaAtendimento", back_populates="medico")

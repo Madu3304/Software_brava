@@ -1,150 +1,79 @@
-# Backend/services/sync_service.py
-"""
-Módulo de Sincronização Offline (Modelo C4 - Níveis 3 e 4)
-Componente: Sync Controller / Service
-Responsabilidade: Processamento de cargas de dados em lote originadas do SQLite do Aplicativo Mobile.
-"""
-from typing import List
-from datetime import datetime
+import logging
+logger = logging.getLogger("BravaSyncService")
+
+from typing import List, Optional, Tuple, Sequence, Any
 from sqlalchemy.orm import Session
+from pydantic import ValidationError
 
-from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, LogAuditoria
-from schemas import FichaSyncItem, SyncLoteResponse
-from services.integration_service import transmitir_atendimento_para_prefeitura
+from models import FichaAtendimento, LogAuditoria
+from schemas import FichaAtendimentoCreate, SyncLoteResponse
+from services.ficha_service import criar_ficha_completa
+from services.validation_service import ErroValidacaoClinica
 
-def processar_pacote_sync_offline(db: Session, itens: List[FichaSyncItem]) -> SyncLoteResponse:
-    """
-    Persiste lote de fichas com integridade relacional e idempotência baseada no uuid_offline.
-    Ao final de cada persistência, encaminha o atendimento para o Integration Service.
-    """
+def processar_pacote_sync_offline(
+    db: Session,
+    itens: Sequence[Any],
+    id_responsavel: int,
+    ip_origem: Optional[str] = None,
+) -> Tuple[SyncLoteResponse, List[int]]:
+ 
     processados = len(itens)
     sucessos = 0
     duplicados = 0
     erros = []
+    ids_fichas_criadas = []
 
-    for item in itens:
+    for item_bruto in itens:
+        uuid_item = item_bruto.get("uuid_offline") if isinstance(item_bruto, dict) else getattr(item_bruto, "uuid_offline", None)
         try:
-            # 1. Checagem de idempotência
-            existente = db.query(FichaAtendimento).filter(
-                FichaAtendimento.uuid_offline == item.uuid_offline
-            ).first()
+            if isinstance(item_bruto, dict):
+                item = FichaAtendimentoCreate(**item_bruto)
+            else:
+                item = item_bruto
 
-            if existente:
-                duplicados += 1
-                continue
+            if item.uuid_offline:
+                existente = db.query(FichaAtendimento).filter(
+                    FichaAtendimento.uuid_offline == item.uuid_offline
+                ).first()
 
-            # 2. Paciente
-            id_paciente_criado = None
-            if item.paciente:
-                paciente = Paciente(
-                    nome=item.paciente.nome,
-                    idade=item.paciente.idade,
-                    sexo=item.paciente.sexo,
-                    documento=item.paciente.documento,
-                    data_nascimento=item.paciente.data_nascimento,
-                    acompanhante=item.paciente.acompanhante,
-                    grau_parentesco=item.paciente.grau_parentesco,
-                    telefone_acompanhante=item.paciente.telefone_acompanhante,
-                    gravidade_previa=item.paciente.gravidade_previa,
-                    historico_clinico=item.paciente.historico_clinico,
-                    alergias=item.paciente.alergias,
-                    medicamentoUso_paciente=item.paciente.medicamentoUso_paciente,
-                    observacao_paciente=item.paciente.observacao_paciente,
+                if existente:
+                    duplicados += 1
+                    continue
+
+            with db.begin_nested():
+                nova_ficha = criar_ficha_completa(
+                    db=db,
+                    dados=item,
+                    id_responsavel=id_responsavel,
                 )
-                db.add(paciente)
-                db.flush()
-                id_paciente_criado = paciente.id_paciente
-
-            # 3. Ficha
-            ficha = FichaAtendimento(
-                uuid_offline=item.uuid_offline,
-                id_unidade=item.id_unidade,
-                id_responsavel=item.id_responsavel,
-                id_condutor=item.id_condutor,
-                id_paciente=id_paciente_criado,
-                id_tecnico=item.id_tecnico,
-                id_medico=item.id_medico,
-                id_hospital=item.id_hospital,
-                cep=item.cep,
-                logradouro=item.logradouro,
-                bairro=item.bairro,
-                numero=item.numero,
-                latitude=item.latitude,
-                longitude=item.longitude,
-                hora_chamado=item.hora_chamado or datetime.utcnow(),
-                hora_saida_base=item.hora_saida_base,
-                hora_chegada_local=item.hora_chegada_local,
-                hora_conclusao=item.hora_conclusao,
-                observacoes_gerais=item.observacoes_gerais,
-            )
-            db.add(ficha)
-            db.flush()
-
-            # 4. Avaliação Clínica
-            id_avaliacao_criada = None
-            if item.avaliacao_clinica:
-                avaliacao = AvaliacaoClinica(
-                    id_ficha=ficha.id_ficha,
-                    id_paciente=id_paciente_criado,
-                    pressao_arterial=item.avaliacao_clinica.pressao_arterial,
-                    frequencia_cardiaca=item.avaliacao_clinica.frequencia_cardiaca,
-                    frequencia_respiratoria=item.avaliacao_clinica.frequencia_respiratoria,
-                    saturacao_o2=item.avaliacao_clinica.saturacao_o2,
-                    glicemia=item.avaliacao_clinica.glicemia,
-                    temperatura=item.avaliacao_clinica.temperatura,
-                    escala_glasgow=item.avaliacao_clinica.escala_glasgow,
-                    conduta=item.avaliacao_clinica.conduta,
-                    anotacao_CondutaEnfermeiro=item.avaliacao_clinica.anotacao_CondutaEnfermeiro,
-                    procedimentos_realizados=item.avaliacao_clinica.procedimentos_realizados,
-                    medicacoes_administradas=item.avaliacao_clinica.medicacoes_administradas,
-                )
-                db.add(avaliacao)
-                db.flush()
-                id_avaliacao_criada = avaliacao.id_avaliacao
-
-            # 5. Utensílios Gastos
-            if item.utensilios_gastos:
-                utensilios = Utensilios(
-                    id_ficha=ficha.id_ficha,
-                    id_avaliacao=id_avaliacao_criada,
-                    medicamentos_ampolas=item.utensilios_gastos.medicamentos_ampolas,
-                    medicamentos_controlados=item.utensilios_gastos.medicamentos_controlados,
-                    medicamentos_comprimidos=item.utensilios_gastos.medicamentos_comprimidos,
-                    medicamentos_frascoGotas=item.utensilios_gastos.medicamentos_frascoGotas,
-                    anestesico=item.utensilios_gastos.anestesico,
-                    material_infusao=item.utensilios_gastos.material_infusao,
-                    material_sondagem=item.utensilios_gastos.material_sondagem,
-                    material_trauma=item.utensilios_gastos.material_trauma,
-                    materiais_diversos=item.utensilios_gastos.materiais_diversos,
-                    observacoes_reposicao=item.utensilios_gastos.observacoes_reposicao,
-                    reposto=item.utensilios_gastos.reposto,
-                )
-                db.add(utensilios)
 
             sucessos += 1
+            ids_fichas_criadas.append(nova_ficha.id_ficha)
 
-            # 6. Dispara integração externa com o banco da prefeitura (C4 Nível 3)
-            transmitir_atendimento_para_prefeitura({
-                "id_ficha": ficha.id_ficha,
-                "uuid_offline": item.uuid_offline,
-                "id_unidade": item.id_unidade,
-                "data": ficha.data_atendimento.isoformat() if ficha.data_atendimento else None,
-            })
-
+        except ValidationError as e:
+            logger.warning("Falha de schema Pydantic no item %s: %s", uuid_item, e)
+            msg_erro = e.errors()[0]["msg"] if e.errors() else "Dados inválidos."
+            erros.append(f"Erro no item {uuid_item}: {msg_erro}")
+        except ErroValidacaoClinica as e:
+            logger.warning("Falha clínica no item %s: %s", uuid_item, e.erros)
+            erros.append(f"Erro no item {uuid_item}: Falha de validação clínica - {'; '.join(e.erros)}")
         except Exception as e:
-            erros.append(f"Erro no item {item.uuid_offline}: {str(e)}")
+            logger.error("Falha interna de persistência na sincronização do item %s: %s", uuid_item, e, exc_info=True)
+            erros.append(f"Erro no item {uuid_item}: Falha interna de persistência no processamento do atendimento.")
 
-    # 7. Registra auditoria
     log = LogAuditoria(
+        id_usuario=id_responsavel,
+        ip_origem=ip_origem,
         acao="SYNC_OFFLINE_LOTE",
         detalhes_metadados=f"Sincronização em lote finalizada. Processados: {processados}, Sucessos: {sucessos}, Duplicados: {duplicados}, Erros: {len(erros)}."
     )
     db.add(log)
     db.commit()
 
-    return SyncLoteResponse(
+    resumo = SyncLoteResponse(
         processados=processados,
         sucessos=sucessos,
         duplicados_ignorados=duplicados,
         erros=erros
     )
+    return (resumo, ids_fichas_criadas)
