@@ -7,8 +7,17 @@ class Tecnico(Base):
 
     id_tecnico = Column(Integer, primary_key=True, index=True)
     nome = Column(String(200), nullable=True)
-    codigo_medico = Column(Integer, nullable=True)
-    criado_em = Column(DateTime, server_default=func.now())
+    codigo_tecnico = Column(Integer, nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relacionamentos
     fichas = relationship("FichaAtendimento", back_populates="tecnico")
+
+    # Retrocompatibilidade com atributo legado codigo_medico
+    @property
+    def codigo_medico(self):
+        return self.codigo_tecnico
+
+    @codigo_medico.setter
+    def codigo_medico(self, valor):
+        self.codigo_tecnico = valor

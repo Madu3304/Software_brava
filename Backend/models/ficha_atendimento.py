@@ -6,11 +6,11 @@ class FichaAtendimento(Base):
     __tablename__ = "ficha_atendimento"
 
     id_ficha = Column(Integer, primary_key=True, index=True)
-    uuid_offline = Column(String(64), unique=True, nullable=True) # UUID gerado no tablet em modo offline
-    
+    uuid_offline = Column(String(64), unique=True, nullable=True) 
+        
     id_unidade = Column(Integer, ForeignKey("unidade_movel.id_unidade"), nullable=False)
     id_responsavel = Column(Integer, ForeignKey("usuario.id_usuario"), nullable=False)
-    id_condutor = Column(Integer, ForeignKey("usuario.id_usuario"), nullable=True)
+    id_condutor = Column(Integer, ForeignKey("condutor.id_condutor"), nullable=True)
     id_paciente = Column(Integer, ForeignKey("paciente.id_paciente"), nullable=True)
     id_tecnico = Column(Integer, ForeignKey("tecnico.id_tecnico"), nullable=True)
     id_medico = Column(Integer, ForeignKey("medico.id_medico"), nullable=True)
@@ -26,36 +26,33 @@ class FichaAtendimento(Base):
     longitude = Column(Numeric(10, 7), nullable=True)
     gps_endereco_destino = Column(Boolean, default=False)
         
-    # Horários operacionais
-    hora_chamado = Column(DateTime, nullable=True)
-    hora_saida_base = Column(DateTime, nullable=True)
-    hora_chegada_local = Column(DateTime, nullable=True)
-    hora_saida_local = Column(DateTime, nullable=True)
-    hora_chegada_hospital = Column(DateTime, nullable=True)
-    hora_conclusao = Column(DateTime, nullable=True)
+    hora_chamado = Column(DateTime(timezone=True), nullable=True)
+    hora_saida_base = Column(DateTime(timezone=True), nullable=True)
+    hora_chegada_local = Column(DateTime(timezone=True), nullable=True)
+    hora_saida_local = Column(DateTime(timezone=True), nullable=True)
+    hora_chegada_hospital = Column(DateTime(timezone=True), nullable=True)
+    hora_conclusao = Column(DateTime(timezone=True), nullable=True)
     
     # Status e parada
     codigo_local = Column(String(30), nullable=True)
     unidade_parada = Column(Boolean, default=False)
     motivo_unidade_parada = Column(Text, nullable=True)
     observacoes_gerais = Column(Text, nullable=True)
-    criado_em = Column(DateTime, server_default=func.now())
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Integração com a Prefeitura (RF06): status do envio, para permitir reenvio
     status_envio_prefeitura = Column(String(20), default="PENDENTE", nullable=False, index=True) # 'PENDENTE', 'ENVIADO', 'ERRO'
     protocolo_prefeitura = Column(String(64), nullable=True)
     tentativas_envio = Column(Integer, default=0, nullable=False)
-    ultima_tentativa_envio = Column(DateTime, nullable=True)
+    ultima_tentativa_envio = Column(DateTime(timezone=True), nullable=True)
     erro_envio = Column(Text, nullable=True)
-    data_atendimento = Column(DateTime, server_default=func.now())
+    data_atendimento = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relacionamentos
     unidade_movel = relationship("UnidadeMovel", back_populates="fichas")
     responsavel = relationship("Usuario", foreign_keys=[id_responsavel], back_populates="fichas_responsaveis")
     medico = relationship("Medico", foreign_keys=[id_medico], back_populates="fichas")
     tecnico = relationship("Tecnico", foreign_keys=[id_tecnico], back_populates="fichas")
     base = relationship("BaseOperacional", foreign_keys=[id_base], back_populates="fichas")
-    condutor = relationship("Usuario", foreign_keys=[id_condutor], back_populates="fichas_condutor")
+    condutor = relationship("Condutor", foreign_keys=[id_condutor], back_populates="fichas")
     paciente = relationship("Paciente", back_populates="fichas")
     hospital_destino = relationship("HospitalDestino", back_populates="fichas")
     avaliacao_clinica = relationship(

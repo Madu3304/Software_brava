@@ -1,4 +1,6 @@
- from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status, Response
+#    Gera/retorna o PDF padronizado da ficha de atendimento.
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status, Response
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
@@ -51,9 +53,8 @@ def listar_fichas(
     data: Optional[str] = Query(None, description="Filtrar por data (YYYY-MM-DD)"),
     db: Session = Depends(get_db)
 ):
-    """
-    Lista fichas de atendimento permitindo busca por data ou unidade.
-    """
+
+   # Lista fichas de atendimento permitindo busca por data ou unidade.
     fichas = listar_fichas_para_reposicao(db, apenas_pendentes=False)
     if id_unidade:
         pass
@@ -66,15 +67,13 @@ def get_resumo_fichas(db: Session = Depends(get_db)):
 
 @router.get("/detalhes/{id_ficha}", response_model=FichaDetalhadaReposicaoResponse)
 def get_ficha_detalhada_reposicao(id_ficha: int, db: Session = Depends(get_db)):
-    """
-    Retorna os dados consolidados da Ficha, Avaliação Clínica do Paciente
-    """
+    
+    #Retorna os dados consolidados da Ficha, Avaliação Clínica do Paciente
     ficha = buscar_ficha_consolidada_reposicao(db, id_ficha)
     if not ficha:
         raise HTTPException(status_code=404, detail=f"Ficha de atendimento #{id_ficha} não encontrada.")
     return ficha
 
-# POST /api/fichas/ (Criação de atendimento com paciente, avaliação e utensílios)
 @router.post("/", response_model=FichaDetalhadaReposicaoResponse, status_code=status.HTTP_201_CREATED)
 def criar_ficha_atendimento(
     dados: FichaAtendimentoCreate,
@@ -83,9 +82,8 @@ def criar_ficha_atendimento(
     usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
-    """
-    Cria uma nova ficha digital de atendiment.
-    """
+    
+    # Cria uma nova ficha digital de atendiment.
     try:
         nova_ficha = criar_ficha_completa(
             db=db,
@@ -121,7 +119,6 @@ def criar_ficha_atendimento(
     dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
 )
 def get_status_integracao(db: Session = Depends(get_db)):
-    """Resumo do envio das fichas à Prefeitura e lista das que falharam."""
     def contar(status_envio: str) -> int:
         return db.query(FichaAtendimento).filter(FichaAtendimento.status_envio_prefeitura == status_envio).count()
 
@@ -160,7 +157,6 @@ def reenviar_fichas_prefeitura(
     id_ficha: Optional[int] = Query(None, description="Reenviar só esta ficha. Sem o parâmetro, reenvia todas com status PENDENTE ou ERRO."),
     db: Session = Depends(get_db),
 ):
-    """Agenda o (re)envio à Prefeitura das fichas que ainda não foram enviadas com sucesso."""
     query = db.query(FichaAtendimento.id_ficha).filter(
         FichaAtendimento.status_envio_prefeitura.in_([STATUS_PENDENTE, STATUS_ERRO])
     )
@@ -190,9 +186,6 @@ def get_fichas_para_reposicao(
     apenas_pendentes: bool = Query(True, description="Filtrar apenas atendimentos com materiais pendentes de reposição"),
     db: Session = Depends(get_db),
 ):
-    """
-    Lista de atendimentos para a tela de reposição do técnico de enfermagem.
-    """
     return listar_fichas_para_reposicao(db, apenas_pendentes=apenas_pendentes)
 
 @router.post("/reposicao/{id_ficha}")
@@ -203,10 +196,14 @@ def post_registrar_reposicao(
     usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
-    """
-    Registra que o técnico de enfermagem realizou a reposição dos utensílios.
-    """
+
     sucesso = registrar_reposicao_utensilios(db, id_ficha, req)
+    if not sucesso:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ficha de atendimento #{id_ficha} não encontrada."
+        )
+
     registrar_auditoria(
         db=db,
         acao="REPOSICAO_UTENSILIOS",
@@ -214,7 +211,7 @@ def post_registrar_reposicao(
         id_usuario=usuario.id_usuario,
         ip_origem=obter_ip_origem(request),
     )
-    return {"sucesso": sucesso, "mensagem": f"Reposição da ficha #{id_ficha} registrada com sucesso."}
+    return {"sucesso": True, "mensagem": f"Reposição da ficha #{id_ficha} registrada com sucesso."}
 
 @router.get("/dashboard/metricas", response_model=DashboardReposicaoResumoResponse)
 def get_metricas_dashboard(db: Session = Depends(get_db)):
@@ -222,9 +219,6 @@ def get_metricas_dashboard(db: Session = Depends(get_db)):
 
 @router.get("/{id_ficha}/pdf")
 def get_ficha_pdf(id_ficha: int, db: Session = Depends(get_db)):
-    """
-    Gera/retorna o PDF padronizado da ficha de atendimento.
-    """
     ficha = buscar_ficha_consolidada_reposicao(db, id_ficha)
     if not ficha:
         raise HTTPException(status_code=404, detail="Ficha não encontrada.")

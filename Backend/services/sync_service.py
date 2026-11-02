@@ -1,7 +1,9 @@
-# Backend/services/sync_service.py
+import logging
+logger = logging.getLogger("BravaSyncService")
 
-from typing import List, Optional, Tuple, Sequence
+from typing import List, Optional, Tuple, Sequence, Any
 from sqlalchemy.orm import Session
+from pydantic import ValidationError
 
 from models import FichaAtendimento, LogAuditoria
 from schemas import FichaAtendimentoCreate, SyncLoteResponse
@@ -10,23 +12,25 @@ from services.validation_service import ErroValidacaoClinica
 
 def processar_pacote_sync_offline(
     db: Session,
-    itens: Sequence[FichaAtendimentoCreate],
+    itens: Sequence[Any],
     id_responsavel: int,
     ip_origem: Optional[str] = None,
 ) -> Tuple[SyncLoteResponse, List[int]]:
-    """
-    Usa criar_ficha_completa() dentro de um savepoint (begin_nested) para cada item:
-    valida regras clínicas e salva todos os campos de forma unificada.
-    """
+ 
     processados = len(itens)
     sucessos = 0
     duplicados = 0
     erros = []
     ids_fichas_criadas = []
 
-    for item in itens:
+    for item_bruto in itens:
+        uuid_item = item_bruto.get("uuid_offline") if isinstance(item_bruto, dict) else getattr(item_bruto, "uuid_offline", None)
         try:
-            # 1. Checagem de idempotência
+            if isinstance(item_bruto, dict):
+                item = FichaAtendimentoCreate(**item_bruto)
+            else:
+                item = item_bruto
+
             if item.uuid_offline:
                 existente = db.query(FichaAtendimento).filter(
                     FichaAtendimento.uuid_offline == item.uuid_offline
@@ -36,7 +40,6 @@ def processar_pacote_sync_offline(
                     duplicados += 1
                     continue
 
-            # Savepoint por item: se qualquer validação ou inserção falhar, só este item é desfeito
             with db.begin_nested():
                 nova_ficha = criar_ficha_completa(
                     db=db,
@@ -47,12 +50,17 @@ def processar_pacote_sync_offline(
             sucessos += 1
             ids_fichas_criadas.append(nova_ficha.id_ficha)
 
+        except ValidationError as e:
+            logger.warning("Falha de schema Pydantic no item %s: %s", uuid_item, e)
+            msg_erro = e.errors()[0]["msg"] if e.errors() else "Dados inválidos."
+            erros.append(f"Erro no item {uuid_item}: {msg_erro}")
         except ErroValidacaoClinica as e:
-            erros.append(f"Erro no item {item.uuid_offline}: Falha de validação clínica - {'; '.join(e.erros)}")
+            logger.warning("Falha clínica no item %s: %s", uuid_item, e.erros)
+            erros.append(f"Erro no item {uuid_item}: Falha de validação clínica - {'; '.join(e.erros)}")
         except Exception as e:
-            erros.append(f"Erro no item {item.uuid_offline}: {str(e)}")
+            logger.error("Falha interna de persistência na sincronização do item %s: %s", uuid_item, e, exc_info=True)
+            erros.append(f"Erro no item {uuid_item}: Falha interna de persistência no processamento do atendimento.")
 
-    # Registra auditoria da sincronização
     log = LogAuditoria(
         id_usuario=id_responsavel,
         ip_origem=ip_origem,
@@ -68,4 +76,4 @@ def processar_pacote_sync_offline(
         duplicados_ignorados=duplicados,
         erros=erros
     )
-    return resumo, ids_fichas_criadas
+    return (resumo, ids_fichas_criadas)

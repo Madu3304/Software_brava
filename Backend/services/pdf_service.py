@@ -1,12 +1,14 @@
-# Backend/services/pdf_service.py
-"""
-Módulo de Geração de PDF (Modelo C4 - Níveis 3 e 4)
-Componente: PDF Generator Service
-Responsabilidade: Renderização de documentos clínicos padronizados do atendimento (RNF08)
-para impressão física ou entrega ao Hospital de Destino.
-"""
+# Módulo de Geração de PDF
+import io
+import html
 from datetime import datetime
 from typing import Optional
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+
 from schemas import FichaDetalhadaReposicaoResponse
 
 def formatar_data(dt: Optional[datetime]) -> str:
@@ -14,94 +16,225 @@ def formatar_data(dt: Optional[datetime]) -> str:
         return "N/A"
     return dt.strftime("%d/%m/%Y %H:%M:%S")
 
+def _escape(texto: Optional[str]) -> str:
+    if not texto:
+        return ""
+    return html.escape(str(texto))
+
 def gerar_pdf_ficha_atendimento(ficha: FichaDetalhadaReposicaoResponse) -> bytes:
-    """
-    Renderiza o documento em PDF estruturado para atendimento do SAMU.
-    Contém todos os blocos exigidos pela portaria GM/MS 2048 e pela RFC da prefeitura.
-    """
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+        pageCompression=0,  # Mantém os fluxos descompactados para inspeção e auditoria
+    )
+
+    styles = getSampleStyleSheet()
+
+    style_title = ParagraphStyle(
+        "SAMUTitle",
+        parent=styles["Heading1"],
+        fontName="Helvetica-Bold",
+        fontSize=14,
+        leading=17,
+        textColor=colors.HexColor("#1E3A8A"),
+        alignment=1,
+    )
+    style_subtitle = ParagraphStyle(
+        "SAMUSubtitle",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor("#4B5563"),
+        alignment=1,
+    )
+    style_section = ParagraphStyle(
+        "SAMUSection",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=10,
+        leading=13,
+        textColor=colors.HexColor("#1E3A8A"),
+        spaceBefore=6,
+        spaceAfter=3,
+    )
+    style_body = ParagraphStyle(
+        "SAMUBody",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8.5,
+        leading=12,
+        textColor=colors.HexColor("#1F2937"),
+    )
+    style_footer = ParagraphStyle(
+        "SAMUFooter",
+        parent=styles["Italic"],
+        fontName="Helvetica-Oblique",
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#6B7280"),
+        alignment=1,
+    )
+
+    story = []
+
+    # 1. Cabeçalho Oficial
+    story.append(Paragraph("<b>PREFEITURA MUNICIPAL DE JOINVILLE - SAMU 192</b>", style_title))
+    story.append(Paragraph("FICHA TECNICA DIGITAL DE ATENDIMENTO - SOFTWARE BRAVA", style_subtitle))
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#1E3A8A"), spaceAfter=6))
+
+    # 2. Dados Operacionais
+    data_atend = formatar_data(ficha.data_atendimento)
+    viatura = ficha.placa_unidade or "Não identificada"
+    bairro = ficha.bairro or "Não informado"
+    uuid_offline = ficha.uuid_offline or "Não informado"
+
+    story.append(Paragraph(
+        f"Ficha No: #{ficha.id_ficha:05d}   |   Data/Hora: {data_atend}   |   Viatura: {_escape(viatura)}",
+        style_body
+    ))
+    story.append(Paragraph(
+        f"Local / Bairro: {_escape(bairro)}   |   UUID Offline: {_escape(uuid_offline)}",
+        style_body
+    ))
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D1D5DB"), spaceAfter=4))
+
+    # 3. Dados do Paciente
     paciente_nome = ficha.nome_paciente or "Não informado"
     paciente_idade = f"{ficha.idade_paciente} anos" if ficha.idade_paciente is not None else "Não informada"
     paciente_sexo = ficha.sexo_paciente or "Não informado"
-    viatura = ficha.placa_unidade or "Não identificada"
-    data_atend = formatar_data(ficha.data_atendimento)
 
-    # Detalhes clínicos
+    story.append(Paragraph("DADOS DO PACIENTE", style_section))
+    story.append(Paragraph(
+        f"Nome: {_escape(paciente_nome)}   |   Idade: {_escape(paciente_idade)}   |   Sexo: {_escape(paciente_sexo)}",
+        style_body
+    ))
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D1D5DB"), spaceAfter=4))
+
+    # 4. Avaliação Clínica e Sinais Vitais
     pa = "N/A"
     fc = "N/A"
+    sat_o2 = "N/A"
+    hgt = "N/A"
     glasgow = "N/A"
-    conduta = "Nenhuma conduta registrada"
-    if ficha.avaliacao_clinica:
-        pa = ficha.avaliacao_clinica.pressao_arterial or "N/A"
-        fc = f"{ficha.avaliacao_clinica.frequencia_cardiaca} bpm" if ficha.avaliacao_clinica.frequencia_cardiaca else "N/A"
-        glasgow = f"{ficha.avaliacao_clinica.escala_glasgow}/15" if ficha.avaliacao_clinica.escala_glasgow else "N/A"
-        conduta = ficha.avaliacao_clinica.conduta or ficha.avaliacao_clinica.anotacao_CondutaEnfermeiro or conduta
+    ao = "N/A"
+    rv = "N/A"
+    rm = "N/A"
 
-    # Utensílios gastos
+    avc_suspeito_txt = "Não informado"
+    ictus_txt = "N/A"
+    anticoag_txt = "N/A"
+    sinais_avc_txt = "Nenhum sinal registrado"
+    testemunha_txt = "N/A"
+    conduta = "Nenhuma conduta registrada"
+
+    if ficha.avaliacao_clinica:
+        av = ficha.avaliacao_clinica
+        pa = av.pressao_arterial or "N/A"
+        fc = f"{av.frequencia_cardiaca} bpm" if av.frequencia_cardiaca is not None else "N/A"
+        sat_o2 = f"{av.saturacao_o2}%" if av.saturacao_o2 is not None else "N/A"
+
+        if av.hemoglicoteste is not None:
+            hgt = f"{av.hemoglicoteste} mg/dL"
+        elif av.glicemia is not None:
+            hgt = f"{av.glicemia} mg/dL"
+
+        glasgow = f"{av.escala_glasgow}/15" if av.escala_glasgow is not None else "N/A"
+        ao = str(av.abertura_ocular) if av.abertura_ocular is not None else "N/A"
+        rv = str(av.resposta_verbal) if av.resposta_verbal is not None else "N/A"
+        rm = str(av.resposta_motora) if av.resposta_motora is not None else "N/A"
+
+        if av.avc_suspeito is not None:
+            avc_suspeito_txt = "SIM (SUSPEITO)" if av.avc_suspeito else "NAO (SEM CRITERIOS)"
+
+        if av.hora_ictus:
+            ictus_txt = formatar_data(av.hora_ictus)
+
+        if av.usa_anticoagulante is not None:
+            anticoag_txt = "SIM" if av.usa_anticoagulante else "NAO"
+
+        sinais = []
+        if av.assimetria_facial is not None:
+            sinais.append(f"Assimetria Facial: {'SIM' if av.assimetria_facial else 'NAO'}")
+        if av.queda_braco is not None:
+            sinais.append(f"Queda Braco: {'SIM' if av.queda_braco else 'NAO'}")
+        if av.fala is not None:
+            sinais.append(f"Fala: {'SIM' if av.fala else 'NAO'}")
+        if sinais:
+            sinais_avc_txt = " | ".join(sinais)
+
+        if av.nome_testemunha:
+            testemunha_txt = av.nome_testemunha
+
+        if av.conduta:
+            conduta = av.conduta
+        elif av.anotacao_CondutaEnfermeiro:
+            conduta = av.anotacao_CondutaEnfermeiro
+
+    story.append(Paragraph("AVALIACAO CLINICA E SINAIS VITAIS", style_section))
+    story.append(Paragraph(
+        f"Pressao Arterial: {_escape(pa)}   |   Freq. Cardiaca: {fc}   |   Sat. O2: {sat_o2}   |   HGT: {hgt}",
+        style_body
+    ))
+    story.append(Paragraph(
+        f"Glasgow: {glasgow}   |   Abertura Ocular: {ao}   |   Resp. Verbal: {rv}   |   Resp. Motora: {rm}",
+        style_body
+    ))
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D1D5DB"), spaceAfter=4))
+
+    # 5. Avaliação de AVC / Escala de Cincinnati
+    story.append(Paragraph("AVALIACAO DE AVC / ESCALA DE CINCINNATI", style_section))
+    story.append(Paragraph(
+        f"AVC Suspeito: {avc_suspeito_txt}   |   Hora Ictus: {ictus_txt}   |   Anticoagulante: {anticoag_txt}",
+        style_body
+    ))
+    story.append(Paragraph(
+        f"Sinais de AVC: {_escape(sinais_avc_txt)}",
+        style_body
+    ))
+    story.append(Paragraph(
+        f"Testemunha: {_escape(testemunha_txt)}",
+        style_body
+    ))
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D1D5DB"), spaceAfter=4))
+
+    # 6. Conduta e Utensílios Gastos (com quebra de linha automática)
     materiais = []
     if ficha.utensilios_gastos:
         u = ficha.utensilios_gastos
         if u.medicamentos_ampolas: materiais.append("Ampolas")
         if u.medicamentos_controlados: materiais.append("Medicamentos Controlados")
+        if u.medicamentos_comprimidos: materiais.append("Comprimidos")
+        if u.medicamentos_frascoGotas: materiais.append("Frasco Gotas")
+        if u.anestesico: materiais.append("Anestésico")
         if u.material_infusao: materiais.append("Material de Infusão")
+        if u.material_sondagem: materiais.append("Material Sondagem")
         if u.material_trauma: materiais.append("Material de Trauma")
         if u.materiais_diversos: materiais.append("Materiais Diversos")
         if u.observacoes_reposicao: materiais.append(f"Obs: {u.observacoes_reposicao}")
 
     materiais_str = ", ".join(materiais) if materiais else "Nenhum utensílio consumido registrado"
 
-    # Estruturação textual e layout com escape de stream PDF
-    linhas = [
-        "%PDF-1.4",
-        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-        "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-        "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj",
-        "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-    ]
+    story.append(Paragraph("CONDUTA E UTENSILIOS GASTOS", style_section))
+    story.append(Paragraph(f"<b>Conduta / Observações:</b> {_escape(conduta)}", style_body))
+    story.append(Spacer(1, 2))
+    story.append(Paragraph(f"<b>Utensílios / Medicamentos:</b> {_escape(materiais_str)}", style_body))
+    story.append(Spacer(1, 8))
 
-    conteudo_corpo = (
-        "BT\n"
-        "/F1 16 Tf\n"
-        "50 780 Td (PREFEITURA MUNICIPAL DE JOINVILLE - SAMU 192) Tj\n"
-        "/F1 12 Tf\n"
-        "0 -25 Td (FICHA TECNICA DIGITAL DE ATENDIMENTO - SOFTWARE BRAVA) Tj\n"
-        "0 -20 Td (--------------------------------------------------------------------------------------------------) Tj\n"
-        f"0 -25 Td (Ficha No: #{ficha.id_ficha:05d}   |   Data/Hora: {data_atend}   |   Viatura: {viatura}) Tj\n"
-        f"0 -20 Td (Local / Bairro: {ficha.bairro or 'Nao informado'}) Tj\n"
-        "0 -20 Td (--------------------------------------------------------------------------------------------------) Tj\n"
-        "/F1 13 Tf\n"
-        "0 -25 Td (DADOS DO PACIENTE) Tj\n"
-        "/F1 11 Tf\n"
-        f"0 -18 Td (Nome: {paciente_nome}   |   Idade: {paciente_idade}   |   Sexo: {paciente_sexo}) Tj\n"
-        "0 -20 Td (--------------------------------------------------------------------------------------------------) Tj\n"
-        "/F1 13 Tf\n"
-        "0 -25 Td (AVALIACAO CLINICA E SINAIS VITAIS) Tj\n"
-        "/F1 11 Tf\n"
-        f"0 -18 Td (Pressao Arterial: {pa}   |   Freq. Cardiaca: {fc}   |   Glasgow: {glasgow}) Tj\n"
-        f"0 -18 Td (Conduta / Observacoes: {conduta[:100]}) Tj\n"
-        "0 -20 Td (--------------------------------------------------------------------------------------------------) Tj\n"
-        "/F1 13 Tf\n"
-        "0 -25 Td (UTENSILIOS E MEDICAMENTOS GASTOS) Tj\n"
-        "/F1 11 Tf\n"
-        f"0 -18 Td ({materiais_str[:120]}) Tj\n"
-        "0 -30 Td (--------------------------------------------------------------------------------------------------) Tj\n"
-        "0 -20 Td (Documento gerado automaticamente para arquivamento e encaminhamento hospitalar.) Tj\n"
-        "ET\n"
-    )
+    # 7. Rodapé
+    story.append(HRFlowable(width="100%", thickness=1.0, color=colors.HexColor("#1E3A8A"), spaceAfter=4))
+    story.append(Paragraph("Documento gerado automaticamente para arquivamento e encaminhamento hospitalar.", style_footer))
 
-    linhas.append(f"4 0 obj << /Length {len(conteudo_corpo)} >> stream")
-    linhas.append(conteudo_corpo.strip())
-    linhas.append("endstream endobj")
-    linhas.append("xref")
-    linhas.append("0 6")
-    linhas.append("0000000000 65535 f ")
-    linhas.append("0000000010 00000 n ")
-    linhas.append("0000000060 00000 n ")
-    linhas.append("0000000117 00000 n ")
-    linhas.append("0000000280 00000 n ")
-    linhas.append("0000000230 00000 n ")
-    linhas.append("trailer << /Size 6 /Root 1 0 R >>")
-    linhas.append("startxref")
-    linhas.append("500")
-    linhas.append("%%EOF")
-
-    return "\n".join(linhas).encode("utf-8")
+    doc.build(story)
+    return buffer.getvalue()

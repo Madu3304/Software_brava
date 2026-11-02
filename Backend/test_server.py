@@ -66,6 +66,8 @@ with TestClient(app) as client:
     res_dash = client.get("/api/reports/dashboard", headers=headers_admin)
     print("4. Dashboard Metricas:", res_dash.status_code, res_dash.json())
     assert res_dash.status_code == 200
+    assert res_dash.json()["tempo_medio_resposta_minutos"] is None
+    assert res_dash.json()["tempo_medio_resposta_formatado"] == "—"
 
     # Listagem de Unidades Móveis (Bravas)
     res_unidades = client.get("/api/cadastros/unidades", headers=headers_enf)
@@ -357,5 +359,153 @@ with TestClient(app) as client:
     assert res_sync_clinica.json()["sucessos"] == 0 and len(res_sync_clinica.json()["erros"]) == 2
     assert "RN11/RN12" in res_sync_clinica.json()["erros"][0]
     assert "Formato inválido de Pressão Arterial" in res_sync_clinica.json()["erros"][1]
+
+    ficha_b16 = {
+        "uuid_offline": "uuid-b16-consolidada",
+        "bairro": "Centro",
+        "id_unidade": 1,
+        "id_medico": 1,
+        "paciente": {"nome": "Paciente B16 AVC", "idade": 65, "sexo": "M"},
+        "avaliacao_clinica": {
+            "pressao_arterial": "160/100",
+            "frequencia_cardiaca": 88,
+            "saturacao_o2": 96,
+            "escala_glasgow": 13,
+            "abertura_ocular": 3,
+            "resposta_verbal": 4,
+            "resposta_motora": 6,
+            "hemoglicoteste": 110,
+            "avc_suspeito": True,
+            "assimetria_facial": True,
+            "queda_braco": True,
+            "fala": False,
+            "nome_testemunha": "Maria Testemunha",
+            "usa_anticoagulante": True,
+            "conduta": "Encaminhado para TC de cranio imediata",
+        },
+        "utensilios_gastos": {
+            "medicamentos_ampolas": True,
+            "material_infusao": True,
+        }
+    }
+    res_b16 = client.post("/api/fichas/", headers=headers_enf2, json=ficha_b16)
+    assert res_b16.status_code == 201
+    dados_b16 = res_b16.json()
+    id_ficha_b16 = dados_b16["id_ficha"]
+
+    # Valida ficha consolidada
+    assert dados_b16["uuid_offline"] == "uuid-b16-consolidada"
+    assert dados_b16["bairro"] == "Centro"
+    av_b16 = dados_b16["avaliacao_clinica"]
+    assert av_b16["abertura_ocular"] == 3
+    assert av_b16["resposta_verbal"] == 4
+    assert av_b16["resposta_motora"] == 6
+    assert av_b16["hemoglicoteste"] == 110
+    assert av_b16["avc_suspeito"] is True
+    assert av_b16["assimetria_facial"] is True
+    assert av_b16["queda_braco"] is True
+    assert av_b16["fala"] is False
+    assert av_b16["nome_testemunha"] == "Maria Testemunha"
+    assert av_b16["usa_anticoagulante"] is True
+
+    res_det_b16 = client.get(f"/api/fichas/detalhes/{id_ficha_b16}", headers=headers_admin)
+    assert res_det_b16.status_code == 200
+    det_json = res_det_b16.json()
+    assert det_json["uuid_offline"] == "uuid-b16-consolidada"
+    assert det_json["bairro"] == "Centro"
+    assert det_json["avaliacao_clinica"]["abertura_ocular"] == 3
+    assert det_json["avaliacao_clinica"]["hemoglicoteste"] == 110
+    assert det_json["avaliacao_clinica"]["avc_suspeito"] is True
+
+    # Valida geração de PDF sem perda de dados
+    res_pdf = client.get(f"/api/fichas/{id_ficha_b16}/pdf", headers=headers_enf2)
+    print("29. Gerar PDF da Ficha B16:", res_pdf.status_code, len(res_pdf.content))
+    assert res_pdf.status_code == 200
+    assert res_pdf.headers.get("content-type") == "application/pdf"
+    assert res_pdf.content.startswith(b"%PDF-")
+    pdf_text = res_pdf.content.decode("latin-1", errors="ignore").replace(r"\(", "(").replace(r"\)", ")")
+    assert "Centro" in pdf_text
+    assert "uuid-b16-consolidada" in pdf_text
+    assert "Abertura Ocular: 3" in pdf_text
+    assert "Resp. Verbal: 4" in pdf_text
+    assert "Resp. Motora: 6" in pdf_text
+    assert "HGT: 110 mg/dL" in pdf_text
+    assert "AVC Suspeito: SIM (SUSPEITO)" in pdf_text
+    assert "Assimetria Facial: SIM" in pdf_text
+    assert "Queda Braco: SIM" in pdf_text
+    assert "Fala: NAO" in pdf_text
+    assert "Maria Testemunha" in pdf_text
+    assert "Anticoagulante: SIM" in pdf_text
+    assert b"startxref\n500\n%%EOF" not in res_pdf.content
+    assert b"startxref" in res_pdf.content
+    print("29. Ficha consolidada e PDF verificados com sucesso sem perda de dados!")
+
+    from datetime import datetime, timedelta
+    t_base = datetime(2026, 11, 2, 14, 0, 0)
+    ficha_b18_1 = {
+        "id_unidade": 1,
+        "id_medico": 1,
+        "hora_chamado": t_base.isoformat(),
+        "hora_chegada_local": (t_base + timedelta(minutes=10)).isoformat(),
+        "paciente": {"nome": "Paciente Sem Idade B18", "idade": None},
+        "utensilios_gastos": {"medicamentos_ampolas": True, "material_trauma": True}
+    }
+    ficha_b18_2 = {
+        "id_unidade": 1,
+        "id_medico": 1,
+        "hora_chamado": t_base.isoformat(),
+        "hora_chegada_local": (t_base + timedelta(minutes=20)).isoformat(),
+        "paciente": {"nome": "Paciente Crianca B18", "idade": 8},
+        "utensilios_gastos": {"medicamentos_ampolas": True, "anestesico": True}
+    }
+    res_f1 = client.post("/api/fichas/", headers=headers_enf2, json=ficha_b18_1)
+    assert res_f1.status_code == 201
+    res_f2 = client.post("/api/fichas/", headers=headers_enf2, json=ficha_b18_2)
+    assert res_f2.status_code == 201
+
+    res_dash30 = client.get("/api/reports/dashboard", headers=headers_admin)
+    assert res_dash30.status_code == 200
+    d30 = res_dash30.json()
+    print("30. Dashboard Metricas B18:", d30)
+    # Faixa etária "Não informada" deve ser contada
+    assert d30["distribuicao_faixa_etaria"]["Não informada"] >= 1
+    assert d30["distribuicao_faixa_etaria"]["0-12 anos (Crianças)"] >= 1
+    # Tempo médio de resposta calculado dinamicamente
+    assert d30["tempo_medio_resposta_minutos"] is not None
+    assert d30["tempo_medio_resposta_minutos"] > 0
+    assert "min" in d30["tempo_medio_resposta_formatado"]
+    # Consumo calculado via agregação única com func.sum(case)
+    assert d30["reposicao_utensilios"]["consumo_por_categoria"]["ampolas"] >= 2
+    assert d30["reposicao_utensilios"]["consumo_por_categoria"]["anestesico"] >= 1
+    print("30. Métricas do Dashboard B18 validadas com sucesso!")
+
+    res_repo_inexistente = client.post(
+        "/api/fichas/reposicao/999999",
+        headers=headers_enf2,
+        json={"reposto": True, "observacoes_reposicao": "Tentativa de reposição ficha inexistente"}
+    )
+    print("31. Reposição em ficha inexistente:", res_repo_inexistente.status_code, res_repo_inexistente.json())
+    assert res_repo_inexistente.status_code == 404
+    assert "não encontrada" in res_repo_inexistente.json()["detail"]
+
+    # Garante que nenhum registro órfão foi gravado no banco de dados
+    db_check = SessionLocal()
+    try:
+        orfao = db_check.query(Utensilios).filter(Utensilios.id_ficha == 999999).first()
+        assert orfao is None
+    finally:
+        db_check.close()
+
+    # Reposição em ficha existente deve funcionar com sucesso (200)
+    id_valido = res_f1.json()["id_ficha"]
+    res_repo_ok = client.post(
+        f"/api/fichas/reposicao/{id_valido}",
+        headers=headers_enf2,
+        json={"reposto": True, "observacoes_reposicao": "Reposição concluída com sucesso"}
+    )
+    print("31. Reposição em ficha existente:", res_repo_ok.status_code, res_repo_ok.json())
+    assert res_repo_ok.status_code == 200
+    assert res_repo_ok.json()["sucesso"] is True
+    print("31. Verificação de ficha inexistente na reposição (B19) concluída com sucesso!")
 
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")

@@ -14,9 +14,8 @@ class Usuario(Base):
     registro_profissional = Column(String(50), nullable=True) # CRM, COREN, CNH
     ativo = Column(Boolean, default=True)
     trocar_senha = Column(Boolean, default=False, nullable=False) # True: troca de senha obrigatória no próximo login
-    criado_em = Column(DateTime, server_default=func.now())
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relacionamentos
     fichas_responsaveis = relationship("FichaAtendimento", foreign_keys="FichaAtendimento.id_responsavel", back_populates="responsavel")
-    fichas_condutor = relationship("FichaAtendimento", foreign_keys="FichaAtendimento.id_condutor", back_populates="condutor")
     logs = relationship("LogAuditoria", back_populates="usuario")
