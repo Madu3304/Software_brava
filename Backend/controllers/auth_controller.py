@@ -12,6 +12,7 @@ from services.security_service import (
     gerar_hash_senha,
     gerar_token_acesso,
     obter_redirecionamento_por_perfil,
+    migrar_hash,
 )
 from services.log_service import registrar_auditoria
 from rate_limit import limite_autenticacao
@@ -49,6 +50,19 @@ def autenticar_usuario(login: str, senha: str, request: Request, db: Session) ->
     # O status de inativo só é verificado depois da senha, para não revelar quais logins existem
     if not usuario.ativo:
         recusar_credenciais(db, request, "LOGIN_FALHA", login, "usuário inativo", usuario)
+
+    # Migração da senha se conferiu contra o hash SHA-256 antigo, então é regravada
+    # em bcrypt agora, enquanto a senha em texto está disponível. Acontece uma vez por usuário.
+    if migrar_hash(usuario.senha_hash):
+        usuario.senha_hash = gerar_hash_senha(senha)
+        db.commit()
+        registrar_auditoria(
+            db=db,
+            acao="MIGRACAO_HASH_SENHA",
+            detalhes="Hash de senha convertido de SHA-256 para bcrypt no login.",
+            id_usuario=usuario.id_usuario,
+            ip_origem=obter_ip_origem(request),
+        )
 
     # Primeiro acesso ou senha redefinida pelo Administrador: exige troca antes de liberar o acesso
     if usuario.trocar_senha:

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from dotenv import load_dotenv
+import bcrypt
 
 load_dotenv()
 logger = logging.getLogger("SecurityService")
@@ -23,27 +24,58 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 60 * 24))
 
-# Fallback para desenvolvimento: chave aleatória por execução (tokens deixam de valer ao reiniciar o servidor)
+# Ambiente de execução (mesma convenção do main.py e do seed.py)
+APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
+
+# Fora de desenvolvimento a chave é obrigatória: o fallback aleatório é gerado na importação
+# do módulo, então cada worker do uvicorn teria uma chave diferente e os tokens emitidos por
+# um seriam recusados pelos outros.
 if not JWT_SECRET_KEY:
+    if APP_ENV != "development":
+        raise RuntimeError(
+            "JWT_SECRET_KEY é obrigatória quando APP_ENV não é 'development'. "
+            "Gere uma com: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        )
     JWT_SECRET_KEY = secrets.token_urlsafe(64)
     logger.warning("JWT_SECRET_KEY não configurada. Utilizando chave temporária gerada na inicialização.")
 
 class TokenInvalidoError(Exception):
     """Token ausente, expirado, com assinatura inválida ou com payload incompleto."""
 
+def _senha_em_bytes(senha: str) -> bytes:
+    return senha.encode("utf-8")[:72]
+
 def gerar_hash_senha(senha: str) -> str:
-    """Gera hash seguro SHA-256 para senhas."""
+    """Gera hash bcrypt com salt aleatório embutido para senhas."""
+    return bcrypt.hashpw(_senha_em_bytes(senha), bcrypt.gensalt()).decode("utf-8")
+
+def _e_hash_legado_sha256(valor: str) -> bool:
+    """Reconhece o formato antigo: SHA-256 em hexadecimal, 64 caracteres, sem salt."""
+    return len(valor) == 64 and all(c in "0123456789abcdefABCDEF" for c in valor)
+
+def _hash_legado_sha256(senha: str) -> str:
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
 def verificar_senha(senha_fornecida: str, senha_armazenada: str) -> bool:
     """
     Compara o hash da senha fornecida com o hash armazenado.
     Nunca compara a senha fornecida diretamente com o valor do banco: isso permitiria
-    logar usando o próprio hash como senha. A comparação usa tempo constante (hmac).
+    logar usando o próprio hash como senha.
+    Aceita também o formato SHA-256 antigo, para que as contas já existentes continuem
+    entrando, o hash é regravado em bcrypt no primeiro login bem-sucedido.
     """
     if not senha_fornecida or not senha_armazenada:
         return False
-    return hmac.compare_digest(gerar_hash_senha(senha_fornecida), senha_armazenada)
+    if _e_hash_legado_sha256(senha_armazenada):
+        return hmac.compare_digest(_hash_legado_sha256(senha_fornecida), senha_armazenada)
+    try:
+        return bcrypt.checkpw(_senha_em_bytes(senha_fornecida), senha_armazenada.encode("utf-8"))
+    except ValueError:
+        # Hash armazenado em formato irreconhecível: trata como credencial inválida
+        return False
+
+def migrar_hash(senha_armazenada: str) -> bool:
+    return bool(senha_armazenada) and _e_hash_legado_sha256(senha_armazenada)
 
 def gerar_token_acesso(id_usuario: int, login: str, perfil: str) -> str:
     """Gera um JWT assinado contendo identificação, perfil (RBAC) e expiração da sessão."""
