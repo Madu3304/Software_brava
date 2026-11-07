@@ -16,6 +16,10 @@ void main() {
     expect(find.text('Ficha de Atendimento'), findsOneWidget);
     expect(find.byType(UnidadeTipoCard), findsOneWidget);
     expect(find.text('USB'), findsOneWidget);
+    expect(find.text('USB 1'), findsNothing);
+    expect(find.text('USB 2'), findsNothing);
+    expect(find.text('USB 3'), findsNothing);
+    expect(find.text('USB 4'), findsNothing);
     expect(find.byType(CodigoTriagemSelector), findsOneWidget);
     expect(find.text('Código:'), findsOneWidget);
     expect(find.text('Vermelho'), findsOneWidget);
@@ -28,5 +32,36 @@ void main() {
     await tester.tap(find.text('Amarelo'));
     await tester.pump();
     expect(find.text('Amarelo'), findsOneWidget);
+  });
+
+  testWidgets('Clicar no botão USB exibe as 4 opções (USB 1 a USB 4) sem trocar para USA e permite selecionar',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: FichaAtendimentoView(),
+      ),
+    );
+
+    // Clica no botão USB
+    await tester.tap(find.text('USB'));
+    await tester.pump();
+
+    // Não deve trocar para USA; deve continuar exibindo USB e mostrar as 4 opções
+    expect(find.text('USA'), findsNothing);
+    expect(find.text('USB'), findsOneWidget);
+    expect(find.text('USB 1'), findsOneWidget);
+    expect(find.text('USB 2'), findsOneWidget);
+    expect(find.text('USB 3'), findsOneWidget);
+    expect(find.text('USB 4'), findsOneWidget);
+
+    // Seleciona uma das opções (ex: USB 2)
+    await tester.tap(find.text('USB 2'));
+    await tester.pump();
+
+    // As opções fecham e a unidade selecionada passa a ser exibida no botão
+    expect(find.text('USB 2'), findsOneWidget);
+    expect(find.text('USB 1'), findsNothing);
+    expect(find.text('USB 3'), findsNothing);
+    expect(find.text('USB 4'), findsNothing);
   });
 }
