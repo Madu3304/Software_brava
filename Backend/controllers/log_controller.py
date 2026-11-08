@@ -21,13 +21,10 @@ router = APIRouter(
 def listar_logs_auditoria(
     acao: Optional[str] = Query(None, description="Filtrar por tipo de ação"),
     id_usuario: Optional[int] = Query(None, description="Filtrar por identificador de usuário"),
-    limite: int = Query(100, description="Quantidade máxima de registros"),
+    limite: int = Query(100, ge=1, le=1000, description="Quantidade máxima de registros (teto de 1000)"),
     db: Session = Depends(get_db)
 ):
-    """
-    Lista trilhas de auditoria para o perfil Administrador (RNF05).
-    Garante rastreabilidade de acessos, alterações cadastrais e sincronicidade.
-    """
+
     query = db.query(LogAuditoria)
     if acao:
         query = query.filter(LogAuditoria.acao.ilike(f"%{acao}%"))

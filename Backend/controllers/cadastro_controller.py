@@ -15,8 +15,6 @@ from schemas import (
     PacienteCreate, PacienteResponse,
 )
 
-# Leitura: qualquer usuário autenticado (o Mobile consome as listas na ficha).
-# Criação, alteração e exclusão: somente ADMINISTRADOR.
 router = APIRouter(
     prefix="/cadastros",
     tags=["Cadastros Administrativos (RF10 e Modelo C4)"],
@@ -24,9 +22,6 @@ router = APIRouter(
 )
 
 somente_admin = [Depends(exigir_perfil("ADMINISTRADOR"))]
-
-# 1. MÉDICOS
-# CRUD completo consumido pelo menu lateral do Administrador:
 
 @router.get("/medicos", response_model=List[MedicoResponse])
 def listar_medicos(db: Session = Depends(get_db)):
@@ -51,8 +46,6 @@ def deletar_medico(id_medico: int, db: Session = Depends(get_db)):
     db.commit()
     return None
 
-# 2. TÉCNICOS DE ENFERMAGEM
-
 @router.get("/tecnicos", response_model=List[TecnicoResponse])
 def listar_tecnicos(db: Session = Depends(get_db)):
     """Lista todos os técnicos de enfermagem."""
@@ -61,7 +54,7 @@ def listar_tecnicos(db: Session = Depends(get_db)):
 @router.post("/tecnicos", response_model=TecnicoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_tecnico(dados: TecnicoCreate, db: Session = Depends(get_db)):
     """Cadastra um novo técnico de enfermagem."""
-    tecnico = Tecnico(nome=dados.nome, codigo_medico=dados.codigo_medico)
+    tecnico = Tecnico(nome=dados.nome, codigo_tecnico=dados.codigo_tecnico or dados.codigo_medico)
     db.add(tecnico)
     db.commit()
     db.refresh(tecnico)
@@ -75,8 +68,6 @@ def deletar_tecnico(id_tecnico: int, db: Session = Depends(get_db)):
     db.delete(tecnico)
     db.commit()
     return None
-
-# 3. CONDUTORES SOCORRISTA
 
 @router.get("/condutores", response_model=List[CondutorResponse])
 def listar_condutores(db: Session = Depends(get_db)):
@@ -100,8 +91,6 @@ def deletar_condutor(id_condutor: int, db: Session = Depends(get_db)):
     db.delete(condutor)
     db.commit()
     return None
-
-# 4. UNIDADES MÓVEIS / AMBULÂNCIAS
 
 @router.get("/unidades", response_model=List[UnidadeMovelResponse])
 def listar_unidades(db: Session = Depends(get_db)):
@@ -134,8 +123,6 @@ def atualizar_status_unidade(id_unidade: int, status_novo: str, motivo: str = No
     db.refresh(unidade)
     return unidade
 
-# 5. BASES OPERACIONAIS
-
 @router.get("/bases", response_model=List[BaseOperacionalResponse])
 def listar_bases(db: Session = Depends(get_db)):
     """Lista as bases operacionais do município."""
@@ -144,6 +131,11 @@ def listar_bases(db: Session = Depends(get_db)):
 @router.post("/bases", response_model=BaseOperacionalResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_base(dados: BaseOperacionalCreate, db: Session = Depends(get_db)):
     base = BaseOperacional(
+        nome=dados.nome or dados.base_unidade,
+        endereco=dados.endereco,
+        bairro=dados.bairro,
+        telefone=dados.telefone,
+        ativo=dados.ativo,
         placa=dados.placa,
         base_unidade=dados.base_unidade,
         status=dados.status,
@@ -153,8 +145,6 @@ def criar_base(dados: BaseOperacionalCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(base)
     return base
-
-# 6. HOSPITAIS DE DESTINO
 
 @router.get("/hospitais", response_model=List[HospitalDestinoResponse])
 def listar_hospitais(db: Session = Depends(get_db)):
@@ -168,8 +158,6 @@ def criar_hospital(dados: HospitalDestinoCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(hospital)
     return hospital
-
-# 7. PACIENTES
 
 @router.get("/pacientes", response_model=List[PacienteResponse])
 def listar_pacientes(db: Session = Depends(get_db)):

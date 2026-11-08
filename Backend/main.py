@@ -17,13 +17,28 @@ APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
 def ajustar_colunas_novas():
     """
     Adiciona em bancos já existentes as colunas criadas depois da primeira versão
-    (create_all não altera tabelas existentes). Usuários antigos ficam com troca de senha obrigatória.
+    (create_all não altera tabelas existentes). Usuários antigos ficam com troca de senha obrigatória
+    e fichas antigas ficam com envio à Prefeitura PENDENTE.
     """
-    colunas_usuario = {c["name"] for c in inspect(engine).get_columns("usuario")}
-    if "trocar_senha" not in colunas_usuario:
-        print("[DATABASE] Adicionando coluna usuario.trocar_senha...")
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE usuario ADD COLUMN trocar_senha BOOLEAN NOT NULL DEFAULT TRUE"))
+    colunas_novas = {
+        "usuario": [
+            ("trocar_senha", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ],
+        "ficha_atendimento": [
+            ("status_envio_prefeitura", "VARCHAR(20) NOT NULL DEFAULT 'PENDENTE'"),
+            ("protocolo_prefeitura", "VARCHAR(64)"),
+            ("tentativas_envio", "INTEGER NOT NULL DEFAULT 0"),
+            ("ultima_tentativa_envio", "TIMESTAMP"),
+            ("erro_envio", "TEXT"),
+        ],
+    }
+    for tabela, colunas in colunas_novas.items():
+        existentes = {c["name"] for c in inspect(engine).get_columns(tabela)}
+        for nome, definicao in colunas:
+            if nome not in existentes:
+                print(f"[DATABASE] Adicionando coluna {tabela}.{nome}...")
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {nome} {definicao}"))
 
 def init_db():
     """Cria tabelas no banco de dados e executa carga inicial de dados (somente em desenvolvimento)."""

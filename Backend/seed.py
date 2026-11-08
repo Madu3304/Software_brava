@@ -1,9 +1,5 @@
 # Backend/seed.py
-"""
-Script de Carga Inicial de Dados (Seed Data)
-Cadastra os usuários padrão (Administrador e Equipe de Campo, com senhas lidas do .env),
-as 4 Unidades Móveis (Brava 1 a 4), Médicos Reguladores e Hospitais de Destino.
-"""
+
 import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
@@ -14,12 +10,8 @@ from services.security_service import gerar_hash_senha
 load_dotenv()
 
 def seed_initial_data(db: Session):
-    """Popula o banco com os dados mínimos necessários caso estejam vazios."""
     print("[SEED] Verificando dados iniciais do sistema...")
 
-    # 1. Usuários Padrão (RN01, RN13)
-    # As senhas iniciais vêm do .env (ADMIN_PASSWORD e EQUIPE_PASSWORD) e nunca são exibidas nos logs.
-    # Todos os usuários criados aqui precisam trocar a senha no primeiro acesso.
     senha_admin = os.getenv("ADMIN_PASSWORD")
     senha_equipe = os.getenv("EQUIPE_PASSWORD")
 
@@ -80,7 +72,6 @@ def seed_initial_data(db: Session):
             trocar_senha=True,
         ))
 
-    # 2. Unidades Móveis (As 4 Bravas do SAMU de Joinville - RF10, RF12)
     bravas = [
         ("BRA-0101", "Brava 1", "DISPONIVEL"),
         ("BRA-0202", "Brava 2", "DISPONIVEL"),
@@ -93,7 +84,6 @@ def seed_initial_data(db: Session):
             print(f"[SEED] Criando Unidade Móvel: {base_nome} ({placa})...")
             db.add(UnidadeMovel(placa=placa, base_unidade=base_nome, status=status))
 
-    # 3. Médicos Reguladores de Plantão (RN11, RN12)
     medicos_iniciais = [
         ("Dr. Roberto Silva (Médico Regulador)", 12345),
         ("Dra. Juliana Mendes (Médica Reguladora)", 23456),
@@ -104,17 +94,14 @@ def seed_initial_data(db: Session):
             print(f"[SEED] Cadastrando Médico: {nome}...")
             db.add(Medico(nome=nome, codigo_medico=crm))
 
-    # 4. Técnicos cadastrados na tabela técnico
-    tec_cadastrado = db.query(Tecnico).filter(Tecnico.codigo_medico == 203040).first()
+    tec_cadastrado = db.query(Tecnico).filter(Tecnico.codigo_tecnico == 203040).first()
     if not tec_cadastrado:
-        db.add(Tecnico(nome="Ana Paula - Técnica de Enfermagem", codigo_medico=203040))
+        db.add(Tecnico(nome="Ana Paula - Técnica de Enfermagem", codigo_tecnico=203040))
 
-    # 5. Condutores cadastrados na tabela condutor
     cond_cadastrado = db.query(Condutor).filter(Condutor.codigo_condutor == 405060).first()
     if not cond_cadastrado:
         db.add(Condutor(nome="Marcos Aurélio - Condutor Socorrista", codigo_condutor=405060))
 
-    # 6. Hospitais de Destino (C4 Nível 1/2)
     hospitais = [
         ("Hospital Municipal São José", "Av. Getúlio Vargas, 238 - Anita Garibaldi"),
         ("Hospital Regional Hans Dieter Schmidt", "R. Paulo Schroeder, 1150 - Boa Vista"),

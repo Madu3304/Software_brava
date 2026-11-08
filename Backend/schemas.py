@@ -348,4 +348,4 @@ class LogAuditoriaResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
+

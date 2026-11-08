@@ -1,12 +1,9 @@
-# Backend/services/sync_service.py
-"""
-Módulo de Sincronização Offline (Modelo C4 - Níveis 3 e 4)
-Componente: Sync Controller / Service
-Responsabilidade: Processamento de cargas de dados em lote originadas do SQLite do Aplicativo Mobile.
-"""
-from typing import List, Optional
-from datetime import datetime
+import logging
+logger = logging.getLogger("BravaSyncService")
+
+from typing import List, Optional, Tuple, Sequence, Any
 from sqlalchemy.orm import Session
+from pydantic import ValidationError
 
 from models import FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, LogAuditoria
 from schemas import FichaSyncItem, SyncLoteResponse
@@ -15,32 +12,29 @@ from services.validation_service import validar_regras_clinicas_ficha
 
 def processar_pacote_sync_offline(
     db: Session,
-    itens: List[FichaSyncItem],
+    itens: Sequence[Any],
     id_responsavel: int,
     ip_origem: Optional[str] = None,
-) -> SyncLoteResponse:
-    """
-    Persiste lote de fichas com integridade relacional e idempotência baseada no uuid_offline.
-    id_responsavel e ip_origem vêm do token e da conexão (nunca do corpo da requisição).
-    Cada item é gravado dentro de um savepoint (begin_nested): um item com erro é desfeito
-    sozinho e entra na lista de erros, sem afetar os demais itens nem o commit final do lote.
-    Ao final de cada persistência, encaminha o atendimento para o Integration Service.
-    """
+) -> Tuple[SyncLoteResponse, List[int]]:
+ 
     processados = len(itens)
     sucessos = 0
     duplicados = 0
     erros = []
+    ids_fichas_criadas = []
 
-    for item in itens:
+    for item_bruto in itens:
+        uuid_item = item_bruto.get("uuid_offline") if isinstance(item_bruto, dict) else getattr(item_bruto, "uuid_offline", None)
         try:
-            # 1. Checagem de idempotência
-            existente = db.query(FichaAtendimento).filter(
-                FichaAtendimento.uuid_offline == item.uuid_offline
-            ).first()
+            if isinstance(item_bruto, dict):
+                item = FichaAtendimentoCreate(**item_bruto)
+            else:
+                item = item_bruto
 
-            if existente:
-                duplicados += 1
-                continue
+            if item.uuid_offline:
+                existente = db.query(FichaAtendimento).filter(
+                    FichaAtendimento.uuid_offline == item.uuid_offline
+                ).first()
 
             valido, erros_val = validar_regras_clinicas_ficha(item)
             if not valido:
@@ -72,10 +66,10 @@ def processar_pacote_sync_offline(
                     db.flush()
                     id_paciente_criado = paciente.id_paciente
 
-                # 3. Ficha
-                ficha = FichaAtendimento(
-                    uuid_offline=item.uuid_offline,
-                    id_unidade=item.id_unidade,
+            with db.begin_nested():
+                nova_ficha = criar_ficha_completa(
+                    db=db,
+                    dados=item,
                     id_responsavel=id_responsavel,
                     id_condutor=item.id_condutor,
                     id_paciente=id_paciente_criado,
@@ -158,19 +152,19 @@ def processar_pacote_sync_offline(
                     db.add(utensilios)
 
             sucessos += 1
+            ids_fichas_criadas.append(nova_ficha.id_ficha)
 
-            # 6. Dispara integração externa com o banco da prefeitura (C4 Nível 3)
-            transmitir_atendimento_para_prefeitura({
-                "id_ficha": ficha.id_ficha,
-                "uuid_offline": item.uuid_offline,
-                "id_unidade": item.id_unidade,
-                "data": ficha.data_atendimento.isoformat() if ficha.data_atendimento else None,
-            })
-
+        except ValidationError as e:
+            logger.warning("Falha de schema Pydantic no item %s: %s", uuid_item, e)
+            msg_erro = e.errors()[0]["msg"] if e.errors() else "Dados inválidos."
+            erros.append(f"Erro no item {uuid_item}: {msg_erro}")
+        except ErroValidacaoClinica as e:
+            logger.warning("Falha clínica no item %s: %s", uuid_item, e.erros)
+            erros.append(f"Erro no item {uuid_item}: Falha de validação clínica - {'; '.join(e.erros)}")
         except Exception as e:
-            erros.append(f"Erro no item {item.uuid_offline}: {str(e)}")
+            logger.error("Falha interna de persistência na sincronização do item %s: %s", uuid_item, e, exc_info=True)
+            erros.append(f"Erro no item {uuid_item}: Falha interna de persistência no processamento do atendimento.")
 
-    # 7. Registra auditoria
     log = LogAuditoria(
         id_usuario=id_responsavel,
         ip_origem=ip_origem,
@@ -180,9 +174,10 @@ def processar_pacote_sync_offline(
     db.add(log)
     db.commit()
 
-    return SyncLoteResponse(
+    resumo = SyncLoteResponse(
         processados=processados,
         sucessos=sucessos,
         duplicados_ignorados=duplicados,
         erros=erros
     )
+    return (resumo, ids_fichas_criadas)

@@ -16,12 +16,11 @@ router = APIRouter(
     dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
 )
 
-# Gerencia contas, senhas com hash SHA-256 e perfis (Administrador, Enfermeiro, Técnico, Condutor).
-
 @router.get("/", response_model=List[UsuarioResponse])
 def listar_usuarios(
     perfil: Optional[str] = Query(None, description="Filtrar por perfil: ADMINISTRADOR, ENFERMEIRO, TECNICO, CONDUTOR"),
     ativo: Optional[bool] = Query(None, description="Filtrar por status ativo/inativo"),
+    limite: int = Query(100, ge=1, le=1000, description="Quantidade máxima de registros"),
     db: Session = Depends(get_db)
 ):
     """
@@ -32,7 +31,7 @@ def listar_usuarios(
         query = query.filter(Usuario.perfil == perfil.upper())
     if ativo is not None:
         query = query.filter(Usuario.ativo == ativo)
-    return query.all()
+    return query.limit(limite).all()
 
 @router.get("/{id_usuario}", response_model=UsuarioResponse)
 def obter_usuario(id_usuario: int, db: Session = Depends(get_db)):
@@ -49,9 +48,6 @@ def criar_usuario(
     admin: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
-    """
-    Cadastra um novo usuário com controle de perfil (RBAC) e registro profissional.
-    """
     # Verifica duplicidade de login
     login_existente = db.query(Usuario).filter(Usuario.login == dados.login).first()
     if login_existente:
@@ -101,9 +97,6 @@ def atualizar_usuario(
     admin: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
-    """
-    Atualiza dados do usuário, perfil, senha ou inativa o colaborador (Direito do Titular / LGPD).
-    """
     usuario = db.query(Usuario).filter(Usuario.id_usuario == id_usuario).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
@@ -151,18 +144,17 @@ def deletar_usuario(
     admin: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
-    """Remove permanentemente o usuário ou desativa seu acesso."""
+
     usuario = db.query(Usuario).filter(Usuario.id_usuario == id_usuario).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
-    login_removido = usuario.login
-    db.delete(usuario)
+    usuario.ativo = False
     db.commit()
     registrar_auditoria(
         db=db,
-        acao="EXCLUIR_USUARIO",
-        detalhes=f"Usuário {login_removido} (id {id_usuario}) excluído pelo Administrador.",
+        acao="DESATIVAR_USUARIO",
+        detalhes=f"Usuário {usuario.login} (id {id_usuario}) desativado (soft delete) pelo Administrador.",
         id_usuario=admin.id_usuario,
         ip_origem=obter_ip_origem(request),
     )
