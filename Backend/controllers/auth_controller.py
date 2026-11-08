@@ -14,13 +14,10 @@ from services.security_service import (
     obter_redirecionamento_por_perfil,
 )
 from services.log_service import registrar_auditoria
-from rate_limit import limite_autenticacao
+from rate_limit import limite_autenticacao, limite_trocar_senha
 
-# Gerencia autenticação e aplica regra de redirecionamento por perfil: Administrador vs Mobile
-router = APIRouter(prefix="/auth", tags=["Autenticação e Sessão (C4 Nível 3/4)"])
+router = APIRouter(prefix="/auth", tags=["Autenticação e Sessão"])
 
-# Mensagem única para login inexistente, senha errada ou usuário inativo:
-# a resposta não revela se o login existe (B9)
 MENSAGEM_CREDENCIAIS_INVALIDAS = "Credenciais inválidas."
 
 def recusar_credenciais(db: Session, request: Request, acao: str, login: str, motivo: str, usuario: Usuario | None):
@@ -37,10 +34,13 @@ def recusar_credenciais(db: Session, request: Request, acao: str, login: str, mo
         detail=MENSAGEM_CREDENCIAIS_INVALIDAS,
     )
 
+HASH_DUMMY = gerar_hash_senha("senha_dummy_tempo_constante")
+
 def autenticar_usuario(login: str, senha: str, request: Request, db: Session) -> TokenResponse:
     """Valida as credenciais, gera o JWT e registra a auditoria do login."""
     usuario = db.query(Usuario).filter(Usuario.login == login).first()
     if not usuario:
+        verificar_senha(senha, HASH_DUMMY)
         recusar_credenciais(db, request, "LOGIN_FALHA", login, "usuário não encontrado", None)
 
     if not verificar_senha(senha, usuario.senha_hash):
@@ -52,6 +52,13 @@ def autenticar_usuario(login: str, senha: str, request: Request, db: Session) ->
 
     # Primeiro acesso ou senha redefinida pelo Administrador: exige troca antes de liberar o acesso
     if usuario.trocar_senha:
+        registrar_auditoria(
+            db=db,
+            acao="LOGIN_TROCA_SENHA_OBRIGATORIA",
+            detalhes=f"Login bloqueado até troca de senha inicial para '{usuario.login}'.",
+            id_usuario=usuario.id_usuario,
+            ip_origem=obter_ip_origem(request),
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -89,15 +96,6 @@ def autenticar_usuario(login: str, senha: str, request: Request, db: Session) ->
 @router.post("/login", response_model=TokenResponse)
 @limite_autenticacao
 def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
-    """
-    Autentica usuários (Administrador ou Equipe de Campo).
-    Conforme o Modelo C4 e RFC:
-    - Administrador é direcionado para a Interface Web Administrativa (Dashboard / Cadastros).
-    - Equipe de Campo (Enfermeiro, Técnico, Condutor) é direcionada para o Aplicativo Mobile (Ficha Técnica).
-    O access_token retornado deve ser enviado nas demais rotas no header: Authorization: Bearer <token>.
-    Se o usuário estiver com troca de senha obrigatória, o login é recusado (403, codigo TROCA_SENHA_OBRIGATORIA)
-    até que a senha seja trocada em POST /api/auth/trocar-senha.
-    """
     return autenticar_usuario(req.login, req.senha, request, db)
 
 @router.post("/token", response_model=TokenResponse)
@@ -107,21 +105,16 @@ def login_formulario(
     form: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    """Login no padrão OAuth2 (form-data), utilizado pelo botão "Authorize" da documentação /docs."""
     return autenticar_usuario(form.username, form.password, request, db)
 
 @router.get("/me", response_model=UsuarioResponse)
 def usuario_logado(usuario: Usuario = Depends(get_usuario_atual)):
-    """Retorna os dados do usuário dono do token."""
     return usuario
 
 @router.post("/trocar-senha")
-@limite_autenticacao
+@limite_trocar_senha
 def trocar_senha(req: TrocarSenhaRequest, request: Request, db: Session = Depends(get_db)):
-    """
-    Troca a senha do usuário (obrigatória no primeiro acesso ou após redefinição pelo Administrador).
-    Exige login e senha atual. A nova senha deve ter no mínimo 8 caracteres e ser diferente da atual.
-    """
+
     usuario = db.query(Usuario).filter(Usuario.login == req.login).first()
     if not usuario:
         recusar_credenciais(db, request, "TROCAR_SENHA_FALHA", req.login, "usuário não encontrado", None)
@@ -159,6 +152,11 @@ def logout(
     db: Session = Depends(get_db),
 ):
     """Encerra a sessão e registra log de auditoria."""
+    usuario = db.query(Usuario).filter(Usuario.id_usuario == id_usuario).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    ip_origem = request.client.host if request.client else "127.0.0.1"
     ip_origem = obter_ip_origem(request)
     registrar_auditoria(
         db=db,

@@ -1,13 +1,5 @@
 # Backend/dependencies.py
-"""
-Dependências de Autenticação e Autorização (Modelo C4 - Nível 4)
-Uso nos controllers:
-- Depends(get_usuario_atual): exige token JWT válido e devolve o usuário logado
-- Depends(exigir_perfil("ADMINISTRADOR")): exige token válido e perfil autorizado (RBAC)
-- obter_ip_origem(request): IP de origem da conexão, para a auditoria
 
-O usuário e o IP registrados na auditoria vêm sempre do token e da conexão, nunca do corpo da requisição.
-"""
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -57,13 +49,18 @@ def get_usuario_atual(
             detail="Usuário inativo. Contate o Administrador."
         )
 
+    if usuario.trocar_senha:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "codigo": "TROCA_SENHA_OBRIGATORIA",
+                "mensagem": "É necessário trocar a senha antes de acessar este recurso.",
+            },
+        )
+
     return usuario
 
 def exigir_perfil(*perfis_permitidos: str):
-    """
-    Fábrica de dependência RBAC. O perfil é lido do banco (não do token),
-    então alterações de perfil feitas pelo Administrador valem imediatamente.
-    """
     def verificar_perfil(usuario: Usuario = Depends(get_usuario_atual)) -> Usuario:
         if not validar_permissao_perfil(usuario.perfil, list(perfis_permitidos)):
             raise HTTPException(

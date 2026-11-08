@@ -8,7 +8,6 @@ class Condutor(Base):
     id_condutor = Column(Integer, primary_key=True, index=True)
     nome = Column(String(200), nullable=True)
     codigo_condutor = Column(Integer, nullable=True)
-    criado_em = Column(DateTime, server_default=func.now())
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Nota: ficha_atendimento referencia o condutor via usuario.id_usuario (perfil CONDUTOR)
-    # fichas = relationship("FichaAtendimento", back_populates="condutor")
+    fichas = relationship("FichaAtendimento", back_populates="condutor")

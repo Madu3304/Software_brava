@@ -1,9 +1,5 @@
 # Backend/rate_limit.py
-"""
-Limite de Tentativas (Rate Limit) - proteção contra força bruta no login (B9)
-Os endpoints de autenticação (/login, /token e /trocar-senha) compartilham o mesmo limite por IP,
-configurado em LOGIN_RATE_LIMIT no .env (padrão: 5 tentativas por minuto).
-"""
+
 import os
 import logging
 
@@ -20,8 +16,9 @@ LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5/minute")
 # Contadores em memória: valem por processo do servidor (com vários workers, use um storage como Redis)
 limiter = Limiter(key_func=get_remote_address)
 
-# Limite único para todas as rotas de autenticação (escopo "autenticacao")
+# Limite compartilhado para login (/login e /token) e escopo separado para /trocar-senha
 limite_autenticacao = limiter.shared_limit(LOGIN_RATE_LIMIT, scope="autenticacao")
+limite_trocar_senha = limiter.shared_limit(LOGIN_RATE_LIMIT, scope="trocar_senha")
 
 def tratar_limite_excedido(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """Resposta 429 padronizada quando o limite de tentativas é excedido."""

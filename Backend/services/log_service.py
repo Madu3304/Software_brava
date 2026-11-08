@@ -1,9 +1,5 @@
 # Backend/services/log_service.py
-"""
-Módulo de Auditoria e Rastreabilidade LGPD (Modelo C4 - Nível 4)
-Componente: Log Service
-Responsabilidade: Registro de logs de execução, acessos, auditoria operacional e falhas técnicas (RNF05).
-"""
+
 import logging
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -21,10 +17,7 @@ def registrar_auditoria(
     id_usuario: Optional[int] = None,
     ip_origem: Optional[str] = None,
 ) -> LogAuditoria:
-    """
-    Grava evento de auditoria no PostgreSQL e espelha no logger da aplicação.
-    Em conformidade com a LGPD (sem registrar dados de prontuário, apenas metadados).
-    """
+
     logger.info(f"AUDITORIA: [{acao}] Usuario: {id_usuario} | IP: {ip_origem} | {detalhes}")
 
     log_entry = LogAuditoria(
@@ -44,7 +37,6 @@ def listar_logs_recentes(
     acao: Optional[str] = None,
     id_usuario: Optional[int] = None,
 ) -> List[LogAuditoriaResponse]:
-    """Consulta histórico de auditoria para o painel administrativo."""
     query = db.query(LogAuditoria)
     if acao:
         query = query.filter(LogAuditoria.acao.ilike(f"%{acao}%"))
@@ -52,4 +44,4 @@ def listar_logs_recentes(
         query = query.filter(LogAuditoria.id_usuario == id_usuario)
 
     logs = query.order_by(LogAuditoria.data_hora.desc()).limit(limite).all()
-    return [LogAuditoriaResponse.from_orm(log) for log in logs]
+    return [LogAuditoriaResponse.model_validate(log) for log in logs]

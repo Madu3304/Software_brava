@@ -1,9 +1,9 @@
 # Backend/services/__init__.py
 """
-Camada de Serviços de Negócio (Services Layer - Modelo C4)
-Centraliza a lógica de domínio, segurança, validação clínica, relatórios e integrações.
+Camada de Serviços de Negócio
 """
 from .ficha_service import (
+    criar_ficha_completa,
     listar_fichas_com_sinais_vitais,
     buscar_ficha_consolidada_reposicao,
     listar_fichas_para_reposicao,
