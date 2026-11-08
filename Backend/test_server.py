@@ -158,9 +158,17 @@ with TestClient(app) as client:
     print("16. Sync lote:", res_sync.status_code, res_sync.json())
     assert res_sync.status_code == 200 and res_sync.json()["sucessos"] == 1
 
-    # 17. Logout usa o usuário do token
+    # 17. Logout exige autenticação via JWT e usa exclusivamente o usuário do token
+    res_logout_sem_token = client.post("/api/auth/logout")
+    print("17. Logout sem token (deve recusar 401):", res_logout_sem_token.status_code)
+    assert res_logout_sem_token.status_code == 401
+
+    res_logout_spoof = client.post("/api/auth/logout", params={"id_usuario": id_admin})
+    print("17. Logout com id_usuario arbitrário sem token (deve recusar 401):", res_logout_spoof.status_code)
+    assert res_logout_spoof.status_code == 401
+
     res_logout = client.post("/api/auth/logout", headers=headers_enf)
-    print("17. Logout:", res_logout.status_code)
+    print("17. Logout autenticado:", res_logout.status_code)
     assert res_logout.status_code == 200
 
     # 18. Confere no banco: fichas e logs registrados com o usuário do token e o IP da conexão
