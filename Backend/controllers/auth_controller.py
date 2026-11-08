@@ -15,6 +15,29 @@ from services.log_service import registrar_auditoria
 # Gerencia autenticação e aplica regra de redirecionamento por perfil: Administrador vs Mobile
 router = APIRouter(prefix="/auth", tags=["Autenticação e Sessão (C4 Nível 3/4)"])
 
+MENSAGEM_CREDENCIAIS_INVALIDAS = "Credenciais inválidas."
+
+def recusar_credenciais(
+    db: Session,
+    request: Request,
+    login: str,
+    motivo: str,
+    usuario: Usuario | None = None,
+):
+    """Registra a tentativa de login que falhou na auditoria e responde sempre com 401 padronizado."""
+    ip_origem = request.client.host if request.client else "127.0.0.1"
+    registrar_auditoria(
+        db=db,
+        acao="LOGIN_FALHA",
+        detalhes=f"Tentativa recusada para o login '{login[:50]}'. Motivo: {motivo}.",
+        id_usuario=usuario.id_usuario if usuario else None,
+        ip_origem=ip_origem,
+    )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=MENSAGEM_CREDENCIAIS_INVALIDAS,
+    )
+
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """
@@ -25,22 +48,13 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """
     usuario = db.query(Usuario).filter(Usuario.login == req.login).first()
     if not usuario:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas: usuário não encontrado."
-        )
-
-    if not usuario.ativo:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuário inativo. Contate o Administrador."
-        )
+        recusar_credenciais(db, request, req.login, "usuário não encontrado", None)
 
     if not verificar_senha(req.senha, usuario.senha_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas: senha incorreta."
-        )
+        recusar_credenciais(db, request, req.login, "senha incorreta", usuario)
+
+    if not usuario.ativo:
+        recusar_credenciais(db, request, req.login, "usuário inativo", usuario)
 
     # Determina o redirecionamento com base no perfil (RBAC)
     redirecionamento = obter_redirecionamento_por_perfil(usuario.perfil)

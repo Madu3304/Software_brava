@@ -1,3 +1,10 @@
+import os
+import tempfile
+
+# Os testes rodam num banco SQLite temporário para não alterar o brava.db local.
+pasta_temporaria = tempfile.mkdtemp()
+os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(pasta_temporaria, 'teste.db')}"
+
 from fastapi.testclient import TestClient
 from main import app
 
@@ -35,7 +42,12 @@ with TestClient(app) as client:
     print("6. Logout:", res_logout.status_code, res_logout.json())
     assert res_logout.status_code == 200
     res_logs = client.get("/api/logs/", params={"acao": "LOGOUT", "id_usuario": id_enf})
-    assert any(log["acao"] == "LOGOUT" for log in res_logs.json())
+    logs = res_logs.json()
+    assert len(logs) > 0
+    ultimo_log = logs[0]
+    assert ultimo_log["acao"] == "LOGOUT"
+    assert ultimo_log["id_usuario"] == id_enf
+    assert ultimo_log["detalhes_metadados"] == "Sessão finalizada pelo usuário."
 
     # 7. Logout de usuário inexistente retorna 404
     res_logout_inexistente = client.post("/api/auth/logout", params={"id_usuario": 999999})
