@@ -1,13 +1,12 @@
-// ============================================================================
-// VIEW ASSISTENCIAL: REGISTRO DA OCORRÊNCIA / FICHA TÉCNICA (FIGMA IMAGENS 2 & 3)
-// Arquivo: lib/views/assistencial/registro_atendimento_view.dart
-// ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+import '../../core/constants/app_routes.dart';
 import '../../models/ficha_model.dart';
+import '../../providers/ficha_provider.dart';
 import 'widgets/samu_app_bar_header.dart';
 import 'widgets/registro_field_card.dart';
-import 'dados_paciente_view.dart';
 
 class RegistroAtendimentoView extends StatefulWidget {
   final String? tipoViaturaInicial;
@@ -194,23 +193,26 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
 
   void _avancarParaDadosPaciente() {
     final numOcorrencia = _registroController.text.trim().isEmpty
-        ? 'REG-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}'
+        ? 'REG-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}'
         : _registroController.text.trim();
 
     final baseFinal = _baseSelecionada == 'Selecionar Base'
         ? 'Base Central - SAMU Joinville'
         : _baseSelecionada;
 
+    final provider = context.read<FichaEmAndamentoProvider>();
+    final fichaBase = provider.ficha;
+
     final fichaParcial = FichaAtendimentoModel(
-      id: 'fch_${DateTime.now().millisecondsSinceEpoch}',
+      id: fichaBase?.id ?? const Uuid().v4(),
       numeroOcorrencia: numOcorrencia,
-      dataHora: widget.dataAtendimentoInicial ?? DateTime.now(),
-      pacienteNome: 'Paciente Ocorrência $numOcorrencia',
+      dataHora: widget.dataAtendimentoInicial ?? fichaBase?.dataHora ?? DateTime.now(),
+      pacienteNome: fichaBase?.pacienteNome ?? '',
       tipoOcorrencia: 'Atendimento Pré-Hospitalar',
       endereco: baseFinal,
-      unidadeResponsavel: widget.tipoViaturaInicial ?? 'USB',
-      tipoViatura: widget.tipoViaturaInicial ?? 'USB',
-      codigoTriagem: widget.codigoTriagemInicial ?? 'Vermelho',
+      unidadeResponsavel: widget.tipoViaturaInicial ?? fichaBase?.tipoViatura ?? 'USB',
+      tipoViatura: widget.tipoViaturaInicial ?? fichaBase?.tipoViatura ?? 'USB',
+      codigoTriagem: widget.codigoTriagemInicial ?? fichaBase?.codigoTriagem ?? 'Vermelho',
       base: baseFinal,
       medicoResponsavel: _medicoController.text.trim(),
       tecnicoResponsavel: _tecnicoController.text.trim(),
@@ -219,13 +221,12 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
       horaSaidaBase: _horaSaidaController.text.trim(),
     );
 
-    Navigator.push(
+    provider.setFicha(fichaParcial);
+
+    Navigator.pushNamed(
       context,
-      MaterialPageRoute(
-        builder: (context) => DadosPacienteView(
-          fichaParcial: fichaParcial,
-        ),
-      ),
+      AppRoutes.dadosPaciente,
+      arguments: fichaParcial,
     );
   }
 

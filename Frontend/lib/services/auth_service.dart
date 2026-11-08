@@ -1,10 +1,17 @@
-// ============================================================================
-// SERVIÇO DE AUTENTICAÇÃO E CONTROLE DE ACESSO BASEADO EM FUNÇÃO (RBAC)
-// Arquivo: lib/services/auth_service.dart
-// ============================================================================
-
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../core/api/api_client.dart';
 import '../models/usuario_model.dart';
+
+class AuthException extends ArgumentError {
+  final int? statusCode;
+
+  AuthException(super.message, {this.statusCode});
+
+  @override
+  String toString() => message;
+}
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -17,50 +24,112 @@ class AuthService {
   UsuarioModel? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
 
-  /// Realiza login aplicando a regra de negócio do SAMU 192:
-  /// - Senha ou usuário contendo 'adm' -> Perfil Admin (Acesso ao Dashboard Web)
-  /// - Senha ou usuário com 'atendimento' (ou credencial assistencial) -> Perfil Atendimento (Ficha APH)
-  Future<UsuarioModel> login(String login, String senha) async {
-    final cleanLogin = login.trim().toLowerCase();
-    final cleanSenha = senha.trim().toLowerCase();
-
-    if (cleanLogin.isEmpty || cleanSenha.isEmpty) {
-      throw ArgumentError('Login e senha são obrigatórios.');
-    }
-
-    // Simula delay de rede / autenticação segura
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    final bool isAdmin = cleanLogin.contains('adm') || cleanSenha.contains('adm');
-    final perfil = isAdmin ? PerfilUsuario.admin : PerfilUsuario.atendimento;
-    final token = 'jwt_token_${DateTime.now().millisecondsSinceEpoch}_${perfil.name}';
-
-    final usuario = UsuarioModel(
-      id: isAdmin ? 'usr_adm_01' : 'usr_atend_02',
-      nome: isAdmin ? 'Administrador SAMU' : 'Equipe de Atendimento',
-      login: login.trim(),
-      perfil: perfil,
-      token: token,
-    );
-
-    _currentUser = usuario;
-
+  // Tenta restaurar sessão prévia a partir do storage seguro
+  Future<UsuarioModel?> restaurarSessao() async {
     try {
-      await _storage.write(key: 'auth_token', value: token);
-      await _storage.write(key: 'user_perfil', value: perfil.name);
-    } catch (_) {
-      // Fallback seguro em ambientes Web / testes sem suporte a storage nativo
-    }
+      final token = await _storage.read(key: 'auth_token');
+      final perfilStr = await _storage.read(key: 'user_perfil');
+      final nome = await _storage.read(key: 'user_nome') ?? 'Usuário SAMU';
+      final login = await _storage.read(key: 'user_login') ?? '';
+      final id = await _storage.read(key: 'user_id') ?? '';
+      final redirect = await _storage.read(key: 'user_redirect');
 
-    return usuario;
+      if (token != null && token.isNotEmpty && perfilStr != null) {
+        _currentUser = UsuarioModel(
+          id: id,
+          nome: nome,
+          login: login,
+          perfil: PerfilUsuario.fromString(perfilStr),
+          token: token,
+          redirecionamento: redirect,
+        );
+        return _currentUser;
+      }
+    } catch (e) {
+      debugPrint('Erro ao restaurar sessão: $e');
+    }
+    return null;
   }
 
-  /// Encerra a sessão do usuário
+  // Realiza login através do endpoint POST /api/auth/login do FastAPI
+  Future<UsuarioModel> login(String login, String senha) async {
+    final cleanLogin = login.trim();
+    final cleanSenha = senha.trim();
+
+    if (cleanLogin.isEmpty || cleanSenha.isEmpty) {
+      throw AuthException('Por favor, informe seu usuário e senha.');
+    }
+
+    try {
+      final response = await ApiClient().dio.post(
+        '/auth/login',
+        data: {
+          'login': cleanLogin,
+          'senha': cleanSenha,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final usuario = UsuarioModel.fromMap(data);
+
+        _currentUser = usuario;
+
+        try {
+          if (usuario.token != null) {
+            await _storage.write(key: 'auth_token', value: usuario.token!);
+          }
+          await _storage.write(key: 'user_perfil', value: usuario.perfil.name);
+          await _storage.write(key: 'user_nome', value: usuario.nome);
+          await _storage.write(key: 'user_login', value: usuario.login);
+          await _storage.write(key: 'user_id', value: usuario.id);
+          if (usuario.redirecionamento != null) {
+            await _storage.write(key: 'user_redirect', value: usuario.redirecionamento!);
+          }
+        } catch (e) {
+          debugPrint('Aviso: Armazenamento seguro indisponível: $e');
+        }
+
+        return usuario;
+      } else {
+        throw AuthException('Não foi possível autenticar. Verifique suas credenciais.');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        final detail = e.response?.data is Map
+            ? (e.response?.data['detail'] ?? 'Credenciais inválidas. Verifique seu login e senha.')
+            : 'Credenciais inválidas. Verifique seu login e senha.';
+        throw AuthException(detail.toString(), statusCode: 401);
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        throw AuthException(
+          'Servidor indisponível no momento. Verifique sua conexão com a rede SAMU.',
+          statusCode: e.response?.statusCode,
+        );
+      }
+      throw AuthException(
+        'Falha na comunicação com o servidor de autenticação. Tente novamente.',
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw AuthException('Erro inesperado durante a autenticação.');
+    }
+  }
+
+  // Encerra a sessão do usuário de forma segura
   Future<void> logout() async {
     _currentUser = null;
     try {
       await _storage.delete(key: 'auth_token');
       await _storage.delete(key: 'user_perfil');
-    } catch (_) {}
+      await _storage.delete(key: 'user_nome');
+      await _storage.delete(key: 'user_login');
+      await _storage.delete(key: 'user_id');
+      await _storage.delete(key: 'user_redirect');
+    } catch (e) {
+      debugPrint('Erro ao limpar storage durante logout: $e');
+    }
   }
 }
