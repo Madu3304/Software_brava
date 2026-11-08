@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from database import get_db
+from dependencies import get_usuario_atual, exigir_perfil
 from models import Medico, Tecnico, Condutor, UnidadeMovel, BaseOperacional, HospitalDestino, Paciente, LogAuditoria
 from schemas import (
     MedicoCreate, MedicoResponse,
@@ -14,7 +15,15 @@ from schemas import (
     PacienteCreate, PacienteResponse,
 )
 
-router = APIRouter(prefix="/cadastros", tags=["Cadastros Administrativos (RF10 e Modelo C4)"])
+# Leitura: qualquer usuário autenticado (o Mobile consome as listas na ficha).
+# Criação, alteração e exclusão: somente ADMINISTRADOR.
+router = APIRouter(
+    prefix="/cadastros",
+    tags=["Cadastros Administrativos (RF10 e Modelo C4)"],
+    dependencies=[Depends(get_usuario_atual)],
+)
+
+somente_admin = [Depends(exigir_perfil("ADMINISTRADOR"))]
 
 # 1. MÉDICOS
 # CRUD completo consumido pelo menu lateral do Administrador:
@@ -24,7 +33,7 @@ def listar_medicos(db: Session = Depends(get_db)):
     """Lista todos os médicos cadastrados no sistema."""
     return db.query(Medico).all()
 
-@router.post("/medicos", response_model=MedicoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/medicos", response_model=MedicoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_medico(dados: MedicoCreate, db: Session = Depends(get_db)):
     """Cadastra um novo médico para seleção na ficha de atendimento."""
     medico = Medico(nome=dados.nome, codigo_medico=dados.codigo_medico)
@@ -33,7 +42,7 @@ def criar_medico(dados: MedicoCreate, db: Session = Depends(get_db)):
     db.refresh(medico)
     return medico
 
-@router.delete("/medicos/{id_medico}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/medicos/{id_medico}", status_code=status.HTTP_204_NO_CONTENT, dependencies=somente_admin)
 def deletar_medico(id_medico: int, db: Session = Depends(get_db)):
     medico = db.query(Medico).filter(Medico.id_medico == id_medico).first()
     if not medico:
@@ -49,7 +58,7 @@ def listar_tecnicos(db: Session = Depends(get_db)):
     """Lista todos os técnicos de enfermagem."""
     return db.query(Tecnico).all()
 
-@router.post("/tecnicos", response_model=TecnicoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/tecnicos", response_model=TecnicoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_tecnico(dados: TecnicoCreate, db: Session = Depends(get_db)):
     """Cadastra um novo técnico de enfermagem."""
     tecnico = Tecnico(nome=dados.nome, codigo_medico=dados.codigo_medico)
@@ -58,7 +67,7 @@ def criar_tecnico(dados: TecnicoCreate, db: Session = Depends(get_db)):
     db.refresh(tecnico)
     return tecnico
 
-@router.delete("/tecnicos/{id_tecnico}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/tecnicos/{id_tecnico}", status_code=status.HTTP_204_NO_CONTENT, dependencies=somente_admin)
 def deletar_tecnico(id_tecnico: int, db: Session = Depends(get_db)):
     tecnico = db.query(Tecnico).filter(Tecnico.id_tecnico == id_tecnico).first()
     if not tecnico:
@@ -74,7 +83,7 @@ def listar_condutores(db: Session = Depends(get_db)):
     """Lista todos os condutores socorristas."""
     return db.query(Condutor).all()
 
-@router.post("/condutores", response_model=CondutorResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/condutores", response_model=CondutorResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_condutor(dados: CondutorCreate, db: Session = Depends(get_db)):
     """Cadastra um novo condutor socorrista."""
     condutor = Condutor(nome=dados.nome, codigo_condutor=dados.codigo_condutor)
@@ -83,7 +92,7 @@ def criar_condutor(dados: CondutorCreate, db: Session = Depends(get_db)):
     db.refresh(condutor)
     return condutor
 
-@router.delete("/condutores/{id_condutor}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/condutores/{id_condutor}", status_code=status.HTTP_204_NO_CONTENT, dependencies=somente_admin)
 def deletar_condutor(id_condutor: int, db: Session = Depends(get_db)):
     condutor = db.query(Condutor).filter(Condutor.id_condutor == id_condutor).first()
     if not condutor:
@@ -99,7 +108,7 @@ def listar_unidades(db: Session = Depends(get_db)):
     """Lista as unidades móveis (Bravas)."""
     return db.query(UnidadeMovel).all()
 
-@router.post("/unidades", response_model=UnidadeMovelResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/unidades", response_model=UnidadeMovelResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_unidade(dados: UnidadeMovelCreate, db: Session = Depends(get_db)):
     """Cadastra uma nova unidade móvel básica do SAMU."""
     unidade = UnidadeMovel(
@@ -113,7 +122,7 @@ def criar_unidade(dados: UnidadeMovelCreate, db: Session = Depends(get_db)):
     db.refresh(unidade)
     return unidade
 
-@router.put("/unidades/{id_unidade}/status", response_model=UnidadeMovelResponse)
+@router.put("/unidades/{id_unidade}/status", response_model=UnidadeMovelResponse, dependencies=somente_admin)
 def atualizar_status_unidade(id_unidade: int, status_novo: str, motivo: str = None, db: Session = Depends(get_db)):
     """Atualiza o status de prontidão da viatura (Disponível, Parada, Manutenção)."""
     unidade = db.query(UnidadeMovel).filter(UnidadeMovel.id_unidade == id_unidade).first()
@@ -132,7 +141,7 @@ def listar_bases(db: Session = Depends(get_db)):
     """Lista as bases operacionais do município."""
     return db.query(BaseOperacional).all()
 
-@router.post("/bases", response_model=BaseOperacionalResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/bases", response_model=BaseOperacionalResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_base(dados: BaseOperacionalCreate, db: Session = Depends(get_db)):
     base = BaseOperacional(
         placa=dados.placa,
@@ -152,7 +161,7 @@ def listar_hospitais(db: Session = Depends(get_db)):
     """Lista os hospitais e unidades de pronto atendimento de destino."""
     return db.query(HospitalDestino).all()
 
-@router.post("/hospitais", response_model=HospitalDestinoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/hospitais", response_model=HospitalDestinoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_hospital(dados: HospitalDestinoCreate, db: Session = Depends(get_db)):
     hospital = HospitalDestino(nome=dados.nome, endereco=dados.endereco)
     db.add(hospital)
@@ -167,7 +176,7 @@ def listar_pacientes(db: Session = Depends(get_db)):
     """Lista pacientes registrados nos atendimentos."""
     return db.query(Paciente).limit(100).all()
 
-@router.post("/pacientes", response_model=PacienteResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/pacientes", response_model=PacienteResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_paciente(dados: PacienteCreate, db: Session = Depends(get_db)):
     paciente = Paciente(
         nome=dados.nome,

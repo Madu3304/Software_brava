@@ -13,6 +13,7 @@ class Usuario(Base):
     perfil = Column(String(50), nullable=False) # 'ADMINISTRADOR', 'ENFERMEIRO', 'TECNICO', 'CONDUTOR'
     registro_profissional = Column(String(50), nullable=True) # CRM, COREN, CNH
     ativo = Column(Boolean, default=True)
+    trocar_senha = Column(Boolean, default=False, nullable=False) # True: troca de senha obrigatória no próximo login
     criado_em = Column(DateTime, server_default=func.now())
 
     # Relacionamentos

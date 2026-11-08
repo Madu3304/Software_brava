@@ -33,8 +33,7 @@ def validar_regras_clinicas_ficha(dados: FichaAtendimentoCreate) -> Tuple[bool, 
     # 1. Validação de Unidade e Responsável (RN03, RN10)
     if not dados.id_unidade:
         erros.append("A Unidade Móvel (Brava) é obrigatória.")
-    if not dados.id_responsavel:
-        erros.append("O profissional responsável pelo atendimento é obrigatório (RN10).")
+    # RN10: o profissional responsável é o usuário autenticado (token), definido no controller.
 
     # 2. Validação do Médico de Plantão (RN11, RN12)
     if not dados.id_medico:
