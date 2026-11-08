@@ -152,11 +152,6 @@ def logout(
     db: Session = Depends(get_db),
 ):
     """Encerra a sessão e registra log de auditoria."""
-    usuario = db.query(Usuario).filter(Usuario.id_usuario == id_usuario).first()
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-
-    ip_origem = request.client.host if request.client else "127.0.0.1"
     ip_origem = obter_ip_origem(request)
     registrar_auditoria(
         db=db,
