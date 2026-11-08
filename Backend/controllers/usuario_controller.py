@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import hashlib
 
 from database import get_db
 from dependencies import exigir_perfil, get_usuario_atual, obter_ip_origem
@@ -61,6 +60,15 @@ def criar_usuario(
             detail=f"Login '{dados.login}' já está em uso por outro profissional."
         )
 
+    # Verifica duplicidade de e-mail
+    if dados.email:
+        email_existente = db.query(Usuario).filter(Usuario.email == dados.email).first()
+        if email_existente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"E-mail '{dados.email}' já está em uso por outro profissional."
+            )
+
     novo_usuario = Usuario(
         nome=dados.nome,
         email=dados.email,
@@ -72,7 +80,7 @@ def criar_usuario(
         trocar_senha=True, # Senha definida pelo Administrador: troca obrigatória no primeiro acesso
     )
     db.add(novo_usuario)
-    db.flush()
+    db.commit()
 
     # Log de Auditoria
     registrar_auditoria(
@@ -103,6 +111,17 @@ def atualizar_usuario(
     if dados.nome is not None:
         usuario.nome = dados.nome
     if dados.email is not None:
+        if dados.email:
+            email_existente = (
+                db.query(Usuario)
+                .filter(Usuario.email == dados.email, Usuario.id_usuario != id_usuario)
+                .first()
+            )
+            if email_existente:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"E-mail '{dados.email}' já está em uso por outro profissional."
+                )
         usuario.email = dados.email
     if dados.perfil is not None:
         usuario.perfil = dados.perfil.upper()

@@ -1,5 +1,6 @@
 # Backend/services/ficha_service.py
-from datetime import datetime
+
+from datetime import datetime, date
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -34,10 +35,7 @@ def listar_fichas_com_sinais_vitais(db: Session) -> list[FichaResumoResponse]:
     return lista_formatada
 
 def buscar_ficha_consolidada_reposicao(db: Session, id_ficha: int) -> Optional[FichaDetalhadaReposicaoResponse]:
-    """
-    Busca uma ficha específica (ex: código 011) consolidando os dados da ficha,
-    a avaliação clínica completa do paciente e os utensílios gastos para reposição.
-    """
+
     resultado = (
         db.query(FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, UnidadeMovel)
         .outerjoin(Paciente, FichaAtendimento.id_paciente == Paciente.id_paciente)
@@ -99,11 +97,13 @@ def buscar_ficha_consolidada_reposicao(db: Session, id_ficha: int) -> Optional[F
         utensilios_gastos=utensilios_schema,
     )
 
-def listar_fichas_para_reposicao(db: Session, apenas_pendentes: bool = True) -> List[FichaDetalhadaReposicaoResponse]:
-    """
-    Retorna a listagem para a tela de reposição do Técnico de Enfermagem.
-    Permite filtrar apenas por atendimentos cujos materiais ainda não foram repostos.
-    """
+def listar_fichas_para_reposicao(
+    db: Session,
+    apenas_pendentes: bool = True,
+    id_unidade: Optional[int] = None,
+    data: Optional[date] = None,
+) -> List[FichaDetalhadaReposicaoResponse]:
+
     query = (
         db.query(FichaAtendimento, Paciente, AvaliacaoClinica, Utensilios, UnidadeMovel)
         .outerjoin(Paciente, FichaAtendimento.id_paciente == Paciente.id_paciente)
@@ -115,6 +115,17 @@ def listar_fichas_para_reposicao(db: Session, apenas_pendentes: bool = True) -> 
     if apenas_pendentes:
         # Pega onde há utensílios não repostos ou registros sem reposição confirmada
         query = query.filter((Utensilios.reposto == False) | (Utensilios.id_utensilios == None))
+
+    if id_unidade is not None:
+        query = query.filter(FichaAtendimento.id_unidade == id_unidade)
+
+    if data is not None:
+        inicio_dia = datetime.combine(data, datetime.min.time())
+        fim_dia = datetime.combine(data, datetime.max.time())
+        query = query.filter(
+            FichaAtendimento.data_atendimento >= inicio_dia,
+            FichaAtendimento.data_atendimento <= fim_dia,
+        )
 
     resultados = query.all()
     lista = []
@@ -216,4 +227,4 @@ def obter_metricas_reposicao_dashboard(db: Session) -> DashboardReposicaoResumoR
         total_pendentes_reposicao=total_pendentes,
         total_repostos=total_repostos,
         consumo_por_categoria=consumo,
-    )
+    )

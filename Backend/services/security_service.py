@@ -1,9 +1,5 @@
 # Backend/services/security_service.py
-"""
-Módulo de Segurança e Autenticação (Modelo C4 - Níveis 3 e 4)
-Componente: Security Service
-Responsabilidade: Criptografia de senhas, emissão/validação de tokens JWT e controle de acesso RBAC.
-"""
+
 import os
 import hashlib
 import hmac
@@ -31,9 +27,18 @@ if not JWT_SECRET_KEY:
 class TokenInvalidoError(Exception):
     """Token ausente, expirado, com assinatura inválida ou com payload incompleto."""
 
+PBKDF2_ITERATIONS = 600_000
+
 def gerar_hash_senha(senha: str) -> str:
-    """Gera hash seguro SHA-256 para senhas."""
-    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
+    """Gera hash seguro PBKDF2-HMAC-SHA256 com salt aleatório de 16 bytes."""
+    salt = secrets.token_hex(16)
+    derivado = hashlib.pbkdf2_hmac(
+        "sha256",
+        senha.encode("utf-8"),
+        bytes.fromhex(salt),
+        PBKDF2_ITERATIONS,
+    ).hex()
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt}${derivado}"
 
 def verificar_senha(senha_fornecida: str, senha_armazenada: str) -> bool:
     """
@@ -43,7 +48,22 @@ def verificar_senha(senha_fornecida: str, senha_armazenada: str) -> bool:
     """
     if not senha_fornecida or not senha_armazenada:
         return False
-    return hmac.compare_digest(gerar_hash_senha(senha_fornecida), senha_armazenada)
+    if senha_armazenada.startswith("pbkdf2_sha256$"):
+        try:
+            _, iteracoes_str, salt, hash_esperado = senha_armazenada.split("$", 3)
+            calculado = hashlib.pbkdf2_hmac(
+                "sha256",
+                senha_fornecida.encode("utf-8"),
+                bytes.fromhex(salt),
+                int(iteracoes_str),
+            ).hex()
+            return hmac.compare_digest(calculado, hash_esperado)
+        except (ValueError, TypeError):
+            return False
+    return hmac.compare_digest(
+        hashlib.sha256(senha_fornecida.encode("utf-8")).hexdigest(),
+        senha_armazenada,
+    )
 
 def gerar_token_acesso(id_usuario: int, login: str, perfil: str) -> str:
     """Gera um JWT assinado contendo identificação, perfil (RBAC) e expiração da sessão."""

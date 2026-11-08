@@ -44,11 +44,21 @@ def listar_fichas(
     """
     Lista fichas de atendimento permitindo busca por data ou unidade (RF08).
     """
-    fichas = listar_fichas_para_reposicao(db, apenas_pendentes=False)
-    if id_unidade:
-        # Filtra por id da unidade caso necessário
-        pass
-    return fichas
+    data_filtro = None
+    if data:
+        try:
+            data_filtro = datetime.strptime(data, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Formato de data inválido. Use YYYY-MM-DD.",
+            )
+    return listar_fichas_para_reposicao(
+        db,
+        apenas_pendentes=False,
+        id_unidade=id_unidade,
+        data=data_filtro,
+    )
 
 @router.get("/resumo", response_model=List[FichaResumoResponse])
 def get_resumo_fichas(db: Session = Depends(get_db)):
