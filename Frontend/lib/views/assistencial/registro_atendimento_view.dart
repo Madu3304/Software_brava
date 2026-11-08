@@ -8,6 +8,7 @@ import '../../models/ficha_model.dart';
 import 'widgets/samu_app_bar_header.dart';
 import 'widgets/registro_field_card.dart';
 import 'dados_paciente_view.dart';
+import '../../utils/horario_atendimento.dart';
 
 class RegistroAtendimentoView extends StatefulWidget {
   final String? tipoViaturaInicial;
@@ -57,14 +58,14 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
   @override
   void initState() {
     super.initState();
-    // Preenche com horário atual formatado para abertura e saída
+
     final agora = DateTime.now();
     final hora = agora.hour.toString().padLeft(2, '0');
     final minuto = agora.minute.toString().padLeft(2, '0');
+
     _horaAberturaController.text = '$hora:$minuto';
 
-    final minutoSaida = ((agora.minute + 2) % 60).toString().padLeft(2, '0');
-    _horaSaidaController.text = '$hora:$minutoSaida';
+    _horaSaidaController.text = calcularHorarioSaidaPrevista(agora);
   }
 
   @override
