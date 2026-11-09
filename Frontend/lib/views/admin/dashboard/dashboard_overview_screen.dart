@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../providers/dashboard_provider.dart';
-import '../../shared/tela_separador_widget.dart';
 import 'widgets/dashboard_filters_card.dart';
 import 'widgets/dashboard_kpi_cards.dart';
 import 'widgets/dashboard_charts.dart';
@@ -30,12 +29,6 @@ class _DashboardOverviewScreenState extends State<DashboardOverviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TelaSeparadorWidget(
-            nomeTela: 'Tela 1: Dashboard Geral de Atendimentos e Indicadores',
-            modulo: 'ADMINISTRADOR / MONITORAMENTO EM TEMPO REAL',
-            icone: Icons.dashboard_outlined,
-          ),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

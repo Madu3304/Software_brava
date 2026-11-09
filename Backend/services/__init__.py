@@ -6,6 +6,8 @@ from .ficha_service import (
     criar_ficha_completa,
     listar_fichas_com_sinais_vitais,
     buscar_ficha_consolidada_reposicao,
+    aplicar_filtros_fichas,
+    contar_fichas,
     listar_fichas_para_reposicao,
     registrar_reposicao_utensilios,
     obter_metricas_reposicao_dashboard,
@@ -41,8 +43,11 @@ from .report_service import (
 )
 
 __all__ = [
+    "criar_ficha_completa",
     "listar_fichas_com_sinais_vitais",
     "buscar_ficha_consolidada_reposicao",
+    "aplicar_filtros_fichas",
+    "contar_fichas",
     "listar_fichas_para_reposicao",
     "registrar_reposicao_utensilios",
     "obter_metricas_reposicao_dashboard",

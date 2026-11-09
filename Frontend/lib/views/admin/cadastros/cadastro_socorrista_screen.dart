@@ -7,7 +7,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/profissional_model.dart';
 import '../../../services/admin_data_service.dart';
-import '../../shared/tela_separador_widget.dart';
 
 class CadastroSocorristaScreen extends StatefulWidget {
   const CadastroSocorristaScreen({super.key});
@@ -92,195 +91,194 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
         final socorristas = _dataService.socorristas;
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ============================================================
-                // SEPARADOR EXPLÍCITO INDICANDO O INÍCIO DESTA TELA
-                // ============================================================
-                const TelaSeparadorWidget(
-                  nomeTela: 'Tela 4: Cadastro de Socorristas e Condutores',
-                  modulo: 'ADMINISTRADOR / CONDUTORES E SOCORRISTAS',
-                  icone: Icons.favorite_border_rounded,
-                ),
-
-                const Text(
-                  "Cadastro de Socorristas",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E1E1E),
+          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20.0),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Cadastro de Socorristas",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E1E1E),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  "Cadastre novos socorristas condutores e gerencie a escala operacional",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF757575),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Cadastre novos socorristas condutores e gerencie a escala operacional",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF757575),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 18),
 
-                Container(
-                  padding: const EdgeInsets.all(28.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: const Color(0xFFEEEEEE)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x06000000),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.volunteer_activism_outlined,
-                              color: Color(0xFFC62828),
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              "Novo Socorrista / Condutor",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E1E1E),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        _buildFieldLabel("Nome Completo"),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _nomeController,
-                          decoration: _inputDecoration("Digite o nome completo do socorrista"),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
-                        ),
-                        const SizedBox(height: 18),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("CPF"),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _cpfController,
-                                    decoration: _inputDecoration("000.000.000-00"),
-                                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o CPF' : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("CNH (Categoria D / E)"),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _cnhController,
-                                    decoration: _inputDecoration("00000000000 (Cat. D)"),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("Unidade Responsável"),
-                                  const SizedBox(height: 6),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _selectedUnidade,
-                                    hint: const Text(
-                                      "Selecione a unidade",
-                                      style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
-                                    ),
-                                    decoration: _inputDecoration(""),
-                                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-                                    items: _unidades.map((u) {
-                                      return DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 13)));
-                                    }).toList(),
-                                    onChanged: (v) => setState(() => _selectedUnidade = v),
-                                    validator: (v) => v == null ? 'Selecione a unidade' : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("Matrícula da Unidade"),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _matriculaController,
-                                    decoration: _inputDecoration("XX-SOC-000"),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        SizedBox(
-                          width: double.infinity,
-                          height: 44,
-                          child: ElevatedButton(
-                            onPressed: _cadastrarSocorrista,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFC62828),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                            ),
-                            child: const Text(
-                              "Cadastrar Socorrista",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                  Container(
+                    padding: const EdgeInsets.all(20.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14.0),
+                      border: Border.all(color: const Color(0xFFEEEEEE)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x06000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 3),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 28),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.volunteer_activism_outlined,
+                                color: Color(0xFFC62828),
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "Novo Socorrista / Condutor",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E1E1E),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
 
-                // Lista de Socorristas Cadastrados
-                Container(
-                  padding: const EdgeInsets.all(28.0),
+                          _buildFieldLabel("Nome Completo"),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _nomeController,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _inputDecoration("Digite o nome completo do socorrista"),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                          ),
+                          const SizedBox(height: 12),
+
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("CPF"),
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      controller: _cpfController,
+                                      style: const TextStyle(fontSize: 13),
+                                      decoration: _inputDecoration("000.000.000-00"),
+                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o CPF' : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("CNH (Categoria D / E)"),
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      controller: _cnhController,
+                                      style: const TextStyle(fontSize: 13),
+                                      decoration: _inputDecoration("00000000000 (Cat. D)"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("Unidade Responsável"),
+                                    const SizedBox(height: 4),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _selectedUnidade,
+                                      isDense: true,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF212121)),
+                                      hint: const Text(
+                                        "Selecione a unidade",
+                                        style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 12),
+                                      ),
+                                      decoration: _inputDecoration(""),
+                                      icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                                      items: _unidades.map((u) {
+                                        return DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 13)));
+                                      }).toList(),
+                                      onChanged: (v) => setState(() => _selectedUnidade = v),
+                                      validator: (v) => v == null ? 'Selecione a unidade' : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("Matrícula da Unidade"),
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      controller: _matriculaController,
+                                      style: const TextStyle(fontSize: 13),
+                                      decoration: _inputDecoration("XX-SOC-000"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          SizedBox(
+                            width: double.infinity,
+                            height: 38,
+                            child: ElevatedButton(
+                              onPressed: _cadastrarSocorrista,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFC62828),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                              ),
+                              child: const Text(
+                                "Cadastrar Socorrista",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // Lista de Socorristas Cadastrados
+                  Container(
+                    padding: const EdgeInsets.all(20.0),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16.0),
@@ -378,10 +376,11 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -390,15 +389,17 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
   Widget _buildFieldLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF424242)),
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF424242)),
     );
   }
 
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
+      isDense: true,
+      visualDensity: VisualDensity.compact,
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 13),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       filled: true,
       fillColor: const Color(0xFFFAFAFA),
       enabledBorder: OutlineInputBorder(

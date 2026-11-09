@@ -14,6 +14,7 @@ def seed_initial_data(db: Session):
 
     senha_admin = os.getenv("ADMIN_PASSWORD")
     senha_equipe = os.getenv("EQUIPE_PASSWORD")
+    exigir_troca_senha = os.getenv("SEED_TROCAR_SENHA", "true").strip().lower() in ("true", "1", "sim", "yes", "on")
 
     usuarios_iniciais = [
         {
@@ -69,7 +70,7 @@ def seed_initial_data(db: Session):
             perfil=dados["perfil"],
             registro_profissional=dados["registro_profissional"],
             ativo=True,
-            trocar_senha=True,
+            trocar_senha=exigir_troca_senha,
         ))
 
     bravas = [

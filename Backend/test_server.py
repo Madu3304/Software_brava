@@ -1,9 +1,6 @@
 import os
 import tempfile
 
-# Os testes rodam num banco SQLite temporário para não alterar o brava.db local.
-pasta_temporaria = tempfile.mkdtemp()
-os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(pasta_temporaria, 'teste.db')}"
 # Os testes rodam num banco SQLite temporário, em modo desenvolvimento (seed ativo),
 # para não alterar o brava.db local (o teste troca as senhas dos usuários).
 pasta_temporaria = tempfile.mkdtemp()

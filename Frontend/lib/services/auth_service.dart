@@ -6,8 +6,9 @@ import '../models/usuario_model.dart';
 
 class AuthException extends ArgumentError {
   final int? statusCode;
+  final String? codigo;
 
-  AuthException(super.message, {this.statusCode});
+  AuthException(super.message, {this.statusCode, this.codigo});
 
   @override
   String toString() => message;
@@ -95,7 +96,20 @@ class AuthService {
         throw AuthException('Não foi possível autenticar. Verifique suas credenciais.');
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
+      if (e.response?.statusCode == 403) {
+        final data = e.response?.data;
+        if (data is Map && data['detail'] is Map) {
+          final detail = data['detail'] as Map;
+          final codigo = detail['codigo']?.toString();
+          final mensagem = detail['mensagem']?.toString() ??
+              'É necessário trocar a senha antes do primeiro acesso.';
+          throw AuthException(mensagem, statusCode: 403, codigo: codigo);
+        }
+        final detailStr = data is Map && data['detail'] != null
+            ? data['detail'].toString()
+            : 'Acesso negado.';
+        throw AuthException(detailStr, statusCode: 403);
+      } else if (e.response?.statusCode == 401) {
         final detail = e.response?.data is Map
             ? (e.response?.data['detail'] ?? 'Credenciais inválidas. Verifique seu login e senha.')
             : 'Credenciais inválidas. Verifique seu login e senha.';
@@ -115,6 +129,26 @@ class AuthService {
     } catch (e) {
       if (e is AuthException) rethrow;
       throw AuthException('Erro inesperado durante a autenticação.');
+    }
+  }
+
+  // Realiza troca de senha obrigatória (POST /api/auth/trocar-senha)
+  Future<void> trocarSenha(String login, String senhaAtual, String novaSenha) async {
+    try {
+      await ApiClient().dio.post(
+        '/auth/trocar-senha',
+        data: {
+          'login': login.trim(),
+          'senha_atual': senhaAtual.trim(),
+          'nova_senha': novaSenha.trim(),
+        },
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final detail = data is Map && data['detail'] != null
+          ? data['detail'].toString()
+          : 'Não foi possível alterar a senha. Verifique os dados informados.';
+      throw AuthException(detail, statusCode: e.response?.statusCode);
     }
   }
 

@@ -7,7 +7,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/unidade_model.dart';
 import '../../../services/admin_data_service.dart';
-import '../../shared/tela_separador_widget.dart';
 
 class CadastroUnidadeScreen extends StatefulWidget {
   const CadastroUnidadeScreen({super.key});
@@ -78,185 +77,184 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
         final unidades = _dataService.unidades;
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ============================================================
-                // SEPARADOR EXPLÍCITO INDICANDO O INÍCIO DESTA TELA
-                // ============================================================
-                const TelaSeparadorWidget(
-                  nomeTela: 'Tela 5: Cadastro de Unidades Móveis (Frota SAMU)',
-                  modulo: 'ADMINISTRADOR / GESTÃO DA FROTA',
-                  icone: Icons.airport_shuttle_outlined,
-                ),
-
-                const Text(
-                  "Cadastro de Unidades Móveis",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E1E1E),
+          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20.0),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Cadastro de Unidades Móveis",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E1E1E),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  "Cadastre e monitore as viaturas e ambulâncias disponíveis no SAMU Joinville",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF757575),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Cadastre e monitore as viaturas e ambulâncias disponíveis no SAMU Joinville",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF757575),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 18),
 
-                Container(
-                  padding: const EdgeInsets.all(28.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: const Color(0xFFEEEEEE)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x06000000),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.local_shipping_outlined,
-                              color: Color(0xFFC62828),
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              "Nova Unidade Móvel / Viatura",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E1E1E),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("Código / Prefixo"),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _codigoController,
-                                    decoration: _inputDecoration("Ex: USA-03, USB-05"),
-                                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o código' : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("Placa do Veículo"),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _placaController,
-                                    decoration: _inputDecoration("BRA-1925"),
-                                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe a placa' : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("Tipo de Suporte"),
-                                  const SizedBox(height: 6),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _tipoSelecionado,
-                                    decoration: _inputDecoration(""),
-                                    items: _tipos.map((t) {
-                                      return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)));
-                                    }).toList(),
-                                    onChanged: (v) => setState(() => _tipoSelecionado = v!),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel("Região Base"),
-                                  const SizedBox(height: 6),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _regiaoSelecionada,
-                                    decoration: _inputDecoration(""),
-                                    items: _regioes.map((r) {
-                                      return DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13)));
-                                    }).toList(),
-                                    onChanged: (v) => setState(() => _regiaoSelecionada = v!),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        SizedBox(
-                          width: double.infinity,
-                          height: 44,
-                          child: ElevatedButton(
-                            onPressed: _cadastrarUnidade,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFC62828),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                            ),
-                            child: const Text(
-                              "Cadastrar Unidade Móvel",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                  Container(
+                    padding: const EdgeInsets.all(20.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14.0),
+                      border: Border.all(color: const Color(0xFFEEEEEE)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x06000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 3),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 28),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.local_shipping_outlined,
+                                color: Color(0xFFC62828),
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "Nova Unidade Móvel / Viatura",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E1E1E),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
 
-                // Lista de Unidades
-                Container(
-                  padding: const EdgeInsets.all(28.0),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("Código / Prefixo"),
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      controller: _codigoController,
+                                      style: const TextStyle(fontSize: 13),
+                                      decoration: _inputDecoration("Ex: USA-03, USB-05"),
+                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o código' : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("Placa do Veículo"),
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      controller: _placaController,
+                                      style: const TextStyle(fontSize: 13),
+                                      decoration: _inputDecoration("BRA-1925"),
+                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe a placa' : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("Tipo de Suporte"),
+                                    const SizedBox(height: 4),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _tipoSelecionado,
+                                      isDense: true,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF212121)),
+                                      decoration: _inputDecoration(""),
+                                      items: _tipos.map((t) {
+                                        return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)));
+                                      }).toList(),
+                                      onChanged: (v) => setState(() => _tipoSelecionado = v!),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFieldLabel("Região Base"),
+                                    const SizedBox(height: 4),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _regiaoSelecionada,
+                                      isDense: true,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF212121)),
+                                      decoration: _inputDecoration(""),
+                                      items: _regioes.map((r) {
+                                        return DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13)));
+                                      }).toList(),
+                                      onChanged: (v) => setState(() => _regiaoSelecionada = v!),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          SizedBox(
+                            width: double.infinity,
+                            height: 38,
+                            child: ElevatedButton(
+                              onPressed: _cadastrarUnidade,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFC62828),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                              ),
+                              child: const Text(
+                                "Cadastrar Unidade Móvel",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // Lista de Unidades
+                  Container(
+                    padding: const EdgeInsets.all(20.0),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16.0),
@@ -370,10 +368,11 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -382,15 +381,17 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
   Widget _buildFieldLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF424242)),
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF424242)),
     );
   }
 
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
+      isDense: true,
+      visualDensity: VisualDensity.compact,
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 13),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       filled: true,
       fillColor: const Color(0xFFFAFAFA),
       enabledBorder: OutlineInputBorder(

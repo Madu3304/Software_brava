@@ -18,6 +18,118 @@ class _LoginViewState extends State<LoginView> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
+  String _resolverRotaDestino(dynamic usuario) {
+    final String redir = (usuario.redirecionamento ?? '').toString().trim().toUpperCase();
+    if (redir == 'WEB' || redir == '/DASHBOARD' || redir == '/ADMIN/DASHBOARD') {
+      return AppRoutes.dashboard;
+    }
+    if (redir == 'MOBILE' || redir == '/FICHA') {
+      return AppRoutes.ficha;
+    }
+    if (usuario.redirecionamento != null &&
+        usuario.redirecionamento.toString().startsWith('/')) {
+      return usuario.redirecionamento.toString();
+    }
+    return usuario.isAdmin ? AppRoutes.dashboard : AppRoutes.ficha;
+  }
+
+  Future<void> _exibirDialogTrocaSenha(String login, String senhaAtual) async {
+    final novaSenhaController = TextEditingController();
+    final confirmarController = TextEditingController();
+    final dialogFormKey = GlobalKey<FormState>();
+
+    final String? novaSenhaDefinida = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Troca de Senha Obrigatória'),
+          content: Form(
+            key: dialogFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Por segurança, defina uma nova senha (mínimo de 8 caracteres) para concluir seu primeiro acesso.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: novaSenhaController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Nova senha',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().length < 8) {
+                      return 'A nova senha deve ter no mínimo 8 caracteres.';
+                    }
+                    if (val.trim() == senhaAtual.trim()) {
+                      return 'A nova senha deve ser diferente da senha atual.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: confirmarController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirmar nova senha',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) {
+                    if (val != novaSenhaController.text) {
+                      return 'As senhas não coincidem.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (dialogFormKey.currentState!.validate()) {
+                  Navigator.of(dialogContext).pop(novaSenhaController.text.trim());
+                }
+              },
+              child: const Text('Salvar e Entrar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (novaSenhaDefinida != null && mounted) {
+      setState(() => _isLoading = true);
+      try {
+        await AuthService().trocarSenha(login, senhaAtual, novaSenhaDefinida);
+        _senhaController.text = novaSenhaDefinida;
+        final usuario = await AuthService().login(login, novaSenhaDefinida);
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        Navigator.pushReplacementNamed(context, _resolverRotaDestino(usuario));
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _realizarLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -31,15 +143,17 @@ class _LoginViewState extends State<LoginView> {
         if (!mounted) return;
         setState(() => _isLoading = false);
 
-        final String rotaDestino = (usuario.redirecionamento != null &&
-                usuario.redirecionamento!.isNotEmpty)
-            ? usuario.redirecionamento!
-            : (usuario.isAdmin ? AppRoutes.dashboard : AppRoutes.ficha);
+        final String rotaDestino = _resolverRotaDestino(usuario);
 
         Navigator.pushReplacementNamed(context, rotaDestino);
       } catch (e) {
         if (!mounted) return;
         setState(() => _isLoading = false);
+
+        if (e is AuthException && e.codigo == 'TROCA_SENHA_OBRIGATORIA') {
+          await _exibirDialogTrocaSenha(_loginController.text, _senhaController.text);
+          return;
+        }
 
         final mensagem = (e is AuthException)
             ? e.message

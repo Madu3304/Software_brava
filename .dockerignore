@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Ambientes virtuais Python e caches
+.venv/
+venv/
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+
+# Artefatos locais de banco de dados e variáveis de ambiente locais
+*.db
+*.sqlite
+*.sqlite3
+Backend/*.db
+Backend/.env
+
+# Artefatos de build e caches do Flutter / Dart
+Frontend/build/
+Frontend/.dart_tool/
+Frontend/.flutter-plugins
+Frontend/.flutter-plugins-dependencies
+
+# IDE
+.vscode/
+.idea/
+**/*.iml
+

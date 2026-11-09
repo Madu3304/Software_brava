@@ -12,6 +12,12 @@ class ApiConfig {
 
   static String get baseUrl {
     if (_definedUrl.isNotEmpty) {
+      if (_definedUrl.toUpperCase() == 'SAME_ORIGIN') {
+        if (kIsWeb) {
+          return Uri.base.origin;
+        }
+        return 'http://127.0.0.1:8000';
+      }
       return _definedUrl.endsWith('/')
           ? _definedUrl.substring(0, _definedUrl.length - 1)
           : _definedUrl;

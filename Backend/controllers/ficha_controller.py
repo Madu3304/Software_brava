@@ -61,20 +61,14 @@ def listar_fichas(
     Lista fichas de atendimento permitindo busca por data ou unidade (RF08), da mais recente para a mais antiga.
     Paginação com skip/limit; o total de fichas com os filtros aplicados vem no header X-Total-Count.
     """
-    data_filtro = None
-    if data:
-        try:
-            data_filtro = datetime.strptime(data, "%Y-%m-%d").date()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Formato de data inválido. Use YYYY-MM-DD.",
-            )
+    response.headers["X-Total-Count"] = str(contar_fichas(db, id_unidade=id_unidade, data=data))
     return listar_fichas_para_reposicao(
         db,
         apenas_pendentes=False,
         id_unidade=id_unidade,
-        data=data_filtro,
+        data=data,
+        skip=skip,
+        limit=limit,
     )
 
 @router.get("/resumo", response_model=List[FichaResumoResponse])
