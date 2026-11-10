@@ -483,6 +483,100 @@ class _CadastroMedicoScreenState extends State<CadastroMedicoScreen> {
     );
   }
 
+  // Cabeçalho da tela (Cantinho superior esquerdo: Cadastro de Médicos + X ativo(s))
+  Widget _buildHeader(int totalMedicos) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 920;
+
+        final headerLeft = Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEBEE),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.badge_outlined,
+                color: Color(0xFFC62828),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Cadastro de Médicos",
+                      style: TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E1E1E),
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFEBEE),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "$totalMedicos ativo(s)",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFC62828),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  "Cadastre novos médicos reguladores/intervencionistas e gerencie a equipe",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF757575),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              headerLeft,
+              const SizedBox(height: 14),
+              _buildTopBar(),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            headerLeft,
+            _buildTopBar(),
+          ],
+        );
+      },
+    );
+  }
+
   // Barra de navegação superior (Imagem 2)
   Widget _buildTopBar() {
     return Row(
@@ -1235,9 +1329,9 @@ class _CadastroMedicoScreenState extends State<CadastroMedicoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. Barra Superior com Busca, Notificações e Avatar (Imagem 2)
-              _buildTopBar(),
-              const SizedBox(height: 18),
+              // 1. Cabeçalho "Cadastro de Médicos" no cantinho superior esquerdo + TopBar no cantinho direito
+              _buildHeader(total),
+              const SizedBox(height: 16),
 
               // 2. Botão "+ Adicionar médico" no canto superior (Imagem 2)
               Row(
