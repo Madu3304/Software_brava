@@ -12,6 +12,8 @@ class ProfissionalModel {
   final TipoProfissional tipo;
   final String unidade;
   final String matricula;
+  final String cargo;
+  final String status;
 
   const ProfissionalModel({
     required this.id,
@@ -21,6 +23,8 @@ class ProfissionalModel {
     required this.tipo,
     required this.unidade,
     required this.matricula,
+    this.cargo = '',
+    this.status = 'Disponível',
   });
 
   String get crm => registroConselho;
@@ -36,6 +40,8 @@ class ProfissionalModel {
       'tipo': tipo.name,
       'unidade': unidade,
       'matricula': matricula,
+      'cargo': cargo,
+      'status': status,
     };
   }
 
@@ -72,6 +78,8 @@ class ProfissionalModel {
       tipo: tipo,
       unidade: map['unidade'] ?? 'SAMU Joinville',
       matricula: map['matricula'] ?? 'MAT-$id',
+      cargo: map['cargo'] ?? (tipo == TipoProfissional.medico ? 'Médico regulador' : ''),
+      status: map['status'] ?? 'Disponível',
     );
   }
 
@@ -87,6 +95,8 @@ class ProfissionalModel {
     required String crm,
     required String unidade,
     required String matricula,
+    String cargo = 'Médico regulador',
+    String status = 'Disponível',
   }) {
     return ProfissionalModel(
       id: id,
@@ -96,6 +106,8 @@ class ProfissionalModel {
       tipo: TipoProfissional.medico,
       unidade: unidade,
       matricula: matricula,
+      cargo: cargo,
+      status: status,
     );
   }
 
@@ -106,6 +118,8 @@ class ProfissionalModel {
     required String coren,
     required String unidade,
     required String matricula,
+    String cargo = 'Técnico em Enfermagem',
+    String status = 'Disponível',
   }) {
     return ProfissionalModel(
       id: id,
@@ -115,6 +129,8 @@ class ProfissionalModel {
       tipo: TipoProfissional.enfermeiro,
       unidade: unidade,
       matricula: matricula,
+      cargo: cargo,
+      status: status,
     );
   }
 
@@ -125,6 +141,8 @@ class ProfissionalModel {
     required String cnh,
     required String unidade,
     required String matricula,
+    String cargo = 'Condutor Socorrista',
+    String status = 'Disponível',
   }) {
     return ProfissionalModel(
       id: id,
@@ -134,6 +152,8 @@ class ProfissionalModel {
       tipo: TipoProfissional.socorrista,
       unidade: unidade,
       matricula: matricula,
+      cargo: cargo,
+      status: status,
     );
   }
 

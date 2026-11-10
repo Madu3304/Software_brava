@@ -25,43 +25,64 @@ class _DashboardOverviewScreenState extends State<DashboardOverviewScreen> {
     final metrics = dashboardProvider.metrics;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 22.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(
-                    "Dashboard",
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.badgeRed,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: const Icon(
+                      Icons.analytics_outlined,
+                      color: AppColors.primaryRed,
+                      size: 22,
                     ),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    "Acompanhe os resultados das unidades móveis de atendimento",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Dashboard Operacional",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        "Acompanhe os indicadores e resultados das unidades móveis de atendimento",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
               if (dashboardProvider.isLoading)
                 const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primaryRed),
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.primaryRed,
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
           // Card de Filtros
           DashboardFiltersCard(
@@ -83,24 +104,38 @@ class _DashboardOverviewScreenState extends State<DashboardOverviewScreen> {
               );
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // KPIs Principais
+          // KPIs Principais + Gráfico de Evolução Mensal lado a lado
           DashboardKpiCards(metrics: metrics),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
-          const Text(
-            "Métricas Detalhadas",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryRed,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                "Métricas Detalhadas",
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Gráficos e Distribuição
           DashboardCharts(metrics: metrics),
+          const SizedBox(height: 28),
         ],
       ),
     );

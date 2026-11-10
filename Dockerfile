@@ -1,3 +1,4 @@
+
 # ==============================================================================
 # Dockerfile Unificado (Full-Stack) - Software Brava SAMU 192 Joinville
 # Compila o Frontend (Flutter Web) e empacota junto com o Backend (FastAPI)
@@ -24,6 +25,7 @@ COPY Frontend/pubspec.yaml Frontend/pubspec.lock ./
 RUN flutter pub get
 
 # Copia o restante do código-fonte do Frontend e compila para Web (Release)
+ARG CACHEBUST=20261110_flush_top_v2
 COPY Frontend/ ./
 ARG API_URL=SAME_ORIGIN
 RUN flutter build web --release --pwa-strategy=none --dart-define=API_URL=${API_URL}
@@ -63,6 +65,7 @@ RUN pip install --no-cache-dir -r /app/Backend/requirements.txt
 COPY Backend/ /app/Backend/
 
 # Copia o bundle Web compilado do Flutter para o diretório do Nginx
+ARG CACHEBUST=1
 COPY --from=frontend-builder /build/Frontend/build/web /usr/share/nginx/html
 
 # Substitui o flutter_service_worker.js para limpar qualquer cache antigo do navegador automaticamente
