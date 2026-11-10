@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 import '../../../models/profissional_model.dart';
 import '../../../services/admin_data_service.dart';
 
@@ -485,99 +485,73 @@ class _CadastroMedicoScreenState extends State<CadastroMedicoScreen> {
 
   // Cabeçalho da tela (Cantinho superior esquerdo: Cadastro de Médicos + X ativo(s))
   Widget _buildHeader(int totalMedicos) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 920;
-
-        final headerLeft = Row(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFEBEE),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.badge_outlined,
+            color: Color(0xFFC62828),
+            size: 22,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFEBEE),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.badge_outlined,
-                color: Color(0xFFC62828),
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      "Cadastro de Médicos",
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1E1E1E),
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFEBEE),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        "$totalMedicos ativo(s)",
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFC62828),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
                 const Text(
-                  "Cadastre novos médicos reguladores/intervencionistas e gerencie a equipe",
+                  "Cadastro de Médicos",
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF757575),
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E1E1E),
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEBEE),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    "$totalMedicos ativo(s)",
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFC62828),
+                    ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 3),
+            const Text(
+              "Cadastre novos médicos reguladores/intervencionistas e gerencie a equipe",
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF757575),
+              ),
+            ),
           ],
-        );
-
-        if (isCompact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              headerLeft,
-              const SizedBox(height: 14),
-              _buildTopBar(),
-            ],
-          );
-        }
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            headerLeft,
-            _buildTopBar(),
-          ],
-        );
-      },
+        ),
+      ],
     );
   }
 
-  // Barra de navegação superior (Imagem 2)
+  // Barra de navegação superior levantada para o topo da tela no canto direito (Imagem 2)
   Widget _buildTopBar() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -1325,15 +1299,41 @@ class _CadastroMedicoScreenState extends State<CadastroMedicoScreen> {
         final disponibilidade = total == 0 ? 0 : ((emOperacao / total) * 100).round();
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 22.0),
+          padding: const EdgeInsets.fromLTRB(32.0, 18.0, 32.0, 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. Cabeçalho "Cadastro de Médicos" no cantinho superior esquerdo + TopBar no cantinho direito
-              _buildHeader(total),
+              // 1. Topo da tela: Cabeçalho "Cadastro de Médicos" no canto esquerdo superior e itens de busca/perfil no canto direito superior
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 950;
+                  if (isCompact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(total),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: _buildTopBar(),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildHeader(total),
+                      _buildTopBar(),
+                    ],
+                  );
+                },
+              ),
               const SizedBox(height: 16),
 
-              // 2. Botão "+ Adicionar médico" no canto superior (Imagem 2)
+              // 2. Botão "+ Adicionar médico" no canto superior direito (acima do card de indicadores)
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

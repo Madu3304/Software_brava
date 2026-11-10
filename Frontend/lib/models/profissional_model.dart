@@ -118,6 +118,8 @@ class ProfissionalModel {
     required String coren,
     required String unidade,
     required String matricula,
+    String cargo = 'Técnico em Enfermagem',
+    String status = 'Disponível',
   }) {
     return ProfissionalModel(
       id: id,
@@ -127,6 +129,8 @@ class ProfissionalModel {
       tipo: TipoProfissional.enfermeiro,
       unidade: unidade,
       matricula: matricula,
+      cargo: cargo,
+      status: status,
     );
   }
 
@@ -137,6 +141,8 @@ class ProfissionalModel {
     required String cnh,
     required String unidade,
     required String matricula,
+    String cargo = 'Condutor Socorrista',
+    String status = 'Disponível',
   }) {
     return ProfissionalModel(
       id: id,
@@ -146,6 +152,8 @@ class ProfissionalModel {
       tipo: TipoProfissional.socorrista,
       unidade: unidade,
       matricula: matricula,
+      cargo: cargo,
+      status: status,
     );
   }
 
