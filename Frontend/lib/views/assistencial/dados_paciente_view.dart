@@ -6,6 +6,7 @@ import '../../models/ficha_model.dart';
 import '../../providers/ficha_provider.dart';
 import '../../services/database_service.dart';
 import '../../services/gps_service.dart';
+import '../../utils/cpf_validator.dart';
 import 'widgets/samu_app_bar_header.dart';
 
 class DadosPacienteView extends StatefulWidget {
@@ -28,6 +29,7 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
   final TextEditingController _idadeController = TextEditingController();
   final TextEditingController _dataNascimentoController = TextEditingController();
   final TextEditingController _documentoController = TextEditingController();
+  final FocusNode _cpfFocusNode = FocusNode();
   final TextEditingController _acompanhanteController = TextEditingController();
   final TextEditingController _grauParentescoController = TextEditingController();
   final TextEditingController _telefoneController = TextEditingController();
@@ -51,9 +53,48 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
   @override
   void initState() {
     super.initState();
+    _cpfFocusNode.addListener(_onCpfFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _carregarDadosIniciais();
     });
+  }
+
+  void _onCpfFocusChange() {
+    if (!_cpfFocusNode.hasFocus) {
+      // Evento onBlur: usuário saiu do campo CPF
+      final texto = _documentoController.text.trim();
+      if (texto.isNotEmpty) {
+        if (CpfValidator.validar(texto)) {
+          final formatado = CpfValidator.formatar(texto);
+          if (_documentoController.text != formatado) {
+            _documentoController.text = formatado;
+          }
+        }
+        _formKey.currentState?.validate();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _cpfFocusNode.removeListener(_onCpfFocusChange);
+    _cpfFocusNode.dispose();
+    _nomeController.dispose();
+    _idadeController.dispose();
+    _dataNascimentoController.dispose();
+    _documentoController.dispose();
+    _acompanhanteController.dispose();
+    _grauParentescoController.dispose();
+    _telefoneController.dispose();
+    _medicamentosController.dispose();
+    _alergiasController.dispose();
+    _cepController.dispose();
+    _ruaController.dispose();
+    _numeroController.dispose();
+    _bairroController.dispose();
+    _complementoController.dispose();
+    _cidadeController.dispose();
+    super.dispose();
   }
 
   void _carregarDadosIniciais() {
@@ -190,6 +231,16 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
   }
 
   Future<void> _avancarParaAvaliacaoClinica() async {
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Por favor, corrija os erros nos campos antes de continuar."),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     FichaEmAndamentoProvider? provider;
     try {
       provider = Provider.of<FichaEmAndamentoProvider>(context, listen: false);
@@ -421,8 +472,18 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
                 flex: 3,
                 child: TextFormField(
                   controller: _documentoController,
+                  focusNode: _cpfFocusNode,
                   keyboardType: TextInputType.number,
-                  decoration: _inputDecoration("CPF do paciente", icon: Icons.credit_card_outlined),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  inputFormatters: [
+                    CpfInputFormatter(),
+                  ],
+                  validator: (val) => CpfValidator.validarComMensagem(val, obrigatorio: false),
+                  decoration: _inputDecoration(
+                    "CPF do paciente",
+                    hintText: "000.000.000-00",
+                    icon: Icons.credit_card_outlined,
+                  ),
                 ),
               ),
             ],
@@ -592,6 +653,15 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
         borderRadius: BorderRadius.circular(10.0),
         borderSide: const BorderSide(color: AppColors.crimson, width: 1.8),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.8),
+      ),
+      errorMaxLines: 2,
     );
   }
 }

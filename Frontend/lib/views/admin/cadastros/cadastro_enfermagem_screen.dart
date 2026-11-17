@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/profissional_model.dart';
 import '../../../services/admin_data_service.dart';
+import '../../../utils/cpf_validator.dart';
 
 class CadastroEnfermagemScreen extends StatefulWidget {
   const CadastroEnfermagemScreen({super.key});
@@ -245,11 +246,12 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
                                     TextFormField(
                                       controller: _cpfController,
                                       style: const TextStyle(fontSize: 13),
+                                      keyboardType: TextInputType.number,
+                                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                                      inputFormatters: [CpfInputFormatter()],
                                       decoration: _inputDecoration("000.000.000-00"),
                                       validator: (value) =>
-                                          (value == null || value.trim().isEmpty)
-                                              ? 'Informe o CPF'
-                                              : null,
+                                          CpfValidator.validarComMensagem(value, obrigatorio: true),
                                     ),
                                   ],
                                 ),

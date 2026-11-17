@@ -8,28 +8,26 @@ import re
 # ==========================================
 
 def validar_formato_cpf(cpf: Optional[str]) -> bool:
-    """Valida algoritmo oficial de CPF (11 dígitos numéricos com dígitos verificadores)."""
-    if not cpf:
+    """Valida algoritmo oficial de CPF da Receita Federal (Módulo 11)."""
+    if not cpf or not str(cpf).strip():
         return True
+    # 1. Limpeza e Tamanho: retira pontos (.) e traços (-), mantendo apenas os números
     digitos = re.sub(r"\D", "", str(cpf))
     if len(digitos) != 11:
-        # Se for outro tipo de documento (RG, passaporte), permite se não tiver formato estrito de CPF
-        if re.match(r"^\d{3}\.\d{3}\.\d{3}-\d{2}$", str(cpf).strip()):
-            return False
-        return True
-    # Rejeita sequências com todos dígitos iguais (ex: 111.111.111-11)
+        return False
+    # 2. Bloqueio de Sequências Repetidas (00000000000 até 99999999999)
     if digitos == digitos[0] * 11:
         return False
-    # Primeiro dígito verificador
+    # 3. Cálculo do 1º Dígito Verificador (pesos decrescentes de 10 a 2)
     soma = sum(int(digitos[i]) * (10 - i) for i in range(9))
     resto = (soma * 10) % 11
-    d1 = 0 if resto == 10 else resto
+    d1 = 0 if resto in (10, 11) else resto
     if d1 != int(digitos[9]):
         return False
-    # Segundo dígito verificador
+    # 4. Cálculo do 2º Dígito Verificador (pesos decrescentes de 11 a 2)
     soma = sum(int(digitos[i]) * (11 - i) for i in range(10))
     resto = (soma * 10) % 11
-    d2 = 0 if resto == 10 else resto
+    d2 = 0 if resto in (10, 11) else resto
     return d2 == int(digitos[10])
 
 def mascarar_documento_lgpd(doc: Optional[str]) -> Optional[str]:
