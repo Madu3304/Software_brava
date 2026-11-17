@@ -7,6 +7,7 @@ from .report_controller import router as report_router
 from .cadastro_controller import router as cadastro_router
 from .usuario_controller import router as usuario_router
 from .log_controller import router as log_router
+from .docusign_controller import router as docusign_router
 
 api_router = APIRouter(prefix="/api")
 
@@ -19,6 +20,7 @@ api_router.include_router(report_router)
 api_router.include_router(cadastro_router)
 api_router.include_router(usuario_router)
 api_router.include_router(log_router)
+api_router.include_router(docusign_router)
 
 __all__ = [
     "api_router",
@@ -29,4 +31,5 @@ __all__ = [
     "cadastro_router",
     "usuario_router",
     "log_router",
+    "docusign_router",
 ]

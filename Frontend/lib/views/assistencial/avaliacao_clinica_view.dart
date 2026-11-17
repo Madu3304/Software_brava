@@ -111,7 +111,7 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
     return null;
   }
 
-  Future<void> _finalizarAtendimento() async {
+  Future<void> _avancarParaFolhaGastos() async {
     if (!_formKey.currentState!.validate()) return;
 
     FichaAtendimentoModel? fichaBase = widget.fichaParcial ??
@@ -131,7 +131,7 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
 
     setState(() => _isSaving = true);
 
-    final fichaFinal = fichaBase.copyWith(
+    final fichaAtualizada = fichaBase.copyWith(
       pressaoArterial: _paController.text.trim().isNotEmpty ? _paController.text.trim() : null,
       frequenciaCardiaca: int.tryParse(_fcController.text.trim()),
       frequenciaRespiratoria: int.tryParse(_frController.text.trim()),
@@ -152,26 +152,24 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
     );
 
     try {
-      await DatabaseService().inserirFicha(fichaFinal);
+      await DatabaseService().inserirFicha(fichaAtualizada);
 
       if (!mounted) return;
-      context.read<FichaEmAndamentoProvider>().setFicha(fichaFinal);
-
-      SyncService().sincronizarFichasPendentes();
+      context.read<FichaEmAndamentoProvider>().setFicha(fichaAtualizada);
 
       setState(() => _isSaving = false);
 
-      Navigator.pushReplacementNamed(
+      Navigator.pushNamed(
         context,
-        AppRoutes.impressaoSucesso,
-        arguments: fichaFinal.numeroOcorrencia,
+        AppRoutes.folhaGastos,
+        arguments: fichaAtualizada,
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Não foi possível salvar o atendimento localmente. Verifique o espaço do dispositivo e tente novamente."),
+          content: Text("Não foi possível salvar o atendimento localmente. Verifique o espaço e tente novamente."),
           backgroundColor: AppColors.error,
         ),
       );
@@ -531,11 +529,11 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
                     ),
                     const SizedBox(height: 28),
 
-                    // Botão Finalizar e Imprimir
+                    // Botão Avançar para Folha de Gastos
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isSaving ? null : _finalizarAtendimento,
+                        onPressed: _isSaving ? null : _avancarParaFolhaGastos,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.crimson,
                           foregroundColor: Colors.white,
@@ -553,20 +551,17 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
                             : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
-                                  SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      "Finalizar Atendimento e Imprimir",
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        letterSpacing: 0.3,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                  Text(
+                                    "Continuar para Folha de Gastos",
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
                                     ),
                                   ),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
                                 ],
                               ),
                       ),
