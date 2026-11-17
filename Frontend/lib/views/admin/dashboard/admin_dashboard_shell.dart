@@ -45,6 +45,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Sidebar Lateral (Figma)
           _buildSidebar(context),
@@ -55,7 +56,11 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
           Expanded(
             child: Container(
               color: const Color(0xFFFBFBFB),
-              child: _screens[_selectedMenuIndex],
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: double.infinity,
+                child: _screens[_selectedMenuIndex],
+              ),
             ),
           ),
         ],
@@ -194,28 +199,28 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
                 _buildSidebarItem(
                   index: 1,
                   icon: Icons.person_add_alt_1_outlined,
-                  title: "Cadastrar Médico",
+                  title: "Médicos",
                   showExpanded: showExpanded,
                 ),
                 const SizedBox(height: 6),
                 _buildSidebarItem(
                   index: 2,
                   icon: Icons.healing_outlined,
-                  title: "Cadastrar Téc. Enfermagem",
+                  title: "Téc. Enfermagem",
                   showExpanded: showExpanded,
                 ),
                 const SizedBox(height: 6),
                 _buildSidebarItem(
                   index: 3,
                   icon: Icons.favorite_border_rounded,
-                  title: "Cadastrar Socorrista",
+                  title: "Socorrista",
                   showExpanded: showExpanded,
                 ),
                 const SizedBox(height: 6),
                 _buildSidebarItem(
                   index: 4,
                   icon: Icons.airport_shuttle_outlined,
-                  title: "Cadastrar Unidade",
+                  title: "Unidade Básica",
                   showExpanded: showExpanded,
                 ),
                 const SizedBox(height: 6),
