@@ -35,6 +35,7 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
   final TextEditingController _telefoneController = TextEditingController();
   final TextEditingController _medicamentosController = TextEditingController();
   final TextEditingController _alergiasController = TextEditingController();
+  final TextEditingController _observacoesController = TextEditingController();
   String _sexoSelecionado = 'Masculino';
 
   // Controladores: Endereço e GPS
@@ -88,6 +89,7 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
     _telefoneController.dispose();
     _medicamentosController.dispose();
     _alergiasController.dispose();
+    _observacoesController.dispose();
     _cepController.dispose();
     _ruaController.dispose();
     _numeroController.dispose();
@@ -140,29 +142,12 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
       if (f.alergias != null) {
         _alergiasController.text = f.alergias!;
       }
+      if (f.observacoes != null) {
+        _observacoesController.text = f.observacoes!;
+      }
       if (f.latitude != null) _latitude = f.latitude;
       if (f.longitude != null) _longitude = f.longitude;
     }
-  }
-
-  @override
-  void dispose() {
-    _nomeController.dispose();
-    _idadeController.dispose();
-    _dataNascimentoController.dispose();
-    _documentoController.dispose();
-    _acompanhanteController.dispose();
-    _grauParentescoController.dispose();
-    _telefoneController.dispose();
-    _medicamentosController.dispose();
-    _alergiasController.dispose();
-    _cepController.dispose();
-    _ruaController.dispose();
-    _numeroController.dispose();
-    _bairroController.dispose();
-    _complementoController.dispose();
-    _cidadeController.dispose();
-    super.dispose();
   }
 
   Future<void> _buscarEnderecoPorCep(String cep) async {
@@ -302,6 +287,9 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
       alergias: _alergiasController.text.trim().isNotEmpty
           ? _alergiasController.text.trim()
           : null,
+      observacoes: _observacoesController.text.trim().isNotEmpty
+          ? _observacoesController.text.trim()
+          : null,
       endereco: enderecoFormatado.isNotEmpty ? enderecoFormatado : fichaBase.endereco,
       latitude: _latitude,
       longitude: _longitude,
@@ -357,6 +345,8 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
                     _buildLocalizacaoCard(),
                     const SizedBox(height: 20),
                     _buildHistoricoCard(),
+                    const SizedBox(height: 20),
+                    _buildObservacoesCard(),
                     const SizedBox(height: 28),
 
                     // Botão Continuar
@@ -631,6 +621,49 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
             controller: _alergiasController,
             maxLines: 2,
             decoration: _inputDecoration("Alergias"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObservacoesCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Observações",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _observacoesController,
+            maxLines: 4,
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration(
+              hintText: "Digite observações relevantes",
+              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10.0),
+                borderSide: const BorderSide(color: AppColors.borderNeutral, width: 1.2),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10.0),
+                borderSide: const BorderSide(color: AppColors.crimson, width: 1.8),
+              ),
+            ),
           ),
         ],
       ),

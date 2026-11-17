@@ -27,6 +27,7 @@ class FichaAtendimentoModel {
   final String? telefoneContato;
   final String? medicamentosUsoContinuo;
   final String? alergias;
+  final String? observacoes;
   final String tipoOcorrencia; // Trauma, Clínico, Obstétrico, Psiquiátrico
   final String endereco;
   final double? latitude;
@@ -76,6 +77,7 @@ class FichaAtendimentoModel {
     this.telefoneContato,
     this.medicamentosUsoContinuo,
     this.alergias,
+    this.observacoes,
     required this.tipoOcorrencia,
     required this.endereco,
     this.latitude,
@@ -151,6 +153,7 @@ class FichaAtendimentoModel {
       'telefoneContato': telefoneContato,
       'medicamentosUsoContinuo': medicamentosUsoContinuo,
       'alergias': alergias,
+      'observacoes': observacoes,
       'tipoOcorrencia': tipoOcorrencia,
       'endereco': endereco,
       'latitude': latitude,
@@ -203,6 +206,7 @@ class FichaAtendimentoModel {
       telefoneContato: map['telefoneContato'] ?? map['telefone_acompanhante'],
       medicamentosUsoContinuo: map['medicamentosUsoContinuo'] ?? map['medicamentoUso_paciente'],
       alergias: map['alergias'],
+      observacoes: map['observacoes'] ?? map['observacao_paciente'] ?? map['observacoesPaciente'],
       tipoOcorrencia: map['tipoOcorrencia'] ?? 'Clínico',
       endereco: map['endereco'] ?? '',
       latitude: (map['latitude'] as num?)?.toDouble(),
@@ -288,6 +292,7 @@ class FichaAtendimentoModel {
         'telefone_acompanhante': telefoneContato,
         'medicamentoUso_paciente': medicamentosUsoContinuo,
         'alergias': alergias,
+        'observacao_paciente': observacoes,
       },
       'avaliacao_clinica': {
         'pressao_arterial': pressaoArterial,
@@ -324,6 +329,7 @@ class FichaAtendimentoModel {
     String? telefoneContato,
     String? medicamentosUsoContinuo,
     String? alergias,
+    String? observacoes,
     String? tipoOcorrencia,
     String? endereco,
     double? latitude,
@@ -369,6 +375,7 @@ class FichaAtendimentoModel {
       telefoneContato: telefoneContato ?? this.telefoneContato,
       medicamentosUsoContinuo: medicamentosUsoContinuo ?? this.medicamentosUsoContinuo,
       alergias: alergias ?? this.alergias,
+      observacoes: observacoes ?? this.observacoes,
       tipoOcorrencia: tipoOcorrencia ?? this.tipoOcorrencia,
       endereco: endereco ?? this.endereco,
       latitude: latitude ?? this.latitude,

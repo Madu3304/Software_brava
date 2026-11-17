@@ -17,6 +17,9 @@ import 'views/assistencial/ficha_atendimento_view.dart';
 import 'views/assistencial/registro_atendimento_view.dart';
 import 'views/assistencial/dados_paciente_view.dart';
 import 'views/assistencial/avaliacao_clinica_view.dart';
+import 'views/assistencial/folha_gastos_view.dart';
+import 'views/assistencial/folha_gastos_materiais_view.dart';
+import 'views/assistencial/assinatura_paciente_view.dart';
 import 'views/assistencial/impressao_sucesso_view.dart';
 
 Future<void> main() async {
@@ -121,6 +124,30 @@ class SoftwareBravaApp extends StatelessWidget {
             return MaterialPageRoute(
               settings: settings,
               builder: (_) => AvaliacaoClinicaView(fichaParcial: ficha),
+            );
+          }
+
+          if (settings.name == AppRoutes.folhaGastos) {
+            final ficha = settings.arguments as FichaAtendimentoModel?;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => FolhaGastosView(fichaParcial: ficha),
+            );
+          }
+
+          if (settings.name == AppRoutes.folhaGastosMateriais) {
+            final ficha = settings.arguments as FichaAtendimentoModel?;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => FolhaGastosMateriaisView(fichaParcial: ficha),
+            );
+          }
+
+          if (settings.name == AppRoutes.assinaturaPaciente) {
+            final ficha = settings.arguments as FichaAtendimentoModel?;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => AssinaturaPacienteView(fichaParcial: ficha),
             );
           }
 
