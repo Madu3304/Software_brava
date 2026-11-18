@@ -527,7 +527,7 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  "Cadastro de Unidades Móveis",
+                  "Unidades Móveis (Frota)",
                   style: TextStyle(
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
@@ -539,15 +539,15 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEBEE),
+                    color: const Color(0xFFE8F5E9),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    "$total ativa(s)",
+                    "$total na frota",
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFC62828),
+                      color: Color(0xFF2E7D32),
                     ),
                   ),
                 ),
@@ -555,7 +555,7 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
             ),
             const SizedBox(height: 3),
             const Text(
-              "Cadastre ambulâncias (USA/USB) e gerencie a prontidão da frota",
+              "Cadastre e monitore as viaturas e ambulâncias disponíveis no SAMU Joinville",
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFF757575),
@@ -572,7 +572,7 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
       onPressed: _showAdicionarUnidadeModal,
       icon: const Icon(Icons.add, size: 18, color: Colors.white),
       label: const Text(
-        "Adicionar unidade",
+        "Adicionar unidade móvel",
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
@@ -796,7 +796,7 @@ class _CadastroUnidadeScreenState extends State<CadastroUnidadeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Frota de Unidades",
+                      "Unidades Móveis Cadastradas",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

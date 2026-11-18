@@ -113,7 +113,7 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        "Adicionar Téc. / Enfermeiro(a)",
+                                        "Adicionar Técnico de Enfermagem",
                                         style: TextStyle(
                                           fontSize: 17,
                                           fontWeight: FontWeight.w700,
@@ -122,7 +122,7 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
                                       ),
                                       SizedBox(height: 2),
                                       Text(
-                                        "Cadastre um novo profissional de enfermagem",
+                                        "Cadastre um novo técnico de enfermagem no sistema",
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: Color(0xFF757575),
@@ -171,7 +171,10 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
                                       keyboardType: TextInputType.number,
                                       autovalidateMode: AutovalidateMode.onUserInteraction,
                                       inputFormatters: [CpfInputFormatter()],
-                                      decoration: _inputDecoration("000.000.000-00"),
+                                      decoration: _modalInputDecoration(
+                                        hint: "000.000.000-00",
+                                        icon: Icons.badge_outlined,
+                                      ),
                                       validator: (value) =>
                                           CpfValidator.validarComMensagem(value, obrigatorio: true),
                                     ),
@@ -582,7 +585,7 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  "Cadastro de Téc. Enfermagem",
+                  "Técnicos de Enfermagem",
                   style: TextStyle(
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
@@ -610,7 +613,7 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
             ),
             const SizedBox(height: 3),
             const Text(
-              "Cadastre técnicos e enfermeiros intervencionistas e gerencie a equipe",
+              "Cadastre novos técnicos de enfermagem e gerencie os já existentes",
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFF757575),
@@ -627,7 +630,7 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
       onPressed: _showAdicionarEnfermeiroModal,
       icon: const Icon(Icons.add, size: 18, color: Colors.white),
       label: const Text(
-        "Adicionar enfermeiro(a)",
+        "Adicionar técnico de enfermagem",
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
@@ -851,7 +854,7 @@ class _CadastroEnfermagemScreenState extends State<CadastroEnfermagemScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Profissionais",
+                      "Técnicos de Enfermagem Cadastrados",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

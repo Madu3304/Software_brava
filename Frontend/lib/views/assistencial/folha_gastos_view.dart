@@ -301,7 +301,7 @@ class _FolhaGastosViewState extends State<FolhaGastosView> {
                             onPressed: () => Navigator.pop(context),
                             icon: const Icon(Icons.arrow_back, size: 16, color: AppColors.textSecondary),
                             label: const Text(
-                              "Voltar à Avaliação Clínica",
+                              "Voltar à Assinatura do Paciente",
                               style: TextStyle(
                                 fontSize: 14,
                                 color: AppColors.textSecondary,

@@ -5,7 +5,6 @@ import '../../core/constants/app_routes.dart';
 import '../../models/ficha_model.dart';
 import '../../providers/ficha_provider.dart';
 import '../../services/database_service.dart';
-import '../../services/sync_service.dart';
 import '../../services/docusign_service.dart';
 
 class AssinaturaPacienteView extends StatefulWidget {
@@ -146,15 +145,12 @@ class _AssinaturaPacienteViewState extends State<AssinaturaPacienteView> {
       if (!mounted) return;
       context.read<FichaEmAndamentoProvider>().setFicha(fichaFinal);
 
-      // Sincroniza em segundo plano
-      SyncService().sincronizarFichasPendentes();
-
       setState(() => _isSaving = false);
 
-      Navigator.pushReplacementNamed(
+      Navigator.pushNamed(
         context,
-        AppRoutes.impressaoSucesso,
-        arguments: fichaFinal.numeroOcorrencia,
+        AppRoutes.folhaGastos,
+        arguments: fichaFinal,
       );
     } catch (e) {
       if (!mounted) return;
@@ -221,7 +217,7 @@ class _AssinaturaPacienteViewState extends State<AssinaturaPacienteView> {
                           const SizedBox(height: 28),
                         ],
 
-                        // Botão Finalizar Atendimento e Imprimir
+                        // Botão Continuar para Folha de Gastos
                         SizedBox(
                           height: 52,
                           child: ElevatedButton(
@@ -243,10 +239,8 @@ class _AssinaturaPacienteViewState extends State<AssinaturaPacienteView> {
                                 : const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
-                                      SizedBox(width: 8),
                                       Text(
-                                        "Finalizar Atendimento e Imprimir",
+                                        "Continuar para Folha de Gastos",
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.bold,
@@ -254,6 +248,8 @@ class _AssinaturaPacienteViewState extends State<AssinaturaPacienteView> {
                                           letterSpacing: 0.3,
                                         ),
                                       ),
+                                      SizedBox(width: 8),
+                                      Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
                                     ],
                                   ),
                           ),
@@ -266,7 +262,7 @@ class _AssinaturaPacienteViewState extends State<AssinaturaPacienteView> {
                             onPressed: () => Navigator.pop(context),
                             icon: const Icon(Icons.arrow_back, size: 16, color: AppColors.textSecondary),
                             label: const Text(
-                              "Voltar aos Materiais e Insumos",
+                              "Voltar à Avaliação Clínica",
                               style: TextStyle(
                                 fontSize: 14,
                                 color: AppColors.textSecondary,

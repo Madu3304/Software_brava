@@ -170,7 +170,10 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
                                       keyboardType: TextInputType.number,
                                       autovalidateMode: AutovalidateMode.onUserInteraction,
                                       inputFormatters: [CpfInputFormatter()],
-                                      decoration: _inputDecoration("000.000.000-00"),
+                                      decoration: _modalInputDecoration(
+                                        hint: "000.000.000-00",
+                                        icon: Icons.badge_outlined,
+                                      ),
                                       validator: (v) =>
                                           CpfValidator.validarComMensagem(v, obrigatorio: true),
                                     ),
@@ -567,7 +570,7 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(
-            Icons.directions_car_outlined,
+            Icons.favorite_border_rounded,
             color: Color(0xFFC62828),
             size: 22,
           ),
@@ -609,7 +612,7 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
             ),
             const SizedBox(height: 3),
             const Text(
-              "Cadastre condutores de veículos de emergência e socorristas de campo",
+              "Cadastre novos socorristas condutores e gerencie a escala operacional",
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFF757575),
@@ -850,7 +853,7 @@ class _CadastroSocorristaScreenState extends State<CadastroSocorristaScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Profissionais",
+                      "Socorristas Cadastrados",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

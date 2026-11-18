@@ -285,7 +285,7 @@ class _FolhaGastosMateriaisViewState extends State<FolhaGastosMateriaisView> {
     });
   }
 
-  Future<void> _avancarParaAssinatura() async {
+  Future<void> _finalizarAtendimentoEImprimir() async {
     FichaAtendimentoModel? fichaBase = widget.fichaParcial ??
         ModalRoute.of(context)?.settings.arguments as FichaAtendimentoModel? ??
         context.read<FichaEmAndamentoProvider>().ficha;
@@ -329,12 +329,15 @@ class _FolhaGastosMateriaisViewState extends State<FolhaGastosMateriaisView> {
       if (!mounted) return;
       context.read<FichaEmAndamentoProvider>().setFicha(fichaAtualizada);
 
+      // Sincroniza em segundo plano
+      SyncService().sincronizarFichasPendentes();
+
       setState(() => _isSaving = false);
 
-      Navigator.pushNamed(
+      Navigator.pushReplacementNamed(
         context,
-        AppRoutes.assinaturaPaciente,
-        arguments: fichaAtualizada,
+        AppRoutes.impressaoSucesso,
+        arguments: fichaAtualizada.numeroOcorrencia,
       );
     } catch (e) {
       if (!mounted) return;
@@ -427,11 +430,11 @@ class _FolhaGastosMateriaisViewState extends State<FolhaGastosMateriaisView> {
                           const SizedBox(height: 28),
                         ],
 
-                        // Botão Avançar para Assinatura do Paciente
+                        // Botão Finalizar Atendimento e Imprimir
                         SizedBox(
                           height: 52,
                           child: ElevatedButton(
-                            onPressed: _isSaving ? null : _avancarParaAssinatura,
+                            onPressed: _isSaving ? null : _finalizarAtendimentoEImprimir,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.crimson,
                               foregroundColor: Colors.white,
@@ -449,8 +452,10 @@ class _FolhaGastosMateriaisViewState extends State<FolhaGastosMateriaisView> {
                                 : const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
+                                      Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
+                                      SizedBox(width: 8),
                                       Text(
-                                        "Continuar para Assinatura do Paciente",
+                                        "Finalizar Atendimento e Imprimir",
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.bold,
@@ -458,8 +463,6 @@ class _FolhaGastosMateriaisViewState extends State<FolhaGastosMateriaisView> {
                                           letterSpacing: 0.3,
                                         ),
                                       ),
-                                      SizedBox(width: 8),
-                                      Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
                                     ],
                                   ),
                           ),

@@ -161,7 +161,7 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
 
       Navigator.pushNamed(
         context,
-        AppRoutes.folhaGastos,
+        AppRoutes.assinaturaPaciente,
         arguments: fichaAtualizada,
       );
     } catch (e) {
@@ -552,7 +552,7 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    "Continuar para Folha de Gastos",
+                                    "Continuar para Assinatura do Paciente",
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
