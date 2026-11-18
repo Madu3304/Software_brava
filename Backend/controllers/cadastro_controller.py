@@ -23,6 +23,10 @@ router = APIRouter(
 
 somente_admin = [Depends(exigir_perfil("ADMINISTRADOR"))]
 
+# =============================================================================
+# MÉDICOS
+# =============================================================================
+
 @router.get("/medicos", response_model=List[MedicoResponse])
 def listar_medicos(db: Session = Depends(get_db)):
     """Lista todos os médicos cadastrados no sistema."""
@@ -39,12 +43,17 @@ def criar_medico(dados: MedicoCreate, db: Session = Depends(get_db)):
 
 @router.delete("/medicos/{id_medico}", status_code=status.HTTP_204_NO_CONTENT, dependencies=somente_admin)
 def deletar_medico(id_medico: int, db: Session = Depends(get_db)):
+    """Remove um médico do cadastro."""
     medico = db.query(Medico).filter(Medico.id_medico == id_medico).first()
     if not medico:
         raise HTTPException(status_code=404, detail="Médico não encontrado.")
     db.delete(medico)
     db.commit()
     return None
+
+# =============================================================================
+# TÉCNICOS DE ENFERMAGEM
+# =============================================================================
 
 @router.get("/tecnicos", response_model=List[TecnicoResponse])
 def listar_tecnicos(db: Session = Depends(get_db)):
@@ -62,12 +71,17 @@ def criar_tecnico(dados: TecnicoCreate, db: Session = Depends(get_db)):
 
 @router.delete("/tecnicos/{id_tecnico}", status_code=status.HTTP_204_NO_CONTENT, dependencies=somente_admin)
 def deletar_tecnico(id_tecnico: int, db: Session = Depends(get_db)):
+    """Remove um técnico de enfermagem do cadastro."""
     tecnico = db.query(Tecnico).filter(Tecnico.id_tecnico == id_tecnico).first()
     if not tecnico:
         raise HTTPException(status_code=404, detail="Técnico não encontrado.")
     db.delete(tecnico)
     db.commit()
     return None
+
+# =============================================================================
+# CONDUTORES SOCORRISTAS
+# =============================================================================
 
 @router.get("/condutores", response_model=List[CondutorResponse])
 def listar_condutores(db: Session = Depends(get_db)):
@@ -85,12 +99,17 @@ def criar_condutor(dados: CondutorCreate, db: Session = Depends(get_db)):
 
 @router.delete("/condutores/{id_condutor}", status_code=status.HTTP_204_NO_CONTENT, dependencies=somente_admin)
 def deletar_condutor(id_condutor: int, db: Session = Depends(get_db)):
+    """Remove um condutor socorrista do cadastro."""
     condutor = db.query(Condutor).filter(Condutor.id_condutor == id_condutor).first()
     if not condutor:
         raise HTTPException(status_code=404, detail="Condutor não encontrado.")
     db.delete(condutor)
     db.commit()
     return None
+
+# =============================================================================
+# UNIDADES MÓVEIS (VIATURAS)
+# =============================================================================
 
 @router.get("/unidades", response_model=List[UnidadeMovelResponse])
 def listar_unidades(db: Session = Depends(get_db)):
@@ -113,7 +132,7 @@ def criar_unidade(dados: UnidadeMovelCreate, db: Session = Depends(get_db)):
 
 @router.put("/unidades/{id_unidade}/status", response_model=UnidadeMovelResponse, dependencies=somente_admin)
 def atualizar_status_unidade(id_unidade: int, status_novo: str, motivo: str = None, db: Session = Depends(get_db)):
-    """Atualiza o status de prontidão da viatura (Disponível, Parada, Manutenção)."""
+    """Atualiza o status de prontidão da viatura (DISPONIVEL, EM_ATENDIMENTO, PARADA, MANUTENCAO)."""
     unidade = db.query(UnidadeMovel).filter(UnidadeMovel.id_unidade == id_unidade).first()
     if not unidade:
         raise HTTPException(status_code=404, detail="Unidade não encontrada.")
@@ -123,6 +142,33 @@ def atualizar_status_unidade(id_unidade: int, status_novo: str, motivo: str = No
     db.refresh(unidade)
     return unidade
 
+@router.delete("/unidades/{id_unidade}", status_code=status.HTTP_204_NO_CONTENT, dependencies=somente_admin)
+def deletar_unidade(id_unidade: int, db: Session = Depends(get_db)):
+    """
+    Remove uma unidade móvel do cadastro.
+    Recusado com 409 se a viatura possuir fichas de atendimento vinculadas —
+    nesse caso altere o status para MANUTENCAO ou PARADA em vez de excluir.
+    O app mobile chama DELETE /api/cadastros/unidades/:id ao remover uma viatura.
+    """
+    unidade = db.query(UnidadeMovel).filter(UnidadeMovel.id_unidade == id_unidade).first()
+    if not unidade:
+        raise HTTPException(status_code=404, detail="Unidade não encontrada.")
+    if unidade.fichas:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"A unidade #{id_unidade} possui {len(unidade.fichas)} ficha(s) de atendimento vinculada(s) "
+                "e não pode ser excluída. Desative-a alterando seu status para 'MANUTENCAO' ou 'PARADA'."
+            ),
+        )
+    db.delete(unidade)
+    db.commit()
+    return None
+
+# =============================================================================
+# BASES OPERACIONAIS
+# =============================================================================
+
 @router.get("/bases", response_model=List[BaseOperacionalResponse])
 def listar_bases(db: Session = Depends(get_db)):
     """Lista as bases operacionais do município."""
@@ -130,6 +176,7 @@ def listar_bases(db: Session = Depends(get_db)):
 
 @router.post("/bases", response_model=BaseOperacionalResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_base(dados: BaseOperacionalCreate, db: Session = Depends(get_db)):
+    """Cadastra uma nova base operacional física."""
     base = BaseOperacional(
         nome=dados.nome or dados.base_unidade,
         endereco=dados.endereco,
@@ -146,6 +193,10 @@ def criar_base(dados: BaseOperacionalCreate, db: Session = Depends(get_db)):
     db.refresh(base)
     return base
 
+# =============================================================================
+# HOSPITAIS DE DESTINO
+# =============================================================================
+
 @router.get("/hospitais", response_model=List[HospitalDestinoResponse])
 def listar_hospitais(db: Session = Depends(get_db)):
     """Lista os hospitais e unidades de pronto atendimento de destino."""
@@ -153,19 +204,25 @@ def listar_hospitais(db: Session = Depends(get_db)):
 
 @router.post("/hospitais", response_model=HospitalDestinoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_hospital(dados: HospitalDestinoCreate, db: Session = Depends(get_db)):
+    """Cadastra um hospital ou UPA de destino."""
     hospital = HospitalDestino(nome=dados.nome, endereco=dados.endereco)
     db.add(hospital)
     db.commit()
     db.refresh(hospital)
     return hospital
 
+# =============================================================================
+# PACIENTES
+# =============================================================================
+
 @router.get("/pacientes", response_model=List[PacienteResponse])
 def listar_pacientes(db: Session = Depends(get_db)):
-    """Lista pacientes registrados nos atendimentos."""
+    """Lista pacientes registrados nos atendimentos (limitado a 100 mais recentes)."""
     return db.query(Paciente).limit(100).all()
 
 @router.post("/pacientes", response_model=PacienteResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_paciente(dados: PacienteCreate, db: Session = Depends(get_db)):
+    """Cadastra um paciente avulso (sem ficha vinculada)."""
     paciente = Paciente(
         nome=dados.nome,
         idade=dados.idade,

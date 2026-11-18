@@ -25,6 +25,8 @@ def processar_pacote_sync_offline(
     duplicados = 0
     erros = []
     ids_fichas_criadas = []
+    sucessos_uuids: List[str] = []
+    duplicados_uuids: List[str] = []
 
     for item_bruto in itens:
         uuid_item = item_bruto.get("uuid_offline") if isinstance(item_bruto, dict) else getattr(item_bruto, "uuid_offline", None)
@@ -41,6 +43,7 @@ def processar_pacote_sync_offline(
 
                 if existente:
                     duplicados += 1
+                    duplicados_uuids.append(item.uuid_offline)
                     continue
 
             with db.begin_nested():
@@ -52,6 +55,8 @@ def processar_pacote_sync_offline(
 
             sucessos += 1
             ids_fichas_criadas.append(nova_ficha.id_ficha)
+            if item.uuid_offline:
+                sucessos_uuids.append(item.uuid_offline)
 
         except ValidationError as e:
             logger.warning("Falha de schema Pydantic no item %s: %s", uuid_item, e)
@@ -77,6 +82,8 @@ def processar_pacote_sync_offline(
         processados=processados,
         sucessos=sucessos,
         duplicados_ignorados=duplicados,
-        erros=erros
+        erros=erros,
+        sucessos_uuids=sucessos_uuids,
+        duplicados_uuids=duplicados_uuids,
     )
     return (resumo, ids_fichas_criadas)

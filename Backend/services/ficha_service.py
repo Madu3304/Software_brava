@@ -182,6 +182,8 @@ def _montar_avaliacao_schema(avaliacao: Optional[AvaliacaoClinica]) -> Optional[
         usa_anticoagulante=avaliacao.usa_anticoagulante,
         assimetria_facial=avaliacao.assimetria_facial,
         queda_braco=avaliacao.queda_braco,
+        # Lê o campo canônico 'fala' do banco e popula apenas 'fala'.
+        # 'fala_anormal' é campo de entrada exclusivo (alias mobile) e não é persistido.
         fala=avaliacao.fala,
         avc_suspeito=avaliacao.avc_suspeito,
         material_retido=avaliacao.material_retido,

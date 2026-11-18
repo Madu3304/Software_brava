@@ -286,13 +286,22 @@ class AvaliacaoClinicaResumoSchema(BaseModel):
     usa_anticoagulante: Optional[bool] = None
     assimetria_facial: Optional[bool] = None
     queda_braco: Optional[bool] = None
+    # Campo canônico do modelo/banco. O Flutter envia como 'fala_anormal' — ambos são aceitos via model_validator.
     fala: Optional[bool] = None
+    fala_anormal: Optional[bool] = None  # alias de entrada vindo do app mobile; normalizado para 'fala' no validator
     avc_suspeito: Optional[bool] = None
     material_retido: Optional[bool] = None
     anotacao_CondutaEnfermeiro: Optional[str] = None
     procedimentos_realizados: Optional[str] = None
     medicacoes_administradas: Optional[str] = None
     conduta: Optional[str] = None
+
+    @model_validator(mode="after")
+    def normalizar_fala_anormal(self):
+        """Aceita 'fala_anormal' (nome do campo no Flutter) como sinônimo de 'fala'."""
+        if self.fala is None and self.fala_anormal is not None:
+            self.fala = self.fala_anormal
+        return self
 
     @model_validator(mode="after")
     def validar_glasgow_e_glicemia(self):
@@ -431,6 +440,11 @@ class SyncLoteResponse(BaseModel):
     sucessos: int
     duplicados_ignorados: int
     erros: List[str] = []
+    # UUIDs offline das fichas aceitas e das duplicadas ignoradas.
+    # O app mobile usa esses campos para marcar o status de sincronização
+    # de cada ficha no SQLite local sem depender de contagens genéricas.
+    sucessos_uuids: List[str] = []
+    duplicados_uuids: List[str] = []
 
 # ==========================================
 # SCHEMAS DE DASHBOARD E RELATÓRIOS (REPORT)
