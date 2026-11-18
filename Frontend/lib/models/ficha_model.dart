@@ -263,6 +263,26 @@ class FichaAtendimentoModel {
   factory FichaAtendimentoModel.fromJson(Map<String, dynamic> json) =>
       FichaAtendimentoModel.fromMap(json);
 
+  static String? _formatDataNascimentoIso(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final trimmed = raw.trim();
+    // Já está em ISO-8601 (YYYY-MM-DD...)
+    if (DateTime.tryParse(trimmed) != null) {
+      return DateTime.parse(trimmed).toIso8601String();
+    }
+    // Formato brasileiro DD/MM/YYYY
+    final parts = trimmed.split('/');
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (day != null && month != null && year != null && year >= 1900 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return DateTime(year, month, day).toIso8601String();
+      }
+    }
+    return null;
+  }
+
   Map<String, dynamic> toBackendSyncJson({
     int? idUnidade,
     int? idResponsavel,
@@ -286,7 +306,7 @@ class FichaAtendimentoModel {
         'idade': pacienteIdade,
         'sexo': pacienteSexo != null ? (pacienteSexo!.toUpperCase().startsWith('F') ? 'F' : 'M') : null,
         'documento': pacienteCpf,
-        'data_nascimento': pacienteDataNascimento,
+        'data_nascimento': _formatDataNascimentoIso(pacienteDataNascimento),
         'acompanhante': acompanhante,
         'grau_parentesco': grauParentesco,
         'telefone_acompanhante': telefoneContato,
@@ -308,7 +328,7 @@ class FichaAtendimentoModel {
         'avc_suspeito': avcSuspeito,
         'assimetria_facial': assimetriaFacial,
         'queda_braco': quedaBraco,
-        'fala_anormal': falaAnormal,
+        'fala': falaAnormal,
         'conduta': condutaMedica,
         'anotacao_CondutaEnfermeiro': queixaPrincipal,
       },

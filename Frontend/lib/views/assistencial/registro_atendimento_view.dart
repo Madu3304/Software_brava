@@ -21,6 +21,21 @@ class RegistroAtendimentoView extends StatefulWidget {
     this.dataAtendimentoInicial,
   });
 
+  /// Formata um [DateTime] no padrão HH:mm.
+  static String formatarHorario(DateTime dataHora) {
+    final hora = dataHora.hour.toString().padLeft(2, '0');
+    final minuto = dataHora.minute.toString().padLeft(2, '0');
+    return '$hora:$minuto';
+  }
+
+  /// Calcula o horário de saída adicionando [deslocamento] (padrão 2 minutos) via [DateTime.add].
+  static DateTime calcularHorarioSaida(
+    DateTime abertura, {
+    Duration deslocamento = const Duration(minutes: 2),
+  }) {
+    return abertura.add(deslocamento);
+  }
+
   @override
   State<RegistroAtendimentoView> createState() => _RegistroAtendimentoViewState();
 }
@@ -57,14 +72,11 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
   @override
   void initState() {
     super.initState();
-    // Preenche com horário atual formatado para abertura e saída
+    // Preenche com horário atual formatado para abertura e saída (+2 min via Duration)
     final agora = DateTime.now();
-    final hora = agora.hour.toString().padLeft(2, '0');
-    final minuto = agora.minute.toString().padLeft(2, '0');
-    _horaAberturaController.text = '$hora:$minuto';
-
-    final minutoSaida = ((agora.minute + 2) % 60).toString().padLeft(2, '0');
-    _horaSaidaController.text = '$hora:$minutoSaida';
+    _horaAberturaController.text = RegistroAtendimentoView.formatarHorario(agora);
+    final saida = RegistroAtendimentoView.calcularHorarioSaida(agora);
+    _horaSaidaController.text = RegistroAtendimentoView.formatarHorario(saida);
   }
 
   @override

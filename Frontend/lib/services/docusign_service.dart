@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../core/api/api_client.dart';
 
 class DocuSignEnvelopeResult {
   final bool sucesso;
@@ -19,9 +19,6 @@ class DocuSignEnvelopeResult {
 }
 
 class DocuSignService {
-  final Dio _dio = Dio();
-  final String _baseUrl = 'http://localhost:8000';
-
   Future<DocuSignEnvelopeResult> criarEnvelope({
     required String numeroOcorrencia,
     required String pacienteNome,
@@ -31,8 +28,8 @@ class DocuSignService {
     String? condutaResumo,
   }) async {
     try {
-      final response = await _dio.post(
-        '$_baseUrl/api/docusign/envelopes',
+      final response = await ApiClient().dio.post(
+        '/docusign/envelopes',
         data: {
           'numero_ocorrencia': numeroOcorrencia,
           'paciente_nome': pacienteNome,
@@ -42,7 +39,6 @@ class DocuSignService {
           'conduta_resumo': condutaResumo,
         },
         options: Options(
-          headers: {'Content-Type': 'application/json'},
           sendTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
         ),

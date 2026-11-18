@@ -9,6 +9,7 @@ from typing import Dict, Any
 from datetime import datetime, timedelta, timezone
 
 import jwt
+import bcrypt
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,27 +28,33 @@ if not JWT_SECRET_KEY:
 class TokenInvalidoError(Exception):
     """Token ausente, expirado, com assinatura inválida ou com payload incompleto."""
 
-PBKDF2_ITERATIONS = 600_000
+BCRYPT_ROUNDS = 12
+
+def eh_hash_bcrypt(senha_armazenada: str) -> bool:
+    """Indica se o hash armazenado já está no formato bcrypt ($2a$, $2b$ ou $2y$)."""
+    return bool(senha_armazenada) and senha_armazenada.startswith(("$2b$", "$2a$", "$2y$"))
 
 def gerar_hash_senha(senha: str) -> str:
-    """Gera hash seguro PBKDF2-HMAC-SHA256 com salt aleatório de 16 bytes."""
-    salt = secrets.token_hex(16)
-    derivado = hashlib.pbkdf2_hmac(
-        "sha256",
-        senha.encode("utf-8"),
-        bytes.fromhex(salt),
-        PBKDF2_ITERATIONS,
-    ).hex()
-    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt}${derivado}"
+    """Gera hash seguro bcrypt com salt aleatório e custo 12."""
+    senha_bytes = senha.encode("utf-8")[:72]
+    return bcrypt.hashpw(senha_bytes, bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("utf-8")
 
 def verificar_senha(senha_fornecida: str, senha_armazenada: str) -> bool:
     """
-    Compara o hash da senha fornecida com o hash armazenado.
-    Nunca compara a senha fornecida diretamente com o valor do banco: isso permitiria
-    logar usando o próprio hash como senha. A comparação usa tempo constante (hmac).
+    Compara a senha fornecida com o hash armazenado.
+    Suporta bcrypt (padrão atual) e hashes legados (PBKDF2-HMAC-SHA256 e SHA-256 puro)
+    para permitir migração transparente no login.
     """
     if not senha_fornecida or not senha_armazenada:
         return False
+    if eh_hash_bcrypt(senha_armazenada):
+        try:
+            return bcrypt.checkpw(
+                senha_fornecida.encode("utf-8")[:72],
+                senha_armazenada.encode("utf-8"),
+            )
+        except (ValueError, TypeError):
+            return False
     if senha_armazenada.startswith("pbkdf2_sha256$"):
         try:
             _, iteracoes_str, salt, hash_esperado = senha_armazenada.split("$", 3)

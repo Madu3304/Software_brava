@@ -10,6 +10,7 @@ from schemas import LoginRequest, TokenResponse, UsuarioResponse, TrocarSenhaReq
 from services.security_service import (
     verificar_senha,
     gerar_hash_senha,
+    eh_hash_bcrypt,
     gerar_token_acesso,
     obter_redirecionamento_por_perfil,
 )
@@ -49,6 +50,11 @@ def autenticar_usuario(login: str, senha: str, request: Request, db: Session) ->
     # O status de inativo só é verificado depois da senha, para não revelar quais logins existem
     if not usuario.ativo:
         recusar_credenciais(db, request, "LOGIN_FALHA", login, "usuário inativo", usuario)
+
+    # Migração transparente de hashes legados (SHA-256 / PBKDF2) para bcrypt no login
+    if not eh_hash_bcrypt(usuario.senha_hash):
+        usuario.senha_hash = gerar_hash_senha(senha)
+        db.commit()
 
     # Primeiro acesso ou senha redefinida pelo Administrador: exige troca antes de liberar o acesso
     if usuario.trocar_senha:

@@ -152,9 +152,18 @@ with TestClient(app) as client:
     print("16. Sync lote:", res_sync.status_code, res_sync.json())
     assert res_sync.status_code == 200 and res_sync.json()["sucessos"] == 1
 
-    # Logout usa o usuário do token
-    res_logout = client.post("/api/auth/logout", headers=headers_enf)
-    print("17. Logout:", res_logout.status_code)
+    # Logout sem token ou com tentativa de spoofing via query param deve retornar 401
+    res_logout_sem_token = client.post("/api/auth/logout")
+    print("17a. Logout sem token:", res_logout_sem_token.status_code)
+    assert res_logout_sem_token.status_code == 401
+
+    res_logout_spoof = client.post(f"/api/auth/logout?id_usuario={id_admin}")
+    print("17b. Logout sem token com spoofing:", res_logout_spoof.status_code)
+    assert res_logout_spoof.status_code == 401
+
+    # Logout autenticado usa exclusivamente o usuário do token (ignora eventual ?id_usuario)
+    res_logout = client.post(f"/api/auth/logout?id_usuario={id_admin}", headers=headers_enf)
+    print("17c. Logout autenticado:", res_logout.status_code)
     assert res_logout.status_code == 200
 
     from database import SessionLocal
@@ -509,5 +518,46 @@ with TestClient(app) as client:
     assert res_repo_ok.status_code == 200
     assert res_repo_ok.json()["sucesso"] is True
     print("31. Verificação de ficha inexistente na reposição (B19) concluída com sucesso!")
+
+    # 32. Validação de bcrypt (salt único) e migração transparente de SHA-256 legado
+    import hashlib
+    from services.security_service import eh_hash_bcrypt
+    from models import Usuario as UsuarioModel
+
+    hash_a = gerar_hash_senha("SenhaIgual@123")
+    hash_b = gerar_hash_senha("SenhaIgual@123")
+    assert hash_a != hash_b, "Hashes bcrypt para a mesma senha devem ser diferentes por causa do salt"
+    assert eh_hash_bcrypt(hash_a) and eh_hash_bcrypt(hash_b)
+    assert hash_a.startswith("$2b$12$")
+
+    db_mig = SessionLocal()
+    try:
+        sha256_legado = hashlib.sha256("SenhaLegado@123".encode("utf-8")).hexdigest()
+        user_legado = UsuarioModel(
+            nome="Usuário Legado SHA256",
+            login="legado_sha256",
+            senha_hash=sha256_legado,
+            perfil="TECNICO",
+            ativo=True,
+            trocar_senha=False,
+        )
+        db_mig.add(user_legado)
+        db_mig.commit()
+    finally:
+        db_mig.close()
+
+    res_legado = client.post("/api/auth/login", json={"login": "legado_sha256", "senha": "SenhaLegado@123"})
+    print("32. Login usuário legado SHA-256:", res_legado.status_code)
+    assert res_legado.status_code == 200
+
+    db_mig_check = SessionLocal()
+    try:
+        user_atualizado = db_mig_check.query(UsuarioModel).filter(UsuarioModel.login == "legado_sha256").first()
+        assert user_atualizado is not None
+        assert eh_hash_bcrypt(user_atualizado.senha_hash), "Hash legado deveria ter sido migrado para bcrypt no login"
+        assert user_atualizado.senha_hash != sha256_legado
+        print("32. Migração transparente SHA-256 -> bcrypt confirmada!")
+    finally:
+        db_mig_check.close()
 
 print("\n>>> TODOS OS TESTES PASSARAM COM 100% DE SUCESSO! O BACKEND ESTA PRONTO PARA RODAR! <<<")
