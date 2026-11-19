@@ -152,8 +152,13 @@ class AuthService {
     }
   }
 
-  // Encerra a sessão do usuário de forma segura
+  // Encerra a sessão do usuário de forma segura e registra auditoria no Backend
   Future<void> logout() async {
+    try {
+      await ApiClient().dio.post('/auth/logout');
+    } catch (e) {
+      debugPrint('Aviso ao notificar logout no servidor: $e');
+    }
     _currentUser = null;
     try {
       await _storage.delete(key: 'auth_token');

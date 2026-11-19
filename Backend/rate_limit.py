@@ -13,8 +13,9 @@ logger = logging.getLogger("RateLimit")
 
 LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5/minute")
 
-# Contadores em memória: valem por processo do servidor (com vários workers, use um storage como Redis)
-limiter = Limiter(key_func=get_remote_address)
+# Usa REDIS_URL quando configurado em produção, com fallback seguro para memória local
+REDIS_URL = os.getenv("REDIS_URL", "memory://")
+limiter = Limiter(key_func=get_remote_address, storage_uri=REDIS_URL)
 
 # Limite compartilhado para login (/login e /token) e escopo separado para /trocar-senha
 limite_autenticacao = limiter.shared_limit(LOGIN_RATE_LIMIT, scope="autenticacao")

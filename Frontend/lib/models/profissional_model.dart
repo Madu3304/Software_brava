@@ -49,7 +49,8 @@ class ProfissionalModel {
     final rawId = map['id_medico'] ?? map['id_tecnico'] ?? map['id_condutor'] ?? map['id'];
     final id = rawId?.toString() ?? '';
     final nome = map['nome'] ?? '';
-    final registro = (map['codigo_medico'] ??
+    final registro = (map['registro_conselho'] ??
+            map['codigo_medico'] ??
             map['codigo_tecnico'] ??
             map['codigo_condutor'] ??
             map['registroConselho'])

@@ -21,12 +21,32 @@ class _FichaAtendimentoViewState extends State<FichaAtendimentoView> {
   String _codigoTriagem = 'Vermelho';
   Set<String> _opcoesUsb = {};
   DateTime _dataAtendimento = DateTime.now();
+  bool _unidadeParada = false;
+  final TextEditingController _motivoParadaController = TextEditingController();
+
+  @override
+  void dispose() {
+    _motivoParadaController.dispose();
+    super.dispose();
+  }
 
   void _avancarParaRegistro() {
+    if (_unidadeParada && _motivoParadaController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Informe o motivo da parada da unidade móvel (RF11)."),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     context.read<FichaEmAndamentoProvider>().iniciarFicha(
           tipoViatura: _tipoViatura,
           codigoTriagem: _codigoTriagem,
           dataAtendimento: _dataAtendimento,
+          unidadeParada: _unidadeParada,
+          motivoUnidadeParada: _unidadeParada ? _motivoParadaController.text.trim() : null,
         );
 
     Navigator.pushNamed(
@@ -80,6 +100,74 @@ class _FichaAtendimentoViewState extends State<FichaAtendimentoView> {
                   DataAtendimentoCard(
                     dataInicial: _dataAtendimento,
                     onDateChanged: (novaData) => setState(() => _dataAtendimento = novaData),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Card 4: Unidade Parada (RF11)
+                  Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14.0),
+                      border: Border.all(
+                        color: _unidadeParada ? AppColors.warning : AppColors.borderLight,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Unidade Parada?",
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    "Informe caso a viatura esteja impossibilitada de operar",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _unidadeParada,
+                              activeColor: AppColors.crimson,
+                              onChanged: (val) => setState(() => _unidadeParada = val),
+                            ),
+                          ],
+                        ),
+                        if (_unidadeParada) ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _motivoParadaController,
+                            maxLines: 2,
+                            decoration: InputDecoration(
+                              hintText: "Descreva o motivo da parada (ex: manutenção mecânica, falta de equipe...)",
+                              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9E9E9E)),
+                              filled: true,
+                              fillColor: const Color(0xFFFAFAFA),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10.0),
+                                borderSide: const BorderSide(color: AppColors.borderLight),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 28),
 

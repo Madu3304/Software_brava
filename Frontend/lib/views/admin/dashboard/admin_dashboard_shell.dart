@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_routes.dart';
+import '../../../../services/admin_data_service.dart';
 import '../../../../services/auth_service.dart';
 import 'dashboard_overview_screen.dart';
 import '../cadastros/cadastro_medico_screen.dart';
 import '../cadastros/cadastro_enfermagem_screen.dart';
 import '../cadastros/cadastro_socorrista_screen.dart';
 import '../cadastros/cadastro_unidade_screen.dart';
+import '../cadastros/historico_fichas_screen.dart';
 
 class AdminDashboardShell extends StatefulWidget {
   final int initialScreenIndex;
@@ -23,6 +25,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
   void initState() {
     super.initState();
     _selectedMenuIndex = widget.initialScreenIndex;
+    AdminDataService().carregarCadastros();
   }
 
   void _toggleSidebar() {
@@ -38,6 +41,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
     CadastroEnfermagemScreen(), // 2: Cadastrar Téc. Enfermagem
     CadastroSocorristaScreen(), // 3: Cadastrar Socorrista
     CadastroUnidadeScreen(), // 4: Cadastrar Unidade
+    HistoricoFichasScreen(), // 5: Histórico de Fichas (RN08)
   ];
 
   @override
@@ -221,6 +225,13 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
                   index: 4,
                   icon: Icons.airport_shuttle_outlined,
                   title: "Unidade Básica",
+                  showExpanded: showExpanded,
+                ),
+                const SizedBox(height: 6),
+                _buildSidebarItem(
+                  index: 5,
+                  icon: Icons.history_edu_outlined,
+                  title: "Histórico Fichas",
                   showExpanded: showExpanded,
                 ),
                 const SizedBox(height: 6),

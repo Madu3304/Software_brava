@@ -415,9 +415,11 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.borderLight),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                           const Row(
                             children: [
                               Icon(Icons.psychology_outlined, color: AppColors.crimson, size: 20),
@@ -474,7 +476,8 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
                               });
                             },
                           ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -551,13 +554,16 @@ class _AvaliacaoClinicaViewState extends State<AvaliacaoClinicaView> {
                             : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    "Continuar para Assinatura do Paciente",
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.3,
+                                  Flexible(
+                                    child: Text(
+                                      "Continuar para Assinatura do Paciente",
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: 0.3,
+                                      ),
                                     ),
                                   ),
                                   SizedBox(width: 8),

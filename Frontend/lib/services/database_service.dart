@@ -27,8 +27,15 @@ class DatabaseService {
   final Map<String, Map<String, dynamic>> _webUnidades = {};
   final Map<String, Map<String, dynamic>> _webProfissionais = {};
 
-  // Fichas de Atendimento
+  // Fichas de Atendimento (RN07: fichas sincronizadas/finalizadas são imutáveis)
   Future<int> inserirFicha(FichaAtendimentoModel ficha) async {
+    final existente = await buscarFichaPorId(ficha.id);
+    if (existente != null &&
+        existente.statusSincronizacao == StatusSincronizacao.sincronizado &&
+        ficha.statusSincronizacao != StatusSincronizacao.sincronizado) {
+      debugPrint('[DatabaseService] RN07: Ficha ${ficha.id} já sincronizada não pode ser alterada.');
+      return 0;
+    }
     if (kIsWeb) {
       _webFichas[ficha.id] = Map<String, dynamic>.from(ficha.toMap());
       return 1;

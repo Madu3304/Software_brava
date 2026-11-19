@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_routes.dart';
 import '../../models/ficha_model.dart';
 import '../../providers/ficha_provider.dart';
+import '../../services/admin_data_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import 'widgets/samu_app_bar_header.dart';
 import 'widgets/registro_field_card.dart';
@@ -60,14 +62,26 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     'Base Pirabeiraba',
   ];
 
-  final List<String> _medicosDisponiveis = [
-    'Dr. Carlos Eduardo - CRM 12345/SC',
-    'Dra. Ana Paula Martins - CRM 23456/SC',
-    'Dr. Marcos Vinicius - CRM 34567/SC',
-    'Dra. Beatriz Santos - CRM 45678/SC',
-    'Dr. Roberto Silva - CRM 56789/SC',
-    'Dra. Juliana Mendes - CRM 67890/SC',
-  ];
+  final AdminDataService _adminDataService = AdminDataService();
+
+  List<String> get _medicosDisponiveis {
+    final cadastrados = _adminDataService.medicos
+        .map((m) => m.registroConselho.isNotEmpty ? '${m.nome} - ${m.registroConselho}' : m.nome)
+        .toList();
+    return cadastrados;
+  }
+
+  List<String> get _tecnicosDisponiveis {
+    return _adminDataService.enfermeiros
+        .map((t) => t.registroConselho.isNotEmpty ? '${t.nome} - ${t.registroConselho}' : t.nome)
+        .toList();
+  }
+
+  List<String> get _condutoresDisponiveis {
+    return _adminDataService.socorristas
+        .map((c) => c.registroConselho.isNotEmpty ? '${c.nome} - ${c.registroConselho}' : c.nome)
+        .toList();
+  }
 
   @override
   void initState() {
@@ -77,6 +91,10 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     _horaAberturaController.text = RegistroAtendimentoView.formatarHorario(agora);
     final saida = RegistroAtendimentoView.calcularHorarioSaida(agora);
     _horaSaidaController.text = RegistroAtendimentoView.formatarHorario(saida);
+
+    if (AuthService().isAuthenticated && _adminDataService.profissionais.isEmpty) {
+      _adminDataService.carregarCadastros();
+    }
   }
 
   @override
@@ -88,6 +106,53 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     _horaAberturaController.dispose();
     _horaSaidaController.dispose();
     super.dispose();
+  }
+
+  Widget _buildProfissionalAutocomplete({
+    required TextEditingController controller,
+    required List<String> Function() optionsProvider,
+    required String hintText,
+    Color iconColor = const Color(0xFF9E9E9E),
+  }) {
+    return AnimatedBuilder(
+      animation: _adminDataService,
+      builder: (context, _) {
+        final opcoes = optionsProvider();
+        return Autocomplete<String>(
+          initialValue: TextEditingValue(text: controller.text),
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (textEditingValue.text.isEmpty) return opcoes;
+            final q = textEditingValue.text.toLowerCase();
+            return opcoes.where((item) => item.toLowerCase().contains(q));
+          },
+          onSelected: (String selecao) => controller.text = selecao,
+          fieldViewBuilder: (context, fieldTextEditingController, focusNode, onFieldSubmitted) {
+            fieldTextEditingController.addListener(() {
+              controller.text = fieldTextEditingController.text;
+            });
+            return TextFormField(
+              controller: fieldTextEditingController,
+              focusNode: focusNode,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                prefixIcon: Icon(Icons.search_rounded, color: iconColor, size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                  borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                  borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _selecionarHora(TextEditingController controller) async {
@@ -396,58 +461,24 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 4: Técnico de enfermagem responsável
+                    // Card 4: Técnico de enfermagem responsável (RN10: profissionais cadastrados)
                     RegistroFieldCard(
                       title: "Técnico de enfermagem responsável:",
-                      child: TextFormField(
+                      child: _buildProfissionalAutocomplete(
                         controller: _tecnicoController,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
-                        decoration: InputDecoration(
-                          hintText: "Buscar técnico de enfermagem",
-                          hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Color(0xFF9E9E9E),
-                            size: 20,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
-                          ),
-                        ),
+                        optionsProvider: () => _tecnicosDisponiveis,
+                        hintText: "Buscar técnico de enfermagem",
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 5: Condutor socorrista
+                    // Card 5: Condutor socorrista (RN10: profissionais cadastrados)
                     RegistroFieldCard(
                       title: "Condutor socorrista:",
-                      child: TextFormField(
+                      child: _buildProfissionalAutocomplete(
                         controller: _condutorController,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
-                        decoration: InputDecoration(
-                          hintText: "Buscar condutor socorrista",
-                          hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Color(0xFF9E9E9E),
-                            size: 20,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
-                          ),
-                        ),
+                        optionsProvider: () => _condutoresDisponiveis,
+                        hintText: "Buscar condutor socorrista",
                       ),
                     ),
                     const SizedBox(height: 16),

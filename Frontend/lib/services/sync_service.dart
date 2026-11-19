@@ -122,24 +122,39 @@ class SyncService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data as Map<String, dynamic>;
 
-        final List<dynamic> sucessos = data['sucessos'] ?? [];
-        final List<dynamic> duplicados = data['duplicados'] ?? [];
-        final List<dynamic> erros = data['erros'] ?? [];
+        final List<dynamic> sucessosUuids = data['sucessos_uuids'] is List
+            ? data['sucessos_uuids'] as List<dynamic>
+            : const [];
+        final List<dynamic> duplicadosUuids = data['duplicados_uuids'] is List
+            ? data['duplicados_uuids'] as List<dynamic>
+            : const [];
+        final List<dynamic> erros = data['erros'] is List
+            ? data['erros'] as List<dynamic>
+            : const [];
 
         int totalAtualizados = 0;
 
-        for (final id in [...sucessos, ...duplicados]) {
+        for (final id in [...sucessosUuids, ...duplicadosUuids]) {
+          final uuid = id.toString();
           await _databaseService.atualizarStatusSincronizacao(
-            id.toString(),
+            uuid,
             StatusSincronizacao.sincronizado,
           );
-          _filaPendencias.removeWhere((f) => f.id == id.toString());
+          _filaPendencias.removeWhere((f) => f.id == uuid);
           totalAtualizados++;
         }
 
         for (final erroItem in erros) {
+          String? erroId;
           if (erroItem is Map && erroItem['uuid_offline'] != null) {
-            final erroId = erroItem['uuid_offline'].toString();
+            erroId = erroItem['uuid_offline'].toString();
+          } else if (erroItem is String) {
+            final match = RegExp(r'Erro no item ([^:]+):').firstMatch(erroItem);
+            if (match != null) {
+              erroId = match.group(1)?.trim();
+            }
+          }
+          if (erroId != null && erroId.isNotEmpty) {
             await _databaseService.atualizarStatusSincronizacao(
               erroId,
               StatusSincronizacao.erro,

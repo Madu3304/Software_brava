@@ -35,7 +35,16 @@ def listar_medicos(db: Session = Depends(get_db)):
 @router.post("/medicos", response_model=MedicoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_medico(dados: MedicoCreate, db: Session = Depends(get_db)):
     """Cadastra um novo médico para seleção na ficha de atendimento."""
-    medico = Medico(nome=dados.nome, codigo_medico=dados.codigo_medico)
+    medico = Medico(
+        nome=dados.nome,
+        codigo_medico=dados.codigo_medico,
+        cpf=dados.cpf,
+        registro_conselho=dados.registro_conselho,
+        unidade=dados.unidade,
+        matricula=dados.matricula,
+        cargo=dados.cargo,
+        status=dados.status or "Disponível",
+    )
     db.add(medico)
     db.commit()
     db.refresh(medico)
@@ -63,7 +72,16 @@ def listar_tecnicos(db: Session = Depends(get_db)):
 @router.post("/tecnicos", response_model=TecnicoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_tecnico(dados: TecnicoCreate, db: Session = Depends(get_db)):
     """Cadastra um novo técnico de enfermagem."""
-    tecnico = Tecnico(nome=dados.nome, codigo_tecnico=dados.codigo_tecnico or dados.codigo_medico)
+    tecnico = Tecnico(
+        nome=dados.nome,
+        codigo_tecnico=dados.codigo_tecnico or dados.codigo_medico,
+        cpf=dados.cpf,
+        registro_conselho=dados.registro_conselho,
+        unidade=dados.unidade,
+        matricula=dados.matricula,
+        cargo=dados.cargo,
+        status=dados.status or "Disponível",
+    )
     db.add(tecnico)
     db.commit()
     db.refresh(tecnico)
@@ -91,7 +109,16 @@ def listar_condutores(db: Session = Depends(get_db)):
 @router.post("/condutores", response_model=CondutorResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
 def criar_condutor(dados: CondutorCreate, db: Session = Depends(get_db)):
     """Cadastra um novo condutor socorrista."""
-    condutor = Condutor(nome=dados.nome, codigo_condutor=dados.codigo_condutor)
+    condutor = Condutor(
+        nome=dados.nome,
+        codigo_condutor=dados.codigo_condutor,
+        cpf=dados.cpf,
+        registro_conselho=dados.registro_conselho,
+        unidade=dados.unidade,
+        matricula=dados.matricula,
+        cargo=dados.cargo,
+        status=dados.status or "Disponível",
+    )
     db.add(condutor)
     db.commit()
     db.refresh(condutor)
@@ -120,7 +147,9 @@ def listar_unidades(db: Session = Depends(get_db)):
 def criar_unidade(dados: UnidadeMovelCreate, db: Session = Depends(get_db)):
     """Cadastra uma nova unidade móvel básica do SAMU."""
     unidade = UnidadeMovel(
+        codigo=dados.codigo,
         placa=dados.placa,
+        tipo=dados.tipo,
         base_unidade=dados.base_unidade,
         status=dados.status,
         motivo_parada=dados.motivo_parada,

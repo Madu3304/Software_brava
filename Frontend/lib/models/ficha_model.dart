@@ -63,6 +63,11 @@ class FichaAtendimentoModel {
   final bool? quedaBraco;
   final bool? falaAnormal;
 
+  // Parada de Unidade (RF11/RF12) & Pendência GPS (FA01)
+  final bool unidadeParada;
+  final String? motivoUnidadeParada;
+  final bool pendenciaLocalizacao;
+
   const FichaAtendimentoModel({
     required this.id,
     required this.numeroOcorrencia,
@@ -108,6 +113,9 @@ class FichaAtendimentoModel {
     this.assimetriaFacial,
     this.quedaBraco,
     this.falaAnormal,
+    this.unidadeParada = false,
+    this.motivoUnidadeParada,
+    this.pendenciaLocalizacao = false,
   });
 
   /// Factory helper para instanciar uma nova ficha com UUID v4 único (F6)
@@ -184,6 +192,9 @@ class FichaAtendimentoModel {
       'assimetriaFacial': assimetriaFacial == true ? 1 : 0,
       'quedaBraco': quedaBraco == true ? 1 : 0,
       'falaAnormal': falaAnormal == true ? 1 : 0,
+      'unidadeParada': unidadeParada ? 1 : 0,
+      'motivoUnidadeParada': motivoUnidadeParada,
+      'pendenciaLocalizacao': pendenciaLocalizacao ? 1 : 0,
     };
   }
 
@@ -256,6 +267,9 @@ class FichaAtendimentoModel {
       assimetriaFacial: map['assimetriaFacial'] == 1 || map['assimetriaFacial'] == true,
       quedaBraco: map['quedaBraco'] == 1 || map['quedaBraco'] == true,
       falaAnormal: map['falaAnormal'] == 1 || map['falaAnormal'] == true,
+      unidadeParada: map['unidadeParada'] == 1 || map['unidadeParada'] == true,
+      motivoUnidadeParada: map['motivoUnidadeParada'] ?? map['motivo_unidade_parada'],
+      pendenciaLocalizacao: map['pendenciaLocalizacao'] == 1 || map['pendenciaLocalizacao'] == true,
     );
   }
 
@@ -301,6 +315,9 @@ class FichaAtendimentoModel {
       'latitude': latitude,
       'longitude': longitude,
       'hora_chamado': dataHora.toIso8601String(),
+      'unidade_parada': unidadeParada,
+      'motivo_unidade_parada': motivoUnidadeParada,
+      'observacoes_gerais': pendenciaLocalizacao ? 'Pendência de localização GPS (FA01)' : null,
       'paciente': {
         'nome': pacienteNome,
         'idade': pacienteIdade,
@@ -380,6 +397,9 @@ class FichaAtendimentoModel {
     bool? assimetriaFacial,
     bool? quedaBraco,
     bool? falaAnormal,
+    bool? unidadeParada,
+    String? motivoUnidadeParada,
+    bool? pendenciaLocalizacao,
   }) {
     return FichaAtendimentoModel(
       id: id ?? this.id,
@@ -426,6 +446,9 @@ class FichaAtendimentoModel {
       assimetriaFacial: assimetriaFacial ?? this.assimetriaFacial,
       quedaBraco: quedaBraco ?? this.quedaBraco,
       falaAnormal: falaAnormal ?? this.falaAnormal,
+      unidadeParada: unidadeParada ?? this.unidadeParada,
+      motivoUnidadeParada: motivoUnidadeParada ?? this.motivoUnidadeParada,
+      pendenciaLocalizacao: pendenciaLocalizacao ?? this.pendenciaLocalizacao,
     );
   }
 }

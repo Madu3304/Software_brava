@@ -7,9 +7,7 @@ class AdminDataService extends ChangeNotifier {
   static final AdminDataService _instance = AdminDataService._internal();
   factory AdminDataService() => _instance;
 
-  AdminDataService._internal() {
-    carregarCadastros();
-  }
+  AdminDataService._internal();
 
   final List<ProfissionalModel> _profissionais = [];
   final List<UnidadeMovelModel> _unidades = [];
@@ -248,28 +246,41 @@ class AdminDataService extends ChangeNotifier {
 
     try {
       final dio = ApiClient().dio;
+      final codigoNumerico = int.tryParse(
+        profissional.registroConselho.replaceAll(RegExp(r'[^0-9]'), ''),
+      );
+      final basePayload = <String, dynamic>{
+        'nome': profissional.nome,
+        'cpf': profissional.cpf,
+        'registro_conselho': profissional.registroConselho,
+        'unidade': profissional.unidade,
+        'matricula': profissional.matricula,
+        'cargo': profissional.cargo,
+        'status': profissional.status,
+      };
+
       if (profissional.tipo == TipoProfissional.medico) {
         await dio.post(
           '/cadastros/medicos',
           data: {
-            'nome': profissional.nome,
-            'codigo_medico': profissional.registroConselho,
+            ...basePayload,
+            if (codigoNumerico != null) 'codigo_medico': codigoNumerico,
           },
         );
       } else if (profissional.tipo == TipoProfissional.enfermeiro) {
         await dio.post(
           '/cadastros/tecnicos',
           data: {
-            'nome': profissional.nome,
-            'codigo_tecnico': profissional.registroConselho,
+            ...basePayload,
+            if (codigoNumerico != null) 'codigo_tecnico': codigoNumerico,
           },
         );
       } else if (profissional.tipo == TipoProfissional.socorrista) {
         await dio.post(
           '/cadastros/condutores',
           data: {
-            'nome': profissional.nome,
-            'codigo_condutor': profissional.registroConselho,
+            ...basePayload,
+            if (codigoNumerico != null) 'codigo_condutor': codigoNumerico,
           },
         );
       }
@@ -279,9 +290,10 @@ class AdminDataService extends ChangeNotifier {
   }
 
   Future<void> removerProfissional(String id) async {
-    final prof = _profissionais.firstWhere((p) => p.id == id, orElse: () => _profissionais.first);
-    final tipo = prof.tipo;
-    _profissionais.removeWhere((p) => p.id == id);
+    final index = _profissionais.indexWhere((p) => p.id == id);
+    if (index == -1) return;
+    final tipo = _profissionais[index].tipo;
+    _profissionais.removeAt(index);
     notifyListeners();
 
     try {
@@ -301,6 +313,14 @@ class AdminDataService extends ChangeNotifier {
     }
   }
 
+  String _mapearStatusUnidadeBackend(String statusUi) {
+    final s = statusUi.trim().toLowerCase();
+    if (s.contains('atendimento')) return 'EM_ATENDIMENTO';
+    if (s.contains('manuten')) return 'MANUTENCAO';
+    if (s.contains('parada')) return 'PARADA';
+    return 'DISPONIVEL';
+  }
+
   Future<void> adicionarUnidade(UnidadeMovelModel unidade) async {
     _unidades.add(unidade);
     notifyListeners();
@@ -310,9 +330,11 @@ class AdminDataService extends ChangeNotifier {
       await dio.post(
         '/cadastros/unidades',
         data: {
+          'codigo': unidade.codigo,
           'placa': unidade.placa,
+          'tipo': unidade.tipo,
           'base_unidade': unidade.regiao,
-          'status': unidade.status.toUpperCase(),
+          'status': _mapearStatusUnidadeBackend(unidade.status),
         },
       );
     } catch (e) {

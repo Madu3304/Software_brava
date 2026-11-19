@@ -44,8 +44,9 @@ class SoftwareBravaApp extends StatelessWidget {
         Provider(create: (_) => SyncService()),
         Provider(create: (_) => GpsService()),
       ],
-      child: MaterialApp(
-        title: 'Software Brava - SAMU Joinville',
+      child: _AppLifecycleAutosave(
+        child: MaterialApp(
+          title: 'Software Brava - SAMU Joinville',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
@@ -164,7 +165,42 @@ class SoftwareBravaApp extends StatelessWidget {
             builder: (_) => const LoginView(),
           );
         },
+        ),
       ),
     );
   }
+}
+
+/// Persiste automaticamente o rascunho em andamento ao pausar/minimizar o app (RF04 / FA02)
+class _AppLifecycleAutosave extends StatefulWidget {
+  final Widget child;
+  const _AppLifecycleAutosave({required this.child});
+
+  @override
+  State<_AppLifecycleAutosave> createState() => _AppLifecycleAutosaveState();
+}
+
+class _AppLifecycleAutosaveState extends State<_AppLifecycleAutosave>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      context.read<FichaEmAndamentoProvider>().salvarRascunhoAutomatico();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

@@ -1,15 +1,39 @@
 
 from datetime import datetime, date, timezone, timedelta
 from zoneinfo import ZoneInfo
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, extract
 
 from models import FichaAtendimento, Paciente, UnidadeMovel
 from schemas import DashboardMetricasGeraisResponse
 from services.ficha_service import obter_metricas_reposicao_dashboard
 
-def calcular_metricas_dashboard(db: Session) -> DashboardMetricasGeraisResponse:
+_MESES_PT = {
+    "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3,
+    "abril": 4, "maio": 5, "junho": 6, "julho": 7,
+    "agosto": 8, "setembro": 9, "outubro": 10,
+    "novembro": 11, "dezembro": 12,
+}
+
+def _parse_mes(mes: Optional[str]) -> Optional[int]:
+    if not mes:
+        return None
+    limpo = mes.strip().lower()
+    if limpo in _MESES_PT:
+        return _MESES_PT[limpo]
+    if limpo.isdigit():
+        num = int(limpo)
+        return num if 1 <= num <= 12 else None
+    return None
+
+def calcular_metricas_dashboard(
+    db: Session,
+    ano: Optional[int] = None,
+    mes: Optional[str] = None,
+    dia: Optional[int] = None,
+    unidade: Optional[str] = None,
+) -> DashboardMetricasGeraisResponse:
     # Definição do fuso oficial America/Sao_Paulo (B21)
     try:
         fuso_sp = ZoneInfo("America/Sao_Paulo")
@@ -20,9 +44,30 @@ def calcular_metricas_dashboard(db: Session) -> DashboardMetricasGeraisResponse:
     hoje_inicio_sp = datetime.combine(agora_sp.date(), datetime.min.time(), tzinfo=fuso_sp)
     hoje_inicio_utc = hoje_inicio_sp.astimezone(timezone.utc).replace(tzinfo=None)
 
-    total_atendimentos = db.query(func.count(FichaAtendimento.id_ficha)).scalar() or 0
+    ficha_filters = []
+    if ano is not None:
+        ficha_filters.append(extract("year", FichaAtendimento.criado_em) == ano)
+    mes_num = _parse_mes(mes)
+    if mes_num is not None:
+        ficha_filters.append(extract("month", FichaAtendimento.criado_em) == mes_num)
+    if dia is not None:
+        ficha_filters.append(extract("day", FichaAtendimento.criado_em) == dia)
+    if unidade and not unidade.strip().lower().startswith("todas"):
+        unidades_ids = [
+            u.id_unidade
+            for u in db.query(UnidadeMovel.id_unidade).filter(
+                UnidadeMovel.base_unidade.ilike(f"%{unidade.strip()}%")
+            ).all()
+        ]
+        if unidades_ids:
+            ficha_filters.append(FichaAtendimento.id_unidade.in_(unidades_ids))
+        else:
+            ficha_filters.append(FichaAtendimento.id_unidade == -1)
+
+    total_atendimentos = db.query(func.count(FichaAtendimento.id_ficha)).filter(*ficha_filters).scalar() or 0
     atendimentos_hoje = db.query(func.count(FichaAtendimento.id_ficha)).filter(
-        (FichaAtendimento.criado_em >= hoje_inicio_sp) | (FichaAtendimento.criado_em >= hoje_inicio_utc)
+        *ficha_filters,
+        (FichaAtendimento.criado_em >= hoje_inicio_sp) | (FichaAtendimento.criado_em >= hoje_inicio_utc),
     ).scalar() or 0
 
     total_unidades_ativas = db.query(func.count(UnidadeMovel.id_unidade)).filter(
@@ -37,6 +82,7 @@ def calcular_metricas_dashboard(db: Session) -> DashboardMetricasGeraisResponse:
     unidades_counts = (
         db.query(UnidadeMovel.base_unidade, func.count(FichaAtendimento.id_ficha))
         .join(FichaAtendimento, FichaAtendimento.id_unidade == UnidadeMovel.id_unidade)
+        .filter(*ficha_filters)
         .group_by(UnidadeMovel.base_unidade)
         .all()
     )
@@ -64,7 +110,7 @@ def calcular_metricas_dashboard(db: Session) -> DashboardMetricasGeraisResponse:
     # Bairros com maior incidência
     bairros_query = (
         db.query(FichaAtendimento.bairro, func.count(FichaAtendimento.id_ficha).label("total"))
-        .filter(FichaAtendimento.bairro != None)
+        .filter(*ficha_filters, FichaAtendimento.bairro != None)
         .group_by(FichaAtendimento.bairro)
         .order_by(func.count(FichaAtendimento.id_ficha).desc())
         .limit(5)
@@ -92,7 +138,7 @@ def calcular_metricas_dashboard(db: Session) -> DashboardMetricasGeraisResponse:
     tempo_row = db.query(
         func.sum(case((cond_valida, diff_minutos), else_=0)).label("soma_minutos"),
         func.sum(case((cond_valida, 1), else_=0)).label("qtd_validos"),
-    ).first()
+    ).filter(*ficha_filters).first()
 
     if tempo_row and tempo_row.qtd_validos and tempo_row.qtd_validos > 0:
         tempo_medio = round(float(tempo_row.soma_minutos) / float(tempo_row.qtd_validos), 1)

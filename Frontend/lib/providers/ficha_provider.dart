@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/ficha_model.dart';
+import '../services/database_service.dart';
 
 class FichaEmAndamentoProvider extends ChangeNotifier {
   FichaAtendimentoModel? _ficha;
@@ -19,6 +20,8 @@ class FichaEmAndamentoProvider extends ChangeNotifier {
     String? condutorSocorrista,
     String? horaAbertura,
     String? horaSaida,
+    bool unidadeParada = false,
+    String? motivoUnidadeParada,
   }) {
     final now = dataAtendimento ?? DateTime.now();
     final ocorrencia = (numeroOcorrencia != null && numeroOcorrencia.trim().isNotEmpty)
@@ -41,9 +44,21 @@ class FichaEmAndamentoProvider extends ChangeNotifier {
       condutorSocorrista: condutorSocorrista,
       horaAberturaChamado: horaAbertura,
       horaSaidaBase: horaSaida,
+      unidadeParada: unidadeParada,
+      motivoUnidadeParada: motivoUnidadeParada,
       statusSincronizacao: StatusSincronizacao.pendente,
     );
     notifyListeners();
+  }
+
+  /// Auto-salvamento em caso de interrupção por emergência crítica (RF04 / FA02)
+  Future<void> salvarRascunhoAutomatico() async {
+    if (_ficha == null) return;
+    try {
+      await DatabaseService().inserirFicha(_ficha!);
+    } catch (e) {
+      debugPrint('[FichaEmAndamentoProvider] Aviso ao auto-salvar rascunho: $e');
+    }
   }
 
   void setFicha(FichaAtendimentoModel ficha) {

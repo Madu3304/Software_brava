@@ -109,6 +109,12 @@ class UsuarioResponse(UsuarioBase):
 class MedicoBase(BaseModel):
     nome: str
     codigo_medico: Optional[int] = None # CRM ou código de identificação
+    cpf: Optional[str] = None
+    registro_conselho: Optional[str] = None
+    unidade: Optional[str] = None
+    matricula: Optional[str] = None
+    cargo: Optional[str] = None
+    status: Optional[str] = "Disponível"
 
 class MedicoCreate(MedicoBase):
     pass
@@ -123,6 +129,12 @@ class TecnicoBase(BaseModel):
     nome: str
     codigo_tecnico: Optional[int] = None # Código / COREN do técnico
     codigo_medico: Optional[int] = None # Retrocompatibilidade com versões anteriores
+    cpf: Optional[str] = None
+    registro_conselho: Optional[str] = None
+    unidade: Optional[str] = None
+    matricula: Optional[str] = None
+    cargo: Optional[str] = None
+    status: Optional[str] = "Disponível"
 
     @model_validator(mode="after")
     def sincronizar_codigo_tecnico(self):
@@ -144,6 +156,12 @@ class TecnicoResponse(TecnicoBase):
 class CondutorBase(BaseModel):
     nome: str
     codigo_condutor: Optional[int] = None # Código / CNH do condutor
+    cpf: Optional[str] = None
+    registro_conselho: Optional[str] = None
+    unidade: Optional[str] = None
+    matricula: Optional[str] = None
+    cargo: Optional[str] = None
+    status: Optional[str] = "Disponível"
 
 class CondutorCreate(CondutorBase):
     pass
@@ -155,7 +173,9 @@ class CondutorResponse(CondutorBase):
     model_config = ConfigDict(from_attributes=True)
 
 class UnidadeMovelBase(BaseModel):
+    codigo: Optional[str] = None
     placa: Optional[str] = None
+    tipo: Optional[str] = None
     base_unidade: str = "DISPONIVEL" # Ex: 'Brava 1', 'Brava 2'
     status: StatusUnidade = "DISPONIVEL"
     motivo_parada: Optional[str] = None

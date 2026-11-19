@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         // Tabela de Fichas de Atendimento (Offline-first com sinais vitais estruturados)
         await db.execute('''
@@ -69,7 +69,10 @@ class DatabaseHelper {
             avcSuspeito INTEGER,
             assimetriaFacial INTEGER,
             quedaBraco INTEGER,
-            falaAnormal INTEGER
+            falaAnormal INTEGER,
+            unidadeParada INTEGER,
+            motivoUnidadeParada TEXT,
+            pendenciaLocalizacao INTEGER
           )
         ''');
 
@@ -151,6 +154,12 @@ class DatabaseHelper {
         if (oldVersion < 5) {
           await executarAlter('ALTER TABLE profissionais ADD COLUMN cargo TEXT');
           await executarAlter('ALTER TABLE profissionais ADD COLUMN status TEXT');
+        }
+
+        if (oldVersion < 6) {
+          await executarAlter('ALTER TABLE fichas ADD COLUMN unidadeParada INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN motivoUnidadeParada TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN pendenciaLocalizacao INTEGER');
         }
       },
     );

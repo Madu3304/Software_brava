@@ -1,4 +1,5 @@
 import os
+import logging
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -10,6 +11,8 @@ from controllers import api_router
 from rate_limit import limiter, tratar_limite_excedido
 from slowapi.errors import RateLimitExceeded
 from seed import seed_initial_data
+
+logger = logging.getLogger("SoftwareBravaAPI")
 
 # Ambiente de execução: a carga inicial de dados (seed) só roda em desenvolvimento
 APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
@@ -31,31 +34,59 @@ def ajustar_colunas_novas():
             ("ultima_tentativa_envio", "TIMESTAMP"),
             ("erro_envio", "TEXT"),
         ],
+        "medico": [
+            ("cpf", "VARCHAR(20)"),
+            ("registro_conselho", "VARCHAR(50)"),
+            ("unidade", "VARCHAR(100)"),
+            ("matricula", "VARCHAR(50)"),
+            ("cargo", "VARCHAR(100)"),
+            ("status", "VARCHAR(30) DEFAULT 'Disponível'"),
+        ],
+        "tecnico": [
+            ("cpf", "VARCHAR(20)"),
+            ("registro_conselho", "VARCHAR(50)"),
+            ("unidade", "VARCHAR(100)"),
+            ("matricula", "VARCHAR(50)"),
+            ("cargo", "VARCHAR(100)"),
+            ("status", "VARCHAR(30) DEFAULT 'Disponível'"),
+        ],
+        "condutor": [
+            ("cpf", "VARCHAR(20)"),
+            ("registro_conselho", "VARCHAR(50)"),
+            ("unidade", "VARCHAR(100)"),
+            ("matricula", "VARCHAR(50)"),
+            ("cargo", "VARCHAR(100)"),
+            ("status", "VARCHAR(30) DEFAULT 'Disponível'"),
+        ],
+        "unidade_movel": [
+            ("codigo", "VARCHAR(30)"),
+            ("tipo", "VARCHAR(80)"),
+        ],
     }
     for tabela, colunas in colunas_novas.items():
         existentes = {c["name"] for c in inspect(engine).get_columns(tabela)}
         for nome, definicao in colunas:
             if nome not in existentes:
-                print(f"[DATABASE] Adicionando coluna {tabela}.{nome}...")
+                logger.info(f"[DATABASE] Adicionando coluna {tabela}.{nome}...")
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {nome} {definicao}"))
 
 def init_db():
     """Cria tabelas no banco de dados e executa carga inicial de dados (somente em desenvolvimento)."""
-    print("[DATABASE] Criando/verificando tabelas no banco de dados...")
+    logger.info("[DATABASE] Criando/verificando tabelas no banco de dados...")
     Base.metadata.create_all(bind=engine)
     ajustar_colunas_novas()
-    print("[DATABASE] Tabelas verificadas com sucesso!")
+    logger.info("[DATABASE] Tabelas verificadas com sucesso!")
 
     if APP_ENV != "development":
-        print(f"[SEED] Ambiente '{APP_ENV}': carga inicial de dados ignorada (defina APP_ENV=development para executar).")
+        logger.info(f"[SEED] Ambiente '{APP_ENV}': carga inicial de dados ignorada (defina APP_ENV=development para executar).")
         return
 
     db = SessionLocal()
     try:
         seed_initial_data(db)
     except Exception as e:
-        print(f"[ERRO NO SEED] {e}")
+        logger.error(f"[ERRO NO SEED] {e}")
     finally:
         db.close()
 
@@ -64,7 +95,7 @@ async def lifespan(app: FastAPI):
     # Executado automaticamente no startup do servidor (uvicorn main:app)
     init_db()
     yield
-    print("[SHUTDOWN] Encerrando servidor da API...")
+    logger.info("[SHUTDOWN] Encerrando servidor da API...")
 
 app = FastAPI(
     title="API Backend SAMU Brava (Joinville)",
@@ -78,9 +109,9 @@ app = FastAPI(
 CORS_ORIGINS = [origem.strip().rstrip("/") for origem in os.getenv("CORS_ORIGINS", "").split(",") if origem.strip()]
 
 if not CORS_ORIGINS:
-    print("[CORS] CORS_ORIGINS não configurada: nenhuma origem web liberada.")
+    logger.warning("[CORS] CORS_ORIGINS não configurada: nenhuma origem web liberada.")
 elif "*" in CORS_ORIGINS:
-    print("[CORS] AVISO: CORS_ORIGINS='*' libera qualquer origem. Use apenas em desenvolvimento.")
+    logger.warning("[CORS] AVISO: CORS_ORIGINS='*' libera qualquer origem. Use apenas em desenvolvimento.")
 
 app.add_middleware(
     CORSMiddleware,

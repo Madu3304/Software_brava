@@ -20,6 +20,25 @@ class _DashboardOverviewScreenState extends State<DashboardOverviewScreen> {
   String _selectedUnidade = 'Todas as Unidades';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _filtrarMetricas();
+      }
+    });
+  }
+
+  void _filtrarMetricas() {
+    context.read<DashboardProvider>().carregarMetricas(
+          ano: _selectedAno,
+          mes: _selectedMes,
+          dia: _selectedDia,
+          unidade: _selectedUnidade,
+        );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final dashboardProvider = context.watch<DashboardProvider>();
     final metrics = dashboardProvider.metrics;
@@ -94,7 +113,7 @@ class _DashboardOverviewScreenState extends State<DashboardOverviewScreen> {
             onMesChanged: (val) => setState(() => _selectedMes = val ?? _selectedMes),
             onDiaChanged: (val) => setState(() => _selectedDia = val ?? _selectedDia),
             onUnidadeChanged: (val) => setState(() => _selectedUnidade = val ?? _selectedUnidade),
-            onFiltrar: () => context.read<DashboardProvider>().carregarMetricas(),
+            onFiltrar: _filtrarMetricas,
             onExportar: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -135,7 +154,87 @@ class _DashboardOverviewScreenState extends State<DashboardOverviewScreen> {
 
           // Gráficos e Distribuição
           DashboardCharts(metrics: metrics),
+          const SizedBox(height: 24),
+
+          // Monitoramento de Paradas de Viaturas (RF12)
+          _buildParadasViaturasCard(dashboardProvider.paradasViaturas),
           const SizedBox(height: 28),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParadasViaturasCard(Map<String, dynamic>? paradas) {
+    final totalParadas = (paradas?['total_paradas'] as num?)?.toInt() ?? 0;
+    final unidades = (paradas?['unidades'] as List?) ?? const [];
+    final historico = (paradas?['historico_fichas_com_parada'] as List?) ?? const [];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.report_problem_outlined, color: AppColors.primaryRed, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "Monitoramento de Paradas de Viaturas",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: totalParadas > 0 ? AppColors.badgeRed : AppColors.successBg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  "$totalParadas viatura(s) parada(s)",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: totalParadas > 0 ? AppColors.primaryRed : AppColors.success,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (unidades.isEmpty && historico.isEmpty)
+            const Text(
+              "Nenhuma parada técnica ou indisponibilidade registrada no momento.",
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            )
+          else ...[
+            ...unidades.map((u) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    "• ${u['base_unidade'] ?? 'Unidade'} (${u['placa'] ?? '-'}): ${u['motivo'] ?? 'Sem motivo informado'}",
+                    style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                  ),
+                )),
+            ...historico.take(5).map((h) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    "• Ficha #${h['id_ficha']}: ${h['motivo'] ?? 'Parada registrada em ocorrência'}",
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                  ),
+                )),
+          ],
         ],
       ),
     );

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_routes.dart';
+import '../../models/ficha_model.dart';
+import '../../providers/ficha_provider.dart';
+import '../../services/print_service.dart';
 
 class ImpressaoSucessoView extends StatelessWidget {
   final String? numeroOcorrencia;
@@ -78,6 +82,32 @@ class ImpressaoSucessoView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final ficha = context.read<FichaEmAndamentoProvider>().ficha ??
+                        FichaAtendimentoModel(
+                          id: ocorrenciaExibida,
+                          numeroOcorrencia: ocorrenciaExibida,
+                          dataHora: DateTime.now(),
+                          pacienteNome: 'Paciente em Atendimento',
+                          tipoOcorrencia: 'Atendimento APH',
+                          endereco: 'Joinville - SC',
+                          unidadeResponsavel: 'SAMU 192',
+                        );
+                    await PrintService().imprimirFicha(ficha);
+                  },
+                  icon: const Icon(Icons.print_outlined),
+                  label: const Text("Imprimir / Baixar PDF"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.crimson,
+                    side: const BorderSide(color: AppColors.crimson),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(

@@ -13,14 +13,14 @@ void main() {
     );
 
     expect(find.text('Registro'), findsOneWidget);
-    expect(find.byType(RegistroFieldCard), findsNWidgets(5));
+    expect(find.byType(RegistroFieldCard), findsNWidgets(6));
     expect(find.text('Número de Registro'), findsOneWidget);
     expect(find.text('Base'), findsOneWidget);
-    expect(find.text('Selecionar Base'), findsOneWidget);
-    expect(find.text('Data'), findsOneWidget);
+    expect(find.text('Médico responsável:'), findsOneWidget);
     expect(find.text('Técnico de enfermagem responsável:'), findsOneWidget);
     expect(find.text('Condutor socorrista:'), findsOneWidget);
-    expect(find.text('Continuar'), findsOneWidget);
+    expect(find.text('Hora da abertura do chamado'), findsOneWidget);
+    expect(find.text('Dados do Paciente'), findsOneWidget);
     expect(find.text('Finalizar Cadastro'), findsNothing);
     expect(find.text('Continuar preenchimento assistencial'), findsNothing);
   });

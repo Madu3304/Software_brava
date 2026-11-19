@@ -1,9 +1,14 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import Optional
+from dependencies import get_usuario_atual
 from services.docusign_service import DocuSignService
 
-router = APIRouter(prefix="/docusign", tags=["DocuSign eSignature"])
+router = APIRouter(
+    prefix="/docusign",
+    tags=["DocuSign eSignature"],
+    dependencies=[Depends(get_usuario_atual)],
+)
 docusign_service = DocuSignService()
 
 class CriarEnvelopeRequest(BaseModel):

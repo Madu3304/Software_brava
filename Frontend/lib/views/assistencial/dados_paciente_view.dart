@@ -179,7 +179,7 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Não foi possível obter a localização, preencha manualmente"),
+          content: Text("Sinal de GPS não encontrado. Tente novamente em área aberta ou preencha o endereço manualmente."),
           backgroundColor: AppColors.warning,
           duration: Duration(seconds: 4),
         ),
@@ -207,7 +207,7 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Não foi possível obter a localização, preencha manualmente"),
+          content: Text("Sinal de GPS não encontrado. Tente novamente em área aberta ou preencha o endereço manualmente."),
           backgroundColor: AppColors.warning,
           duration: Duration(seconds: 4),
         ),
@@ -293,6 +293,7 @@ class _DadosPacienteViewState extends State<DadosPacienteView> {
       endereco: enderecoFormatado.isNotEmpty ? enderecoFormatado : fichaBase.endereco,
       latitude: _latitude,
       longitude: _longitude,
+      pendenciaLocalizacao: _latitude == null || _longitude == null,
     );
 
     try {
