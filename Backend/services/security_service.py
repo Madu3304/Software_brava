@@ -20,13 +20,26 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 60 * 24))
 
-# Fallback para desenvolvimento: chave aleatória por execução (tokens deixam de valer ao reiniciar o servidor)
+_APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
+
 if not JWT_SECRET_KEY:
+    if _APP_ENV == "production":
+        # Em produção, uma chave ausente significa que cada worker/réplica geraria
+        # sua própria chave efêmera, invalidando sessões entre reinicializações e
+        # impedindo que múltiplos workers validem tokens entre si.
+        raise RuntimeError(
+            "[SEGURANÇA] JWT_SECRET_KEY não definida em ambiente de produção. "
+            "Configure a variável no .env ou nos secrets do orquestrador antes de iniciar."
+        )
+    # Desenvolvimento: chave efêmera por execução com aviso explícito
     JWT_SECRET_KEY = secrets.token_urlsafe(64)
-    logger.warning("JWT_SECRET_KEY não configurada. Utilizando chave temporária gerada na inicialização.")
+    logger.warning(
+        "[SEGURANÇA] JWT_SECRET_KEY não configurada. "
+        "Usando chave temporária gerada na inicialização — tokens expiram ao reiniciar o servidor."
+    )
 
 class TokenInvalidoError(Exception):
-    """Token ausente, expirado, com assinatura inválida ou com payload incompleto."""
+    """Token ausente, expirado, com assinatura inválida, payload incompleto ou revogado."""
 
 BCRYPT_ROUNDS = 12
 
@@ -73,25 +86,30 @@ def verificar_senha(senha_fornecida: str, senha_armazenada: str) -> bool:
     )
 
 def gerar_token_acesso(id_usuario: int, login: str, perfil: str) -> str:
-    """Gera um JWT assinado contendo identificação, perfil (RBAC) e expiração da sessão."""
+    """
+    Gera um JWT assinado com jti (UUID único por emissão), identificação,
+    perfil (RBAC) e expiração.
+    O jti permite revogação individual do token no logout via blocklist.
+    """
     agora = datetime.now(timezone.utc)
     payload = {
         "sub": str(id_usuario),
         "login": login,
         "perfil": (perfil or "").strip().upper(),
+        "jti": secrets.token_urlsafe(32),   # ID único do token — usado na blocklist de logout
         "iat": agora,
         "exp": agora + timedelta(minutes=JWT_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 def decodificar_token_acesso(token: str) -> Dict[str, Any]:
-    """Valida assinatura e expiração do JWT e retorna o payload."""
+    """Valida assinatura e expiração do JWT e retorna o payload (incluindo jti)."""
     try:
         payload = jwt.decode(
             token,
             JWT_SECRET_KEY,
             algorithms=[JWT_ALGORITHM],
-            options={"require": ["sub", "exp"]},
+            options={"require": ["sub", "exp", "jti"]},
         )
     except jwt.ExpiredSignatureError as e:
         raise TokenInvalidoError("Sessão expirada. Faça login novamente.") from e

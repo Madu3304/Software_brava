@@ -97,11 +97,23 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("[SHUTDOWN] Encerrando servidor da API...")
 
+# Desabilita a documentação interativa em produção para não expor o mapa
+# completo de rotas e schemas a atacantes externos (ponto 4 — Baixo).
+_docs_url    = "/docs"      if APP_ENV != "production" else None
+_redoc_url   = "/redoc"     if APP_ENV != "production" else None
+_openapi_url = "/openapi.json" if APP_ENV != "production" else None
+
+if APP_ENV == "production":
+    logger.info("[STARTUP] Ambiente production: /docs, /redoc e /openapi.json desabilitados.")
+
 app = FastAPI(
     title="API Backend SAMU Brava (Joinville)",
     description="API RESTful de comunicação segura entre o Aplicativo Mobile e o Dashboard Web Administrativo, conforme especificação RFC e Diagramas C4 (Níveis 2, 3 e 4).",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
 )
 
 # Configuração de CORS: somente as origens listadas em CORS_ORIGINS (.env) podem chamar a API pelo navegador.

@@ -95,6 +95,7 @@ def get_resumo_fichas(
 @router.get("/detalhes/{id_ficha}", response_model=FichaDetalhadaReposicaoResponse)
 def get_ficha_detalhada_reposicao(
     id_ficha: int,
+    request: Request,
     usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
@@ -102,6 +103,7 @@ def get_ficha_detalhada_reposicao(
     Retorna os dados consolidados de uma ficha (Ficha + Avaliação Clínica + Utensílios).
     - ADMINISTRADOR acessa qualquer ficha.
     - Outros perfis só acessam fichas em que são o responsável (controle BOLA).
+    Acesso registrado em auditoria (LGPD — art. 37, lei 13.709/2018).
     """
     ficha_obj = db.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == id_ficha).first()
     if not ficha_obj:
@@ -114,6 +116,16 @@ def get_ficha_detalhada_reposicao(
     ficha = buscar_ficha_consolidada_reposicao(db, id_ficha)
     if not ficha:
         raise HTTPException(status_code=404, detail=f"Ficha de atendimento #{id_ficha} não encontrada.")
+
+    # Auditoria LGPD: registra acesso a dado sensível de saúde sem copiar conteúdo clínico
+    registrar_auditoria(
+        db=db,
+        acao="VISUALIZAR_FICHA",
+        detalhes=f"Ficha #{id_ficha} consultada pelo perfil {usuario.perfil}.",
+        id_usuario=usuario.id_usuario,
+        ip_origem=obter_ip_origem(request),
+    )
+
     return ficha
 
 @router.post("/", response_model=FichaDetalhadaReposicaoResponse, status_code=status.HTTP_201_CREATED)
@@ -269,6 +281,7 @@ def get_metricas_dashboard(db: Session = Depends(get_db)):
 @router.get("/{id_ficha}/pdf")
 def get_ficha_pdf(
     id_ficha: int,
+    request: Request,
     usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
@@ -276,6 +289,7 @@ def get_ficha_pdf(
     Gera e retorna o PDF da ficha de atendimento.
     - ADMINISTRADOR acessa o PDF de qualquer ficha.
     - Outros perfis só acessam fichas em que são o responsável (controle BOLA).
+    Download registrado em auditoria (LGPD — exportação de dado sensível de saúde).
     """
     ficha_obj = db.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == id_ficha).first()
     if not ficha_obj:
@@ -288,6 +302,15 @@ def get_ficha_pdf(
     ficha = buscar_ficha_consolidada_reposicao(db, id_ficha)
     if not ficha:
         raise HTTPException(status_code=404, detail="Ficha não encontrada.")
+
+    # Auditoria LGPD: exportação de prontuário em PDF — sem dados clínicos nos detalhes
+    registrar_auditoria(
+        db=db,
+        acao="EXPORTAR_PDF_FICHA",
+        detalhes=f"PDF da ficha #{id_ficha} exportado pelo perfil {usuario.perfil}.",
+        id_usuario=usuario.id_usuario,
+        ip_origem=obter_ip_origem(request),
+    )
 
     pdf_bytes = gerar_pdf_ficha_atendimento(ficha)
     return Response(

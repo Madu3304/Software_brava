@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Usuario
+from models.token_revogado import TokenRevogado
 from services.security_service import (
     TokenInvalidoError,
     decodificar_token_acesso,
@@ -23,7 +24,15 @@ def get_usuario_atual(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> Usuario:
-    """Decodifica o JWT do header Authorization e retorna o usuário ativo correspondente."""
+    """
+    Decodifica o JWT do header Authorization e retorna o usuário ativo.
+
+    Verificações realizadas em ordem:
+    1. Assinatura e expiração do JWT.
+    2. Existência do jti na blocklist de tokens revogados (logout).
+    3. Existência e atividade do usuário no banco.
+    4. Flag trocar_senha — bloqueia acesso até a senha ser trocada.
+    """
     erro_credenciais = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não autenticado ou token inválido.",
@@ -33,11 +42,20 @@ def get_usuario_atual(
     try:
         payload = decodificar_token_acesso(token)
         id_usuario = int(payload["sub"])
+        jti = payload.get("jti")
     except TokenInvalidoError as e:
         erro_credenciais.detail = str(e)
         raise erro_credenciais
     except (KeyError, ValueError):
         raise erro_credenciais
+
+    # Verifica se o token foi explicitamente revogado pelo logout
+    if jti and db.query(TokenRevogado).filter(TokenRevogado.jti == jti).first():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão encerrada. Faça login novamente.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     usuario = db.query(Usuario).filter(Usuario.id_usuario == id_usuario).first()
     if not usuario:

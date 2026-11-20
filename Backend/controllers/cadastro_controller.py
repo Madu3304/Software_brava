@@ -4,11 +4,12 @@ from typing import List
 
 from database import get_db
 from dependencies import get_usuario_atual, exigir_perfil
-from models import Medico, Tecnico, Condutor, UnidadeMovel, BaseOperacional, HospitalDestino, Paciente, LogAuditoria
+from models import Medico, Tecnico, Condutor, UnidadeMovel, BaseOperacional, HospitalDestino, Paciente
+from models import Usuario
 from schemas import (
-    MedicoCreate, MedicoResponse,
-    TecnicoCreate, TecnicoResponse,
-    CondutorCreate, CondutorResponse,
+    MedicoCreate, MedicoResponse, MedicoPublicoResponse,
+    TecnicoCreate, TecnicoResponse, TecnicoPublicoResponse,
+    CondutorCreate, CondutorResponse, CondutorPublicoResponse,
     UnidadeMovelCreate, UnidadeMovelResponse,
     BaseOperacionalCreate, BaseOperacionalResponse,
     HospitalDestinoCreate, HospitalDestinoResponse,
@@ -25,11 +26,28 @@ somente_admin = [Depends(exigir_perfil("ADMINISTRADOR"))]
 
 # =============================================================================
 # MÉDICOS
+# GET  /cadastros/medicos          → público (todos os perfis): sem CPF/matrícula
+# GET  /cadastros/medicos/completo → ADMINISTRADOR: dados completos
+# POST /cadastros/medicos          → ADMINISTRADOR
+# DEL  /cadastros/medicos/{id}     → ADMINISTRADOR
 # =============================================================================
 
-@router.get("/medicos", response_model=List[MedicoResponse])
+@router.get("/medicos", response_model=List[MedicoPublicoResponse])
 def listar_medicos(db: Session = Depends(get_db)):
-    """Lista todos os médicos cadastrados no sistema."""
+    """
+    Lista médicos para seleção na ficha de atendimento.
+    Todos os perfis autenticados podem acessar, mas a resposta omite CPF e
+    matrícula (MedicoPublicoResponse) — somente id, nome e código de conselho.
+    """
+    return db.query(Medico).all()
+
+@router.get(
+    "/medicos/completo",
+    response_model=List[MedicoResponse],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
+def listar_medicos_completo(db: Session = Depends(get_db)):
+    """Retorna todos os campos dos médicos, incluindo CPF e matrícula. Restrito a ADMINISTRADOR."""
     return db.query(Medico).all()
 
 @router.post("/medicos", response_model=MedicoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
@@ -62,11 +80,27 @@ def deletar_medico(id_medico: int, db: Session = Depends(get_db)):
 
 # =============================================================================
 # TÉCNICOS DE ENFERMAGEM
+# GET  /cadastros/tecnicos          → público (todos os perfis): sem CPF/matrícula
+# GET  /cadastros/tecnicos/completo → ADMINISTRADOR: dados completos
+# POST /cadastros/tecnicos          → ADMINISTRADOR
+# DEL  /cadastros/tecnicos/{id}     → ADMINISTRADOR
 # =============================================================================
 
-@router.get("/tecnicos", response_model=List[TecnicoResponse])
+@router.get("/tecnicos", response_model=List[TecnicoPublicoResponse])
 def listar_tecnicos(db: Session = Depends(get_db)):
-    """Lista todos os técnicos de enfermagem."""
+    """
+    Lista técnicos de enfermagem para seleção na ficha.
+    Resposta pública omite CPF e matrícula (TecnicoPublicoResponse).
+    """
+    return db.query(Tecnico).all()
+
+@router.get(
+    "/tecnicos/completo",
+    response_model=List[TecnicoResponse],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
+def listar_tecnicos_completo(db: Session = Depends(get_db)):
+    """Retorna todos os campos dos técnicos, incluindo CPF e matrícula. Restrito a ADMINISTRADOR."""
     return db.query(Tecnico).all()
 
 @router.post("/tecnicos", response_model=TecnicoResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
@@ -99,11 +133,27 @@ def deletar_tecnico(id_tecnico: int, db: Session = Depends(get_db)):
 
 # =============================================================================
 # CONDUTORES SOCORRISTAS
+# GET  /cadastros/condutores          → público (todos os perfis): sem CPF/matrícula
+# GET  /cadastros/condutores/completo → ADMINISTRADOR: dados completos
+# POST /cadastros/condutores          → ADMINISTRADOR
+# DEL  /cadastros/condutores/{id}     → ADMINISTRADOR
 # =============================================================================
 
-@router.get("/condutores", response_model=List[CondutorResponse])
+@router.get("/condutores", response_model=List[CondutorPublicoResponse])
 def listar_condutores(db: Session = Depends(get_db)):
-    """Lista todos os condutores socorristas."""
+    """
+    Lista condutores para seleção na ficha.
+    Resposta pública omite CPF e matrícula (CondutorPublicoResponse).
+    """
+    return db.query(Condutor).all()
+
+@router.get(
+    "/condutores/completo",
+    response_model=List[CondutorResponse],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
+def listar_condutores_completo(db: Session = Depends(get_db)):
+    """Retorna todos os campos dos condutores, incluindo CPF e matrícula. Restrito a ADMINISTRADOR."""
     return db.query(Condutor).all()
 
 @router.post("/condutores", response_model=CondutorResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)
@@ -147,9 +197,7 @@ def listar_unidades(db: Session = Depends(get_db)):
 def criar_unidade(dados: UnidadeMovelCreate, db: Session = Depends(get_db)):
     """Cadastra uma nova unidade móvel básica do SAMU."""
     unidade = UnidadeMovel(
-        codigo=dados.codigo,
         placa=dados.placa,
-        tipo=dados.tipo,
         base_unidade=dados.base_unidade,
         status=dados.status,
         motivo_parada=dados.motivo_parada,
@@ -177,7 +225,6 @@ def deletar_unidade(id_unidade: int, db: Session = Depends(get_db)):
     Remove uma unidade móvel do cadastro.
     Recusado com 409 se a viatura possuir fichas de atendimento vinculadas —
     nesse caso altere o status para MANUTENCAO ou PARADA em vez de excluir.
-    O app mobile chama DELETE /api/cadastros/unidades/:id ao remover uma viatura.
     """
     unidade = db.query(UnidadeMovel).filter(UnidadeMovel.id_unidade == id_unidade).first()
     if not unidade:
@@ -186,7 +233,7 @@ def deletar_unidade(id_unidade: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"A unidade #{id_unidade} possui {len(unidade.fichas)} ficha(s) de atendimento vinculada(s) "
+                f"A unidade #{id_unidade} possui {len(unidade.fichas)} ficha(s) vinculada(s) "
                 "e não pode ser excluída. Desative-a alterando seu status para 'MANUTENCAO' ou 'PARADA'."
             ),
         )
@@ -241,11 +288,15 @@ def criar_hospital(dados: HospitalDestinoCreate, db: Session = Depends(get_db)):
     return hospital
 
 # =============================================================================
-# PACIENTES
+# PACIENTES — restrito a ADMINISTRADOR (contém CPF, alergias, medicações — LGPD)
 # =============================================================================
 
-@router.get("/pacientes", response_model=List[PacienteResponse])
-def listar_pacientes(db: Session = Depends(get_db), _: Usuario = Depends(exigir_perfil("ADMINISTRADOR"))):
+@router.get(
+    "/pacientes",
+    response_model=List[PacienteResponse],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
+def listar_pacientes(db: Session = Depends(get_db)):
     """
     Lista pacientes registrados nos atendimentos (limitado a 100 mais recentes).
     Restrito a ADMINISTRADOR — pacientes contêm CPF, alergias e medicações (LGPD).

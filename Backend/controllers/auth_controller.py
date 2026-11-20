@@ -1,18 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database import get_db
 from dependencies import get_usuario_atual, obter_ip_origem
 from models import Usuario
+from models.token_revogado import TokenRevogado
 from schemas import LoginRequest, TokenResponse, UsuarioResponse, TrocarSenhaRequest
 from services.security_service import (
     verificar_senha,
     gerar_hash_senha,
     eh_hash_bcrypt,
     gerar_token_acesso,
+    decodificar_token_acesso,
     obter_redirecionamento_por_perfil,
+    TokenInvalidoError,
 )
 from services.log_service import registrar_auditoria
 from rate_limit import limite_autenticacao, limite_trocar_senha
@@ -157,13 +160,47 @@ def logout(
     usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
-    """Encerra a sessão e registra log de auditoria."""
+    """
+    Encerra a sessão e invalida imediatamente o JWT atual via blocklist (jti).
+
+    O token é registrado na tabela token_revogado. A partir desse momento,
+    qualquer requisição com esse token recebe 401, mesmo antes de expirar.
+    Isso elimina a janela de 24 h de acesso residual após logout.
+    """
+    # Extrai o jti e a expiração diretamente do token apresentado
+    token_header = request.headers.get("Authorization", "")
+    raw_token = token_header.removeprefix("Bearer ").strip()
+
+    jti: str | None = None
+    expira_em: datetime | None = None
+
+    if raw_token:
+        try:
+            payload = decodificar_token_acesso(raw_token)
+            jti = payload.get("jti")
+            exp_ts = payload.get("exp")
+            if exp_ts:
+                expira_em = datetime.fromtimestamp(exp_ts, tz=timezone.utc)
+        except TokenInvalidoError:
+            pass  # Token já expirado — não precisa revogar, apenas registrar auditoria
+
+    if jti and expira_em:
+        # Insere na blocklist somente se ainda não estiver (duplo logout é inofensivo)
+        existe = db.query(TokenRevogado).filter(TokenRevogado.jti == jti).first()
+        if not existe:
+            db.add(TokenRevogado(
+                jti=jti,
+                id_usuario=usuario.id_usuario,
+                expira_em=expira_em,
+            ))
+
     ip_origem = obter_ip_origem(request)
     registrar_auditoria(
         db=db,
         acao="LOGOUT",
-        detalhes="Sessão finalizada pelo usuário.",
+        detalhes=f"Sessão finalizada pelo usuário. Token revogado (jti={jti or 'indisponível'}).",
         id_usuario=usuario.id_usuario,
         ip_origem=ip_origem,
     )
-    return {"mensagem": "Logout efetuado com sucesso."}
+    db.commit()
+    return {"mensagem": "Logout efetuado com sucesso. Token invalidado."}

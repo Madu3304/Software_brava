@@ -106,9 +106,17 @@ class UsuarioResponse(UsuarioBase):
 # SCHEMAS DE CADASTROS ADMINISTRATIVOS (RF10, B22)
 # ==========================================
 
+# ---------------------------------------------------------------------
+# MÉDICO
+# Dois níveis de resposta:
+#   MedicoPublicoResponse  — telas operacionais (seleção na ficha).
+#                            Sem CPF nem matrícula (LGPD).
+#   MedicoResponse         — ADMINISTRADOR apenas. Inclui todos os campos.
+# ---------------------------------------------------------------------
+
 class MedicoBase(BaseModel):
     nome: str
-    codigo_medico: Optional[int] = None # CRM ou código de identificação
+    codigo_medico: Optional[int] = None   # CRM ou código de identificação
     cpf: Optional[str] = None
     registro_conselho: Optional[str] = None
     unidade: Optional[str] = None
@@ -119,16 +127,32 @@ class MedicoBase(BaseModel):
 class MedicoCreate(MedicoBase):
     pass
 
+class MedicoPublicoResponse(BaseModel):
+    """Resposta pública: expõe apenas id, nome e código de conselho.
+    Usada nos endpoints GET /cadastros/medicos acessíveis a todos os perfis."""
+    id_medico: int
+    nome: str
+    codigo_medico: Optional[int] = None
+    cargo: Optional[str] = None
+    status: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class MedicoResponse(MedicoBase):
+    """Resposta completa: inclui CPF e matrícula. Restrito a ADMINISTRADOR."""
     id_medico: int
     criado_em: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
+# ---------------------------------------------------------------------
+# TÉCNICO DE ENFERMAGEM
+# ---------------------------------------------------------------------
+
 class TecnicoBase(BaseModel):
     nome: str
-    codigo_tecnico: Optional[int] = None # Código / COREN do técnico
-    codigo_medico: Optional[int] = None # Retrocompatibilidade com versões anteriores
+    codigo_tecnico: Optional[int] = None  # Código / COREN do técnico
+    codigo_medico: Optional[int] = None   # Retrocompatibilidade com versões anteriores
     cpf: Optional[str] = None
     registro_conselho: Optional[str] = None
     unidade: Optional[str] = None
@@ -147,15 +171,30 @@ class TecnicoBase(BaseModel):
 class TecnicoCreate(TecnicoBase):
     pass
 
+class TecnicoPublicoResponse(BaseModel):
+    """Resposta pública: expõe apenas id, nome e código de conselho."""
+    id_tecnico: int
+    nome: str
+    codigo_tecnico: Optional[int] = None
+    cargo: Optional[str] = None
+    status: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class TecnicoResponse(TecnicoBase):
+    """Resposta completa: inclui CPF e matrícula. Restrito a ADMINISTRADOR."""
     id_tecnico: int
     criado_em: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
+# ---------------------------------------------------------------------
+# CONDUTOR SOCORRISTA
+# ---------------------------------------------------------------------
+
 class CondutorBase(BaseModel):
     nome: str
-    codigo_condutor: Optional[int] = None # Código / CNH do condutor
+    codigo_condutor: Optional[int] = None  # Código / CNH do condutor
     cpf: Optional[str] = None
     registro_conselho: Optional[str] = None
     unidade: Optional[str] = None
@@ -166,7 +205,18 @@ class CondutorBase(BaseModel):
 class CondutorCreate(CondutorBase):
     pass
 
+class CondutorPublicoResponse(BaseModel):
+    """Resposta pública: expõe apenas id, nome e código de conselho."""
+    id_condutor: int
+    nome: str
+    codigo_condutor: Optional[int] = None
+    cargo: Optional[str] = None
+    status: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class CondutorResponse(CondutorBase):
+    """Resposta completa: inclui CPF e matrícula. Restrito a ADMINISTRADOR."""
     id_condutor: int
     criado_em: Optional[datetime] = None
 
