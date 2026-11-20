@@ -245,8 +245,11 @@ def criar_hospital(dados: HospitalDestinoCreate, db: Session = Depends(get_db)):
 # =============================================================================
 
 @router.get("/pacientes", response_model=List[PacienteResponse])
-def listar_pacientes(db: Session = Depends(get_db)):
-    """Lista pacientes registrados nos atendimentos (limitado a 100 mais recentes)."""
+def listar_pacientes(db: Session = Depends(get_db), _: Usuario = Depends(exigir_perfil("ADMINISTRADOR"))):
+    """
+    Lista pacientes registrados nos atendimentos (limitado a 100 mais recentes).
+    Restrito a ADMINISTRADOR — pacientes contêm CPF, alergias e medicações (LGPD).
+    """
     return db.query(Paciente).limit(100).all()
 
 @router.post("/pacientes", response_model=PacienteResponse, status_code=status.HTTP_201_CREATED, dependencies=somente_admin)

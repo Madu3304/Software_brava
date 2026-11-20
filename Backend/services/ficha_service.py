@@ -141,14 +141,22 @@ def criar_ficha_completa(
 
     return nova_ficha
 
-def listar_fichas_com_sinais_vitais(db: Session) -> list[FichaResumoResponse]:
-    """Retorna listagem simples de atendimentos com nome do paciente e PA."""
-    resultados = (
+def listar_fichas_com_sinais_vitais(
+    db: Session,
+    id_responsavel: Optional[int] = None,
+) -> list[FichaResumoResponse]:
+    """
+    Retorna listagem simples de atendimentos com nome do paciente e PA.
+    Se id_responsavel for informado, filtra apenas as fichas desse responsável (BOLA).
+    """
+    query = (
         db.query(FichaAtendimento, Paciente, AvaliacaoClinica)
         .outerjoin(Paciente, FichaAtendimento.id_paciente == Paciente.id_paciente)
         .outerjoin(AvaliacaoClinica, FichaAtendimento.id_ficha == AvaliacaoClinica.id_ficha)
-        .all()
     )
+    if id_responsavel is not None:
+        query = query.filter(FichaAtendimento.id_responsavel == id_responsavel)
+    resultados = query.all()
 
     lista_formatada = []
     for ficha, paciente, avaliacao in resultados:

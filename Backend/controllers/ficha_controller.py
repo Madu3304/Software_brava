@@ -55,13 +55,20 @@ def listar_fichas(
     data: Optional[date] = Query(None, description="Filtrar por data do atendimento (YYYY-MM-DD)"),
     skip: int = Query(0, ge=0, description="Quantidade de registros a pular (paginação)"),
     limit: int = Query(50, ge=1, le=200, description="Quantidade máxima de registros por página (1 a 200)"),
-    db: Session = Depends(get_db)
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
 ):
     """
-    Lista fichas de atendimento permitindo busca por data ou unidade (RF08), da mais recente para a mais antiga.
-    Paginação com skip/limit; o total de fichas com os filtros aplicados vem no header X-Total-Count.
+    Lista fichas de atendimento.
+    - ADMINISTRADOR vê todas as fichas (visão gerencial, RF08).
+    - Demais perfis (ENFERMEIRO, TECNICO, CONDUTOR) veem apenas as fichas
+      em que são o responsável registrado (id_responsavel == usuario logado).
+    Paginação com skip/limit; total no header X-Total-Count.
     """
-    response.headers["X-Total-Count"] = str(contar_fichas(db, id_unidade=id_unidade, data=data))
+    id_responsavel_filtro = None if usuario.perfil == "ADMINISTRADOR" else usuario.id_usuario
+    response.headers["X-Total-Count"] = str(
+        contar_fichas(db, id_unidade=id_unidade, data=data, id_responsavel=id_responsavel_filtro)
+    )
     return listar_fichas_para_reposicao(
         db,
         apenas_pendentes=False,
@@ -69,17 +76,41 @@ def listar_fichas(
         data=data,
         skip=skip,
         limit=limit,
+        id_responsavel=id_responsavel_filtro,
     )
 
 @router.get("/resumo", response_model=List[FichaResumoResponse])
-def get_resumo_fichas(db: Session = Depends(get_db)):
-    """Retorna listagem resumida de atendimentos com paciente e PA."""
-    return listar_fichas_com_sinais_vitais(db)
+def get_resumo_fichas(
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
+):
+    """
+    Listagem resumida de atendimentos (nome do paciente e PA).
+    - ADMINISTRADOR vê todos.
+    - Outros perfis veem apenas as próprias fichas.
+    """
+    id_responsavel_filtro = None if usuario.perfil == "ADMINISTRADOR" else usuario.id_usuario
+    return listar_fichas_com_sinais_vitais(db, id_responsavel=id_responsavel_filtro)
 
 @router.get("/detalhes/{id_ficha}", response_model=FichaDetalhadaReposicaoResponse)
-def get_ficha_detalhada_reposicao(id_ficha: int, db: Session = Depends(get_db)):
-    
-    #Retorna os dados consolidados da Ficha, Avaliação Clínica do Paciente
+def get_ficha_detalhada_reposicao(
+    id_ficha: int,
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna os dados consolidados de uma ficha (Ficha + Avaliação Clínica + Utensílios).
+    - ADMINISTRADOR acessa qualquer ficha.
+    - Outros perfis só acessam fichas em que são o responsável (controle BOLA).
+    """
+    ficha_obj = db.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == id_ficha).first()
+    if not ficha_obj:
+        raise HTTPException(status_code=404, detail=f"Ficha de atendimento #{id_ficha} não encontrada.")
+    if usuario.perfil != "ADMINISTRADOR" and ficha_obj.id_responsavel != usuario.id_usuario:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não é o responsável por esta ficha.",
+        )
     ficha = buscar_ficha_consolidada_reposicao(db, id_ficha)
     if not ficha:
         raise HTTPException(status_code=404, detail=f"Ficha de atendimento #{id_ficha} não encontrada.")
@@ -195,9 +226,16 @@ def reenviar_fichas_prefeitura(
 @router.get("/reposicao", response_model=List[FichaDetalhadaReposicaoResponse])
 def get_fichas_para_reposicao(
     apenas_pendentes: bool = Query(True, description="Filtrar apenas atendimentos com materiais pendentes de reposição"),
+    usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
-    return listar_fichas_para_reposicao(db, apenas_pendentes=apenas_pendentes)
+    """
+    Lista fichas para a tela de reposição de materiais.
+    - ADMINISTRADOR vê todas as fichas.
+    - TECNICO/ENFERMEIRO veem apenas as suas próprias fichas.
+    """
+    id_responsavel_filtro = None if usuario.perfil == "ADMINISTRADOR" else usuario.id_usuario
+    return listar_fichas_para_reposicao(db, apenas_pendentes=apenas_pendentes, id_responsavel=id_responsavel_filtro)
 
 @router.post("/reposicao/{id_ficha}")
 def post_registrar_reposicao(
@@ -229,7 +267,24 @@ def get_metricas_dashboard(db: Session = Depends(get_db)):
     return obter_metricas_reposicao_dashboard(db)
 
 @router.get("/{id_ficha}/pdf")
-def get_ficha_pdf(id_ficha: int, db: Session = Depends(get_db)):
+def get_ficha_pdf(
+    id_ficha: int,
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
+):
+    """
+    Gera e retorna o PDF da ficha de atendimento.
+    - ADMINISTRADOR acessa o PDF de qualquer ficha.
+    - Outros perfis só acessam fichas em que são o responsável (controle BOLA).
+    """
+    ficha_obj = db.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == id_ficha).first()
+    if not ficha_obj:
+        raise HTTPException(status_code=404, detail="Ficha não encontrada.")
+    if usuario.perfil != "ADMINISTRADOR" and ficha_obj.id_responsavel != usuario.id_usuario:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não é o responsável por esta ficha.",
+        )
     ficha = buscar_ficha_consolidada_reposicao(db, id_ficha)
     if not ficha:
         raise HTTPException(status_code=404, detail="Ficha não encontrada.")
