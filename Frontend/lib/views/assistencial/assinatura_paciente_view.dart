@@ -558,69 +558,88 @@ class _AssinaturaPacienteViewState extends State<AssinaturaPacienteView> {
           ),
 
           // Área Branca de Desenho Interativa (Caneta / Touch / Mouse)
-          SizedBox(
-            height: 200,
-            child: Stack(
-              children: [
-                // Linha de assinatura de fundo
-                Positioned(
-                  bottom: 36,
-                  left: 24,
-                  right: 24,
-                  child: Row(
-                    children: const [
-                      Text("X", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFBDBDBD))),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Divider(color: Color(0xFFBDBDBD), thickness: 1.2),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
+            child: SizedBox(
+              height: 200,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final boxWidth = constraints.maxWidth;
+                  const boxHeight = 200.0;
+                  bool estaDentro(Offset p) =>
+                      p.dx >= 0 && p.dx <= boxWidth && p.dy >= 0 && p.dy <= boxHeight;
+
+                  return Stack(
+                    children: [
+                      // Linha de assinatura de fundo
+                      Positioned(
+                        bottom: 36,
+                        left: 24,
+                        right: 24,
+                        child: Row(
+                          children: const [
+                            Text("X", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFBDBDBD))),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Divider(color: Color(0xFFBDBDBD), thickness: 1.2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Text(
+                            "Assine com caneta touch, stylus ou dedo no quadro acima",
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          ),
+                        ),
+                      ),
+
+                      // Detector de gestos para desenhar traços (limitado estritamente ao quadro)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (details) {
+                          final localPos = details.localPosition;
+                          if (!estaDentro(localPos)) return;
+                          setState(() {
+                            _currentStroke = [localPos];
+                          });
+                        },
+                        onPanUpdate: (details) {
+                          final localPos = details.localPosition;
+                          setState(() {
+                            if (estaDentro(localPos)) {
+                              _currentStroke.add(localPos);
+                            } else if (_currentStroke.isNotEmpty) {
+                              _strokes.add(List.from(_currentStroke));
+                              _currentStroke.clear();
+                            }
+                          });
+                        },
+                        onPanEnd: (details) {
+                          setState(() {
+                            if (_currentStroke.isNotEmpty) {
+                              _strokes.add(List.from(_currentStroke));
+                              _currentStroke.clear();
+                            }
+                          });
+                        },
+                        child: CustomPaint(
+                          size: Size(boxWidth, boxHeight),
+                          painter: SignaturePainter(
+                            strokes: _strokes,
+                            currentStroke: _currentStroke,
+                            strokeColor: _penColor,
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                ),
-                Positioned(
-                  bottom: 12,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Text(
-                      "Assine com caneta touch, stylus ou dedo no quadro acima",
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                    ),
-                  ),
-                ),
-
-                // Detector de gestos para desenhar traços
-                GestureDetector(
-                  onPanStart: (details) {
-                    setState(() {
-                      final box = context.findRenderObject() as RenderBox?;
-                      final localPos = details.localPosition;
-                      _currentStroke = [localPos];
-                    });
-                  },
-                  onPanUpdate: (details) {
-                    setState(() {
-                      _currentStroke.add(details.localPosition);
-                    });
-                  },
-                  onPanEnd: (details) {
-                    setState(() {
-                      if (_currentStroke.isNotEmpty) {
-                        _strokes.add(List.from(_currentStroke));
-                        _currentStroke.clear();
-                      }
-                    });
-                  },
-                  child: CustomPaint(
-                    size: const Size(double.infinity, 200),
-                    painter: SignaturePainter(
-                      strokes: _strokes,
-                      currentStroke: _currentStroke,
-                      strokeColor: _penColor,
-                    ),
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -769,6 +788,9 @@ class SignaturePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Garante que nenhum traço seja renderizado fora dos limites do quadro
+    canvas.clipRect(Offset.zero & size);
+
     final paint = Paint()
       ..color = strokeColor
       ..strokeCap = StrokeCap.round
