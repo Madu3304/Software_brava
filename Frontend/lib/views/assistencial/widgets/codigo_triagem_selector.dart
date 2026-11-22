@@ -105,7 +105,7 @@ class CodigoTriagemSelector extends StatelessWidget {
             : null,
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(isSelected ? 0.45 : 0.25),
+            color: color.withValues(alpha: isSelected ? 0.45 : 0.25),
             blurRadius: isSelected ? 10 : 4,
             offset: const Offset(0, 3),
           ),

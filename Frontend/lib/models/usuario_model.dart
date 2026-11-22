@@ -1,14 +1,28 @@
-// ============================================================================
-// MODELO DE ENTIDADE: USUÁRIO E CONTROLE DE ACESSO (RBAC)
-// Arquivo: lib/models/usuario_model.dart
-// ============================================================================
 
 enum PerfilUsuario {
   admin,
   atendimento,
   medico,
   socorrista,
-  enfermeiro,
+  enfermeiro;
+
+  static PerfilUsuario fromString(String? val) {
+    if (val == null) return PerfilUsuario.atendimento;
+    final upper = val.toUpperCase().trim();
+    if (upper == 'ADMINISTRADOR' || upper == 'ADMIN') {
+      return PerfilUsuario.admin;
+    }
+    if (upper == 'MEDICO') {
+      return PerfilUsuario.medico;
+    }
+    if (upper == 'ENFERMEIRO') {
+      return PerfilUsuario.enfermeiro;
+    }
+    if (upper == 'TECNICO' || upper == 'CONDUTOR' || upper == 'SOCORRISTA') {
+      return PerfilUsuario.socorrista;
+    }
+    return PerfilUsuario.atendimento;
+  }
 }
 
 class UsuarioModel {
@@ -17,6 +31,7 @@ class UsuarioModel {
   final String login;
   final PerfilUsuario perfil;
   final String? token;
+  final String? redirecionamento; // 'WEB' ou 'MOBILE'
 
   const UsuarioModel({
     required this.id,
@@ -24,10 +39,12 @@ class UsuarioModel {
     required this.login,
     required this.perfil,
     this.token,
+    this.redirecionamento,
   });
 
   bool get isAdmin => perfil == PerfilUsuario.admin;
-  bool get isAtendimento => perfil == PerfilUsuario.atendimento ||
+  bool get isAtendimento =>
+      perfil == PerfilUsuario.atendimento ||
       perfil == PerfilUsuario.medico ||
       perfil == PerfilUsuario.socorrista ||
       perfil == PerfilUsuario.enfermeiro;
@@ -39,19 +56,21 @@ class UsuarioModel {
       'login': login,
       'perfil': perfil.name,
       'token': token,
+      'redirecionamento': redirecionamento,
     };
   }
 
   factory UsuarioModel.fromMap(Map<String, dynamic> map) {
+    final userMap = map['usuario'] is Map<String, dynamic>
+        ? map['usuario'] as Map<String, dynamic>
+        : map;
     return UsuarioModel(
-      id: map['id']?.toString() ?? '',
-      nome: map['nome'] ?? '',
-      login: map['login'] ?? '',
-      perfil: PerfilUsuario.values.firstWhere(
-        (e) => e.name == map['perfil'],
-        orElse: () => PerfilUsuario.atendimento,
-      ),
-      token: map['token'],
+      id: (userMap['id_usuario'] ?? userMap['id'] ?? map['id_usuario'] ?? map['id'])?.toString() ?? '',
+      nome: userMap['nome'] ?? map['nome'] ?? '',
+      login: userMap['login'] ?? map['login'] ?? '',
+      perfil: PerfilUsuario.fromString(userMap['perfil'] ?? map['perfil']),
+      token: map['access_token'] ?? map['token'] ?? userMap['access_token'] ?? userMap['token'],
+      redirecionamento: (map['redirecionamento'] ?? userMap['redirecionamento'])?.toString(),
     );
   }
 

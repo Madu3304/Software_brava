@@ -19,7 +19,7 @@ class AvaliacaoClinica(Base):
     resposta_verbal = Column(Integer, nullable=True)
     resposta_motora = Column(Integer, nullable=True)
     hemoglicoteste = Column(Integer, nullable=True)
-    hora_ictus = Column(DateTime, nullable=True)
+    hora_ictus = Column(DateTime(timezone=True), nullable=True)
     nome_testemunha = Column(String(200), nullable=True)
     usa_anticoagulante = Column(Boolean, nullable=True)
     assimetria_facial = Column(Boolean, nullable=True)

@@ -20,16 +20,12 @@ class Utensilios(Base):
     material_trauma = Column(Boolean, default=False, nullable=True)
     materiais_diversos = Column(Boolean, default=False, nullable=True)
 
-    # Controle de reposição pelo técnico de enfermagem
-    observacoes_reposicao = Column(Text, nullable=True) # Ex: 2 ampolas de morfina, 1 cateter 18G
-    reposto = Column(Boolean, default=False) # True quando o técnico realizou a reposição no estoque/ambulância
-    data_reposicao = Column(DateTime, nullable=True)
-    criado_em = Column(DateTime, server_default=func.now())
+    observacoes_reposicao = Column(Text, nullable=True) 
+    reposto = Column(Boolean, default=False) 
+    data_reposicao = Column(DateTime(timezone=True), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relacionamentos com Ficha de Atendimento e Avaliação Clínica
     ficha_atendimento = relationship("FichaAtendimento", back_populates="utensilios_gastos")
     avaliacao_clinica = relationship("AvaliacaoClinica", back_populates="utensilios_gastos")
 
-# Alias para compatibilidade
 UtensiliosGastos = Utensilios
-

@@ -3,6 +3,8 @@ import 'package:software_brava/models/ficha_model.dart';
 import 'package:software_brava/services/sync_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('SyncService Offline-First Tests', () {
     late SyncService syncService;
 

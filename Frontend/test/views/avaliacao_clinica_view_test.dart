@@ -47,7 +47,7 @@ void main() {
     expect(find.text('Queixa Principal / Hipótese Diagnóstica'), findsOneWidget);
     expect(find.text('Conduta e Procedimentos Realizados'), findsOneWidget);
 
-    // Valida botão finalizar
-    expect(find.text('Finalizar Atendimento e Imprimir'), findsOneWidget);
+    // Valida botão de avanço para Assinatura do Paciente
+    expect(find.text('Continuar para Assinatura do Paciente'), findsOneWidget);
   });
 }

@@ -1,7 +1,4 @@
-// ============================================================================
-// MODELO DE ENTIDADE: FICHA DE ATENDIMENTO PRÉ-HOSPITALAR (APH / SAMU)
-// Arquivo: lib/models/ficha_model.dart
-// ============================================================================
+import 'package:uuid/uuid.dart';
 
 enum StatusSincronizacao {
   pendente,
@@ -30,6 +27,7 @@ class FichaAtendimentoModel {
   final String? telefoneContato;
   final String? medicamentosUsoContinuo;
   final String? alergias;
+  final String? observacoes;
   final String tipoOcorrencia; // Trauma, Clínico, Obstétrico, Psiquiátrico
   final String endereco;
   final double? latitude;
@@ -49,6 +47,27 @@ class FichaAtendimentoModel {
   final String? horaAberturaChamado;
   final String? horaSaidaBase;
 
+  // Sinais Vitais Estruturados (F5)
+  final String? pressaoArterial;
+  final int? frequenciaCardiaca;
+  final int? frequenciaRespiratoria;
+  final int? saturacaoO2;
+  final int? glicemia;
+  final double? temperatura;
+  final int? escalaGlasgow;
+  final int? aberturaOcular;
+  final int? respostaVerbal;
+  final int? respostaMotora;
+  final bool? avcSuspeito;
+  final bool? assimetriaFacial;
+  final bool? quedaBraco;
+  final bool? falaAnormal;
+
+  // Parada de Unidade (RF11/RF12) & Pendência GPS (FA01)
+  final bool unidadeParada;
+  final String? motivoUnidadeParada;
+  final bool pendenciaLocalizacao;
+
   const FichaAtendimentoModel({
     required this.id,
     required this.numeroOcorrencia,
@@ -63,6 +82,7 @@ class FichaAtendimentoModel {
     this.telefoneContato,
     this.medicamentosUsoContinuo,
     this.alergias,
+    this.observacoes,
     required this.tipoOcorrencia,
     required this.endereco,
     this.latitude,
@@ -79,7 +99,52 @@ class FichaAtendimentoModel {
     this.condutorSocorrista,
     this.horaAberturaChamado,
     this.horaSaidaBase,
+    this.pressaoArterial,
+    this.frequenciaCardiaca,
+    this.frequenciaRespiratoria,
+    this.saturacaoO2,
+    this.glicemia,
+    this.temperatura,
+    this.escalaGlasgow,
+    this.aberturaOcular,
+    this.respostaVerbal,
+    this.respostaMotora,
+    this.avcSuspeito,
+    this.assimetriaFacial,
+    this.quedaBraco,
+    this.falaAnormal,
+    this.unidadeParada = false,
+    this.motivoUnidadeParada,
+    this.pendenciaLocalizacao = false,
   });
+
+  /// Factory helper para instanciar uma nova ficha com UUID v4 único (F6)
+  factory FichaAtendimentoModel.nova({
+    String? id,
+    String? numeroOcorrencia,
+    DateTime? dataHora,
+    required String pacienteNome,
+    required String tipoOcorrencia,
+    required String endereco,
+    required String unidadeResponsavel,
+    String tipoViatura = 'USB',
+    String codigoTriagem = 'Vermelho',
+    String? base,
+  }) {
+    final now = DateTime.now();
+    return FichaAtendimentoModel(
+      id: id ?? const Uuid().v4(),
+      numeroOcorrencia: numeroOcorrencia ?? 'REG-${now.millisecondsSinceEpoch.toString().substring(7)}',
+      dataHora: dataHora ?? now,
+      pacienteNome: pacienteNome,
+      tipoOcorrencia: tipoOcorrencia,
+      endereco: endereco,
+      unidadeResponsavel: unidadeResponsavel,
+      tipoViatura: tipoViatura,
+      codigoTriagem: codigoTriagem,
+      base: base,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -96,6 +161,7 @@ class FichaAtendimentoModel {
       'telefoneContato': telefoneContato,
       'medicamentosUsoContinuo': medicamentosUsoContinuo,
       'alergias': alergias,
+      'observacoes': observacoes,
       'tipoOcorrencia': tipoOcorrencia,
       'endereco': endereco,
       'latitude': latitude,
@@ -112,12 +178,29 @@ class FichaAtendimentoModel {
       'condutorSocorrista': condutorSocorrista,
       'horaAberturaChamado': horaAberturaChamado,
       'horaSaidaBase': horaSaidaBase,
+      'pressaoArterial': pressaoArterial,
+      'frequenciaCardiaca': frequenciaCardiaca,
+      'frequenciaRespiratoria': frequenciaRespiratoria,
+      'saturacaoO2': saturacaoO2,
+      'glicemia': glicemia,
+      'temperatura': temperatura,
+      'escalaGlasgow': escalaGlasgow,
+      'aberturaOcular': aberturaOcular,
+      'respostaVerbal': respostaVerbal,
+      'respostaMotora': respostaMotora,
+      'avcSuspeito': avcSuspeito == true ? 1 : 0,
+      'assimetriaFacial': assimetriaFacial == true ? 1 : 0,
+      'quedaBraco': quedaBraco == true ? 1 : 0,
+      'falaAnormal': falaAnormal == true ? 1 : 0,
+      'unidadeParada': unidadeParada ? 1 : 0,
+      'motivoUnidadeParada': motivoUnidadeParada,
+      'pendenciaLocalizacao': pendenciaLocalizacao ? 1 : 0,
     };
   }
 
   factory FichaAtendimentoModel.fromMap(Map<String, dynamic> map) {
     return FichaAtendimentoModel(
-      id: map['id']?.toString() ?? '',
+      id: map['id']?.toString() ?? const Uuid().v4(),
       numeroOcorrencia: map['numeroOcorrencia'] ?? '',
       dataHora: map['dataHora'] != null
           ? DateTime.tryParse(map['dataHora']) ?? DateTime.now()
@@ -134,6 +217,7 @@ class FichaAtendimentoModel {
       telefoneContato: map['telefoneContato'] ?? map['telefone_acompanhante'],
       medicamentosUsoContinuo: map['medicamentosUsoContinuo'] ?? map['medicamentoUso_paciente'],
       alergias: map['alergias'],
+      observacoes: map['observacoes'] ?? map['observacao_paciente'] ?? map['observacoesPaciente'],
       tipoOcorrencia: map['tipoOcorrencia'] ?? 'Clínico',
       endereco: map['endereco'] ?? '',
       latitude: (map['latitude'] as num?)?.toDouble(),
@@ -153,6 +237,39 @@ class FichaAtendimentoModel {
       condutorSocorrista: map['condutorSocorrista'],
       horaAberturaChamado: map['horaAberturaChamado'],
       horaSaidaBase: map['horaSaidaBase'],
+      pressaoArterial: map['pressaoArterial']?.toString(),
+      frequenciaCardiaca: map['frequenciaCardiaca'] is int
+          ? map['frequenciaCardiaca']
+          : int.tryParse(map['frequenciaCardiaca']?.toString() ?? ''),
+      frequenciaRespiratoria: map['frequenciaRespiratoria'] is int
+          ? map['frequenciaRespiratoria']
+          : int.tryParse(map['frequenciaRespiratoria']?.toString() ?? ''),
+      saturacaoO2: map['saturacaoO2'] is int
+          ? map['saturacaoO2']
+          : int.tryParse(map['saturacaoO2']?.toString() ?? ''),
+      glicemia: map['glicemia'] is int
+          ? map['glicemia']
+          : int.tryParse(map['glicemia']?.toString() ?? ''),
+      temperatura: (map['temperatura'] as num?)?.toDouble(),
+      escalaGlasgow: map['escalaGlasgow'] is int
+          ? map['escalaGlasgow']
+          : int.tryParse(map['escalaGlasgow']?.toString() ?? ''),
+      aberturaOcular: map['aberturaOcular'] is int
+          ? map['aberturaOcular']
+          : int.tryParse(map['aberturaOcular']?.toString() ?? ''),
+      respostaVerbal: map['respostaVerbal'] is int
+          ? map['respostaVerbal']
+          : int.tryParse(map['respostaVerbal']?.toString() ?? ''),
+      respostaMotora: map['respostaMotora'] is int
+          ? map['respostaMotora']
+          : int.tryParse(map['respostaMotora']?.toString() ?? ''),
+      avcSuspeito: map['avcSuspeito'] == 1 || map['avcSuspeito'] == true,
+      assimetriaFacial: map['assimetriaFacial'] == 1 || map['assimetriaFacial'] == true,
+      quedaBraco: map['quedaBraco'] == 1 || map['quedaBraco'] == true,
+      falaAnormal: map['falaAnormal'] == 1 || map['falaAnormal'] == true,
+      unidadeParada: map['unidadeParada'] == 1 || map['unidadeParada'] == true,
+      motivoUnidadeParada: map['motivoUnidadeParada'] ?? map['motivo_unidade_parada'],
+      pendenciaLocalizacao: map['pendenciaLocalizacao'] == 1 || map['pendenciaLocalizacao'] == true,
     );
   }
 
@@ -160,18 +277,37 @@ class FichaAtendimentoModel {
   factory FichaAtendimentoModel.fromJson(Map<String, dynamic> json) =>
       FichaAtendimentoModel.fromMap(json);
 
-  /// Formata o objeto para sincronização direta com os schemas do FastAPI Backend
+  static String? _formatDataNascimentoIso(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final trimmed = raw.trim();
+    // Já está em ISO-8601 (YYYY-MM-DD...)
+    if (DateTime.tryParse(trimmed) != null) {
+      return DateTime.parse(trimmed).toIso8601String();
+    }
+    // Formato brasileiro DD/MM/YYYY
+    final parts = trimmed.split('/');
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (day != null && month != null && year != null && year >= 1900 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return DateTime(year, month, day).toIso8601String();
+      }
+    }
+    return null;
+  }
+
   Map<String, dynamic> toBackendSyncJson({
-    int idUnidade = 1,
-    int idResponsavel = 1,
+    int? idUnidade,
+    int? idResponsavel,
     int? idCondutor,
     int? idTecnico,
     int? idMedico,
   }) {
     return {
       'uuid_offline': id,
-      'id_unidade': idUnidade,
-      'id_responsavel': idResponsavel,
+      'id_unidade': idUnidade ?? 1,
+      'id_responsavel': idResponsavel ?? 1,
       'id_condutor': idCondutor,
       'id_tecnico': idTecnico,
       'id_medico': idMedico,
@@ -179,19 +315,37 @@ class FichaAtendimentoModel {
       'latitude': latitude,
       'longitude': longitude,
       'hora_chamado': dataHora.toIso8601String(),
+      'unidade_parada': unidadeParada,
+      'motivo_unidade_parada': motivoUnidadeParada,
+      'observacoes_gerais': pendenciaLocalizacao ? 'Pendência de localização GPS (FA01)' : null,
       'paciente': {
         'nome': pacienteNome,
         'idade': pacienteIdade,
         'sexo': pacienteSexo != null ? (pacienteSexo!.toUpperCase().startsWith('F') ? 'F' : 'M') : null,
         'documento': pacienteCpf,
-        'data_nascimento': pacienteDataNascimento,
+        'data_nascimento': _formatDataNascimentoIso(pacienteDataNascimento),
         'acompanhante': acompanhante,
         'grau_parentesco': grauParentesco,
         'telefone_acompanhante': telefoneContato,
         'medicamentoUso_paciente': medicamentosUsoContinuo,
         'alergias': alergias,
+        'observacao_paciente': observacoes,
       },
       'avaliacao_clinica': {
+        'pressao_arterial': pressaoArterial,
+        'frequencia_cardiaca': frequenciaCardiaca,
+        'frequencia_respiratoria': frequenciaRespiratoria,
+        'saturacao_o2': saturacaoO2,
+        'glicemia': glicemia,
+        'temperatura': temperatura,
+        'escala_glasgow': escalaGlasgow,
+        'abertura_ocular': aberturaOcular,
+        'resposta_verbal': respostaVerbal,
+        'resposta_motora': respostaMotora,
+        'avc_suspeito': avcSuspeito,
+        'assimetria_facial': assimetriaFacial,
+        'queda_braco': quedaBraco,
+        'fala': falaAnormal,
         'conduta': condutaMedica,
         'anotacao_CondutaEnfermeiro': queixaPrincipal,
       },
@@ -212,6 +366,7 @@ class FichaAtendimentoModel {
     String? telefoneContato,
     String? medicamentosUsoContinuo,
     String? alergias,
+    String? observacoes,
     String? tipoOcorrencia,
     String? endereco,
     double? latitude,
@@ -228,6 +383,23 @@ class FichaAtendimentoModel {
     String? condutorSocorrista,
     String? horaAberturaChamado,
     String? horaSaidaBase,
+    String? pressaoArterial,
+    int? frequenciaCardiaca,
+    int? frequenciaRespiratoria,
+    int? saturacaoO2,
+    int? glicemia,
+    double? temperatura,
+    int? escalaGlasgow,
+    int? aberturaOcular,
+    int? respostaVerbal,
+    int? respostaMotora,
+    bool? avcSuspeito,
+    bool? assimetriaFacial,
+    bool? quedaBraco,
+    bool? falaAnormal,
+    bool? unidadeParada,
+    String? motivoUnidadeParada,
+    bool? pendenciaLocalizacao,
   }) {
     return FichaAtendimentoModel(
       id: id ?? this.id,
@@ -243,6 +415,7 @@ class FichaAtendimentoModel {
       telefoneContato: telefoneContato ?? this.telefoneContato,
       medicamentosUsoContinuo: medicamentosUsoContinuo ?? this.medicamentosUsoContinuo,
       alergias: alergias ?? this.alergias,
+      observacoes: observacoes ?? this.observacoes,
       tipoOcorrencia: tipoOcorrencia ?? this.tipoOcorrencia,
       endereco: endereco ?? this.endereco,
       latitude: latitude ?? this.latitude,
@@ -259,6 +432,23 @@ class FichaAtendimentoModel {
       condutorSocorrista: condutorSocorrista ?? this.condutorSocorrista,
       horaAberturaChamado: horaAberturaChamado ?? this.horaAberturaChamado,
       horaSaidaBase: horaSaidaBase ?? this.horaSaidaBase,
+      pressaoArterial: pressaoArterial ?? this.pressaoArterial,
+      frequenciaCardiaca: frequenciaCardiaca ?? this.frequenciaCardiaca,
+      frequenciaRespiratoria: frequenciaRespiratoria ?? this.frequenciaRespiratoria,
+      saturacaoO2: saturacaoO2 ?? this.saturacaoO2,
+      glicemia: glicemia ?? this.glicemia,
+      temperatura: temperatura ?? this.temperatura,
+      escalaGlasgow: escalaGlasgow ?? this.escalaGlasgow,
+      aberturaOcular: aberturaOcular ?? this.aberturaOcular,
+      respostaVerbal: respostaVerbal ?? this.respostaVerbal,
+      respostaMotora: respostaMotora ?? this.respostaMotora,
+      avcSuspeito: avcSuspeito ?? this.avcSuspeito,
+      assimetriaFacial: assimetriaFacial ?? this.assimetriaFacial,
+      quedaBraco: quedaBraco ?? this.quedaBraco,
+      falaAnormal: falaAnormal ?? this.falaAnormal,
+      unidadeParada: unidadeParada ?? this.unidadeParada,
+      motivoUnidadeParada: motivoUnidadeParada ?? this.motivoUnidadeParada,
+      pendenciaLocalizacao: pendenciaLocalizacao ?? this.pendenciaLocalizacao,
     );
   }
 }

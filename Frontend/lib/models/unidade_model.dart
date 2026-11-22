@@ -1,7 +1,3 @@
-// ============================================================================
-// MODELO DE ENTIDADE: UNIDADE MÓVEL (AMBULÂNCIA / VIATURA SAMU)
-// Arquivo: lib/models/unidade_model.dart
-// ============================================================================
 
 class UnidadeMovelModel {
   final String id;
@@ -32,12 +28,18 @@ class UnidadeMovelModel {
   }
 
   factory UnidadeMovelModel.fromMap(Map<String, dynamic> map) {
+    final rawId = map['id_unidade'] ?? map['id'];
+    final id = rawId?.toString() ?? '';
+    final placa = map['placa'] ?? '';
+    final base = map['base_unidade'] ?? map['regiao'] ?? 'Joinville';
+    final codigo = map['codigo'] ?? (placa.isNotEmpty ? 'VTR-$placa' : 'BRAVA-$id');
+
     return UnidadeMovelModel(
-      id: map['id']?.toString() ?? '',
-      codigo: map['codigo'] ?? '',
-      placa: map['placa'] ?? '',
+      id: id,
+      codigo: codigo,
+      placa: placa,
       tipo: map['tipo'] ?? 'USB (Suporte Básico)',
-      regiao: map['regiao'] ?? 'Unidade Norte',
+      regiao: base,
       status: map['status'] ?? 'Operacional',
     );
   }

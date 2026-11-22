@@ -4,55 +4,127 @@ Módulo de Integração com Sistemas Externos (Modelo C4 - Níveis 3 e 4)
 Componente: Integration Service
 Responsabilidade: Transmissão segura dos dados consolidados de atendimentos
 para a API da Prefeitura Municipal de Joinville (RF06).
+
+O envio acontece DEPOIS do commit da ficha, em segundo plano (BackgroundTasks),
+e o resultado fica gravado na própria ficha (status_envio_prefeitura):
+- PENDENTE: ainda não enviada (ou integração não configurada)
+- ENVIADO: a Prefeitura confirmou o recebimento (protocolo_prefeitura preenchido)
+- ERRO: o envio falhou; pode ser reenviado por POST /api/fichas/integracao/reenviar
 """
 import os
 import logging
-from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, Optional
+
+import httpx
+
+from database import SessionLocal
+from models import FichaAtendimento
 
 logger = logging.getLogger("IntegrationService")
 
-URL_API_PREFEITURA = os.getenv("PREFEITURA_API_URL", "https://api.joinville.sc.gov.br/saude/samu/v1")
-TOKEN_API_PREFEITURA = os.getenv("PREFEITURA_API_TOKEN", "mock_prefeitura_token_2026")
+STATUS_PENDENTE = "PENDENTE"
+STATUS_ENVIADO = "ENVIADO"
+STATUS_ERRO = "ERRO"
 
-def transmitir_atendimento_para_prefeitura(dados_ficha: Dict[str, Any]) -> Dict[str, Any]:
+def obter_configuracao() -> Optional[Dict[str, Any]]:
     """
-    Empacota e envia um atendimento concluído para o endpoint receptor da Prefeitura (RF06).
-    Em caso de falha de conexão, registra o evento para reenvio assíncrono.
+    Lê a configuração da integração do .env a cada envio.
+    Retorna None se PREFEITURA_API_URL ou PREFEITURA_API_TOKEN não estiverem configurados.
     """
-    logger.info(f"Iniciando transmissão da ficha #{dados_ficha.get('id_ficha')} para o Banco da Prefeitura.")
+    url = (os.getenv("PREFEITURA_API_URL") or "").strip().rstrip("/")
+    token = (os.getenv("PREFEITURA_API_TOKEN") or "").strip()
+    if not url or not token:
+        return None
+    return {
+        "url": url,
+        "token": token,
+        "timeout": float(os.getenv("PREFEITURA_API_TIMEOUT", "10")),
+    }
 
-    payload = {
+def criar_cliente_http(timeout: float) -> httpx.Client:
+    """Cria o cliente HTTP da integração (isolado para facilitar testes)."""
+    return httpx.Client(timeout=timeout)
+
+def montar_payload(ficha: FichaAtendimento) -> Dict[str, Any]:
+    """Empacota os dados consolidados do atendimento para a Prefeitura (RF06)."""
+    return {
         "orgao": "SAMU_JOINVILLE",
-        "id_ficha_sistema": dados_ficha.get("id_ficha"),
-        "uuid_origem": dados_ficha.get("uuid_offline"),
-        "data_hora_transmissao": datetime.utcnow().isoformat(),
-        "dados_atendimento": dados_ficha,
+        "id_ficha_sistema": ficha.id_ficha,
+        "uuid_origem": ficha.uuid_offline,
+        "data_hora_transmissao": datetime.now(timezone.utc).isoformat(),
+        "dados_atendimento": {
+            "id_ficha": ficha.id_ficha,
+            "uuid_offline": ficha.uuid_offline,
+            "id_unidade": ficha.id_unidade,
+            "data": ficha.data_atendimento.isoformat() if ficha.data_atendimento else None,
+        },
     }
 
-    # Simulação de envio seguro HTTPS (conforme especificado na seção 2.3 RF06 e C4)
-    # Em produção, utiliza httpx.post(f"{URL_API_PREFEITURA}/atendimentos", json=payload, headers=...)
-    sucesso = True
-    protocolo_prefeitura = f"PMJ-{datetime.utcnow().strftime('%Y%m%d%H%M')}-{dados_ficha.get('id_ficha', '000')}"
-
-    return {
-        "sucesso": sucesso,
-        "protocolo_prefeitura": protocolo_prefeitura,
-        "mensagem": "Atendimento transmitido com sucesso ao banco municipal da Prefeitura.",
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-def sincronizar_lote_com_prefeitura(lista_fichas: List[Dict[str, Any]]) -> Dict[str, Any]:
+def enviar_ficha_para_prefeitura(id_ficha: int) -> Optional[str]:
     """
-    Dispara carga em lote de atendimentos consolidados para a Prefeitura após sincronização offline do Mobile.
+    Envia uma ficha já gravada (commit feito) para a API da Prefeitura e grava o resultado na ficha.
+    Abre a própria sessão de banco, pois roda em segundo plano depois da resposta da requisição.
+    Retorna o status final da ficha (ou None se a ficha não existir).
     """
-    resultados = []
-    for ficha in lista_fichas:
-        res = transmitir_atendimento_para_prefeitura(ficha)
-        resultados.append(res)
+    db = SessionLocal()
+    try:
+        ficha = db.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == id_ficha).first()
+        if not ficha:
+            logger.warning(f"Ficha #{id_ficha} não encontrada para envio à Prefeitura.")
+            return None
+        if ficha.status_envio_prefeitura == STATUS_ENVIADO:
+            return STATUS_ENVIADO
 
-    return {
-        "total_enviados": len(lista_fichas),
-        "sucessos": sum(1 for r in resultados if r["sucesso"]),
-        "detalhes": resultados,
-    }
+        config = obter_configuracao()
+        if not config:
+            logger.warning(
+                f"Integração com a Prefeitura não configurada (PREFEITURA_API_URL / PREFEITURA_API_TOKEN). "
+                f"Ficha #{id_ficha} permanece {STATUS_PENDENTE}."
+            )
+            return ficha.status_envio_prefeitura
+
+        ficha.tentativas_envio = (ficha.tentativas_envio or 0) + 1
+        ficha.ultima_tentativa_envio = datetime.now(timezone.utc)
+        logger.info(f"Enviando ficha #{id_ficha} para a Prefeitura (tentativa {ficha.tentativas_envio}).")
+
+        try:
+            with criar_cliente_http(config["timeout"]) as cliente:
+                resposta = cliente.post(
+                    f"{config['url']}/atendimentos",
+                    json=montar_payload(ficha),
+                    headers={"Authorization": f"Bearer {config['token']}"},
+                )
+            resposta.raise_for_status()
+
+            try:
+                corpo = resposta.json()
+            except ValueError:
+                corpo = {}
+            ficha.status_envio_prefeitura = STATUS_ENVIADO
+            ficha.protocolo_prefeitura = str(corpo.get("protocolo") or "")[:64] or None
+            ficha.erro_envio = None
+            logger.info(f"Ficha #{id_ficha} enviada à Prefeitura. Protocolo: {ficha.protocolo_prefeitura}")
+
+        except httpx.HTTPStatusError as e:
+            ficha.status_envio_prefeitura = STATUS_ERRO
+            ficha.erro_envio = f"HTTP {e.response.status_code}: {e.response.text[:200]}"
+            logger.error(f"Prefeitura recusou a ficha #{id_ficha}: {ficha.erro_envio}")
+        except httpx.HTTPError as e:
+            ficha.status_envio_prefeitura = STATUS_ERRO
+            ficha.erro_envio = f"Falha de comunicação: {type(e).__name__}: {str(e)[:200]}"
+            logger.error(f"Falha ao enviar a ficha #{id_ficha} para a Prefeitura: {ficha.erro_envio}")
+
+        db.commit()
+        return ficha.status_envio_prefeitura
+    finally:
+        db.close()
+
+def enviar_fichas_para_prefeitura(ids_fichas: Iterable[int]) -> Dict[str, int]:
+    """Envia várias fichas (ex.: lote do sync ou reenvio) e devolve a contagem por status."""
+    resumo = {STATUS_ENVIADO: 0, STATUS_ERRO: 0, STATUS_PENDENTE: 0}
+    for id_ficha in ids_fichas:
+        status_final = enviar_ficha_para_prefeitura(id_ficha)
+        if status_final in resumo:
+            resumo[status_final] += 1
+    return resumo

@@ -8,9 +8,61 @@ __pycache__/
 venv/
 .venv/
 
-# Variáveis de ambiente
+# Variáveis de ambiente — NUNCA versionar arquivos .env com segredos reais
 .env
+.env.local
+.env.production
+.env.staging
+# Exceção: .env.example (template sem segredos) é versionado intencionalmente
+!.env.example
 
 # IDE
 .vscode/
 .idea/
+
+# Flutter / Dart
+.dart_tool/
+**/build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+
+# =============================================================================
+# BANCOS DE DADOS LOCAIS — NUNCA VERSIONAR
+# -----------------------------------------------------------------------------
+# Os commits a4ae5d5 e f474336 introduziram arquivos .db no histórico com
+# hashes de senha SHA-256 sem sal. Esses padrões evitam que isso se repita.
+# Se precisar compartilhar um banco de exemplo, use dump SQL (.sql), nunca
+# o arquivo binário .db.
+# =============================================================================
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+
+# Arquivos de banco gerados pelo backend FastAPI (SQLite de desenvolvimento)
+brava.db
+Backend/brava.db
+**/brava.db
+
+# Dumps e backups de banco
+*.dump
+*.pgdump
+*.sql.gz
+
+# Logs
+*.log
+logs/
+
+# Cobertura de testes
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Distribuição / build Python
+dist/
+build/
+*.egg-info/

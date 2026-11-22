@@ -1,29 +1,33 @@
-// ============================================================================
-// VIEW ASSISTENCIAL: CONFIRMAÇÃO DE IMPRESSÃO DA FICHA TÉCNICA
-// Arquivo: lib/views/assistencial/impressao_sucesso_view.dart
-// ============================================================================
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_routes.dart';
+import '../../models/ficha_model.dart';
+import '../../providers/ficha_provider.dart';
+import '../../services/print_service.dart';
 
 class ImpressaoSucessoView extends StatelessWidget {
   final String? numeroOcorrencia;
+
   const ImpressaoSucessoView({
     super.key,
     this.numeroOcorrencia,
   });
+
   @override
   Widget build(BuildContext context) {
     // Resgata os argumentos passados via Navigator
     final routeArgs = ModalRoute.of(context)?.settings.arguments as String?;
     final ocorrenciaExibida = routeArgs ?? numeroOcorrencia ?? '192-JOINVILLE';
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
         title: const Text(
           "Comprovante de Impressão",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        backgroundColor: const Color(0xFFC62828),
+        backgroundColor: AppColors.crimson,
         foregroundColor: Colors.white,
       ),
       body: Center(
@@ -32,9 +36,9 @@ class ImpressaoSucessoView extends StatelessWidget {
           margin: const EdgeInsets.all(24.0),
           padding: const EdgeInsets.all(32.0),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFEEEEEE)),
+            border: Border.all(color: AppColors.borderLight),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x0A000000),
@@ -50,12 +54,12 @@ class ImpressaoSucessoView extends StatelessWidget {
                 width: 68,
                 height: 68,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFE8F5E9),
+                  color: AppColors.successBg,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.check_circle_outline_rounded,
-                  color: Color(0xFF2E7D32),
+                  color: AppColors.success,
                   size: 40,
                 ),
               ),
@@ -65,7 +69,7 @@ class ImpressaoSucessoView extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E1E1E),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -74,19 +78,44 @@ class ImpressaoSucessoView extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF757575),
+                  color: AppColors.textSecondary,
                 ),
-              ),
               ),
               const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final ficha = context.read<FichaEmAndamentoProvider>().ficha ??
+                        FichaAtendimentoModel(
+                          id: ocorrenciaExibida,
+                          numeroOcorrencia: ocorrenciaExibida,
+                          dataHora: DateTime.now(),
+                          pacienteNome: 'Paciente em Atendimento',
+                          tipoOcorrencia: 'Atendimento APH',
+                          endereco: 'Joinville - SC',
+                          unidadeResponsavel: 'SAMU 192',
+                        );
+                    await PrintService().imprimirFicha(ficha);
+                  },
+                  icon: const Icon(Icons.print_outlined),
+                  label: const Text("Imprimir / Baixar PDF"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.crimson,
+                    side: const BorderSide(color: AppColors.crimson),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pushReplacementNamed(context, '/ficha'),
+                  onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.ficha),
                   icon: const Icon(Icons.arrow_back),
-                  label: const Text("Voltar para Ficha de Atendimento"),
+                  label: const Text("Nova Ficha de Atendimento"),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFC62828),
+                    backgroundColor: AppColors.crimson,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),

@@ -10,7 +10,6 @@ class LogAuditoria(Base):
     acao = Column(String(100), nullable=False)
     detalhes_metadados = Column(String(255), nullable=True)
     ip_origem = Column(String(45), nullable=True)
-    data_hora = Column(DateTime, server_default=func.now())
+    data_hora = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relacionamento
     usuario = relationship("Usuario", back_populates="logs")

@@ -5,17 +5,29 @@ from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
 from database import get_db
+from dependencies import exigir_perfil
 from models import FichaAtendimento, UnidadeMovel
 from schemas import DashboardMetricasGeraisResponse
 from services.report_service import calcular_metricas_dashboard
 
-router = APIRouter(prefix="/reports", tags=["Relatórios e Dashboard Web (C4 Nível 3/4)"])
+# Rotas restritas ao perfil ADMINISTRADOR (token JWT obrigatório)
+router = APIRouter(
+    prefix="/reports",
+    tags=["Relatórios e Dashboard Web (C4 Nível 3/4)"],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
 
 #GET /api/reports/dashboard (Volume total, atendimentos hoje, tempo médio de resposta, faixas etárias, bairros com maior incidência e consumo de insumos)
 #GET /api/reports/paradas-viaturas (Monitoramento de paradas de ambulâncias e motivos).
 
 @router.get("/dashboard", response_model=DashboardMetricasGeraisResponse)
-def get_dashboard_gerencial(db: Session = Depends(get_db)):
+def get_dashboard_gerencial(
+    ano: Optional[int] = Query(None, description="Ano para filtro"),
+    mes: Optional[str] = Query(None, description="Mês para filtro (nome ou número)"),
+    dia: Optional[int] = Query(None, description="Dia para filtro"),
+    unidade: Optional[str] = Query(None, description="Unidade/Base para filtro"),
+    db: Session = Depends(get_db),
+):
     """
     Retorna métricas consolidadas para o Dashboard da Interface Web Administrativa:
     - Volume total de atendimentos (RF13)
@@ -25,7 +37,7 @@ def get_dashboard_gerencial(db: Session = Depends(get_db)):
     - Monitoramento de paradas de ambulâncias (RF11, RF12)
     - Consumo e reposição de utensílios gastos pela equipe
     """
-    return calcular_metricas_dashboard(db)
+    return calcular_metricas_dashboard(db, ano=ano, mes=mes, dia=dia, unidade=unidade)
 
 @router.get("/paradas-viaturas")
 def get_paradas_viaturas(db: Session = Depends(get_db)):

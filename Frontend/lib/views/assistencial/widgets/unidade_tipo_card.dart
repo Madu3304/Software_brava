@@ -122,7 +122,7 @@ class _UnidadeTipoCardState extends State<UnidadeTipoCard> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
+                          color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(

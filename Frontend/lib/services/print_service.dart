@@ -52,7 +52,7 @@ class PrintService {
               pw.Center(
                 child: pw.Text(
                   "*** VIA DA UNIDADE HOSPITALAR ***",
-                  style: pw.TextStyle(fontSize: 9),
+                  style: const pw.TextStyle(fontSize: 9),
                 ),
               ),
             ],

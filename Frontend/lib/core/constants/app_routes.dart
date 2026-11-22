@@ -10,5 +10,8 @@ class AppRoutes {
   static const String registroFicha = '/registro-ficha';
   static const String dadosPaciente = '/dados-paciente';
   static const String avaliacaoClinica = '/avaliacao-clinica';
+  static const String folhaGastos = '/folha-gastos';
+  static const String folhaGastosMateriais = '/folha-gastos-materiais';
+  static const String assinaturaPaciente = '/assinatura-paciente';
   static const String impressaoSucesso = '/impressao-sucesso';
 }

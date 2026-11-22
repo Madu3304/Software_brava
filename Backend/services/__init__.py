@@ -1,11 +1,13 @@
 # Backend/services/__init__.py
 """
-Camada de Serviços de Negócio (Services Layer - Modelo C4)
-Centraliza a lógica de domínio, segurança, validação clínica, relatórios e integrações.
+Camada de Serviços de Negócio
 """
 from .ficha_service import (
+    criar_ficha_completa,
     listar_fichas_com_sinais_vitais,
     buscar_ficha_consolidada_reposicao,
+    aplicar_filtros_fichas,
+    contar_fichas,
     listar_fichas_para_reposicao,
     registrar_reposicao_utensilios,
     obter_metricas_reposicao_dashboard,
@@ -26,8 +28,8 @@ from .pdf_service import (
     gerar_pdf_ficha_atendimento,
 )
 from .integration_service import (
-    transmitir_atendimento_para_prefeitura,
-    sincronizar_lote_com_prefeitura,
+    enviar_ficha_para_prefeitura,
+    enviar_fichas_para_prefeitura,
 )
 from .log_service import (
     registrar_auditoria,
@@ -41,8 +43,11 @@ from .report_service import (
 )
 
 __all__ = [
+    "criar_ficha_completa",
     "listar_fichas_com_sinais_vitais",
     "buscar_ficha_consolidada_reposicao",
+    "aplicar_filtros_fichas",
+    "contar_fichas",
     "listar_fichas_para_reposicao",
     "registrar_reposicao_utensilios",
     "obter_metricas_reposicao_dashboard",
@@ -55,8 +60,8 @@ __all__ = [
     "validar_formato_pressao_arterial",
     "ErroValidacaoClinica",
     "gerar_pdf_ficha_atendimento",
-    "transmitir_atendimento_para_prefeitura",
-    "sincronizar_lote_com_prefeitura",
+    "enviar_ficha_para_prefeitura",
+    "enviar_fichas_para_prefeitura",
     "registrar_auditoria",
     "listar_logs_recentes",
     "processar_pacote_sync_offline",

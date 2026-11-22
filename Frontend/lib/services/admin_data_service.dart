@@ -1,9 +1,5 @@
-// ============================================================================
-// SERVIÇO DE GERENCIAMENTO DE DADOS E ESTADO DO PAINEL ADMINISTRATIVO
-// Arquivo: lib/services/admin_data_service.dart
-// ============================================================================
-
 import 'package:flutter/foundation.dart';
+import '../core/api/api_client.dart';
 import '../models/profissional_model.dart';
 import '../models/unidade_model.dart';
 
@@ -11,15 +7,17 @@ class AdminDataService extends ChangeNotifier {
   static final AdminDataService _instance = AdminDataService._internal();
   factory AdminDataService() => _instance;
 
-  AdminDataService._internal() {
-    _initMockData();
-  }
+  AdminDataService._internal();
 
   final List<ProfissionalModel> _profissionais = [];
   final List<UnidadeMovelModel> _unidades = [];
+  bool _isLoading = false;
+  String? _errorMessage;
 
   List<ProfissionalModel> get profissionais => List.unmodifiable(_profissionais);
   List<UnidadeMovelModel> get unidades => List.unmodifiable(_unidades);
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
   List<ProfissionalModel> get medicos =>
       _profissionais.where((p) => p.tipo == TipoProfissional.medico).toList();
@@ -30,65 +28,197 @@ class AdminDataService extends ChangeNotifier {
   List<ProfissionalModel> get socorristas =>
       _profissionais.where((p) => p.tipo == TipoProfissional.socorrista).toList();
 
-  void _initMockData() {
+  Future<void> carregarCadastros() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final dio = ApiClient().dio;
+
+      // 1. Carrega Médicos
+      try {
+        final resMedicos = await dio.get('/cadastros/medicos');
+        if (resMedicos.statusCode == 200 && resMedicos.data is List) {
+          final List<ProfissionalModel> medicosCarregados = (resMedicos.data as List)
+              .map((item) => ProfissionalModel.fromMap(
+                    item as Map<String, dynamic>,
+                    tipoExplicit: TipoProfissional.medico,
+                  ))
+              .toList();
+          _profissionais.removeWhere((p) => p.tipo == TipoProfissional.medico);
+          _profissionais.addAll(medicosCarregados);
+        }
+      } catch (e) {
+        debugPrint('[AdminDataService] Aviso ao carregar médicos: $e');
+      }
+
+      // 2. Carrega Técnicos / Enfermagem
+      try {
+        final resTecnicos = await dio.get('/cadastros/tecnicos');
+        if (resTecnicos.statusCode == 200 && resTecnicos.data is List) {
+          final List<ProfissionalModel> tecnicosCarregados = (resTecnicos.data as List)
+              .map((item) => ProfissionalModel.fromMap(
+                    item as Map<String, dynamic>,
+                    tipoExplicit: TipoProfissional.enfermeiro,
+                  ))
+              .toList();
+          _profissionais.removeWhere((p) => p.tipo == TipoProfissional.enfermeiro);
+          _profissionais.addAll(tecnicosCarregados);
+        }
+      } catch (e) {
+        debugPrint('[AdminDataService] Aviso ao carregar técnicos: $e');
+      }
+
+      // 3. Carrega Condutores / Socorristas
+      try {
+        final resCondutores = await dio.get('/cadastros/condutores');
+        if (resCondutores.statusCode == 200 && resCondutores.data is List) {
+          final List<ProfissionalModel> condutoresCarregados = (resCondutores.data as List)
+              .map((item) => ProfissionalModel.fromMap(
+                    item as Map<String, dynamic>,
+                    tipoExplicit: TipoProfissional.socorrista,
+                  ))
+              .toList();
+          _profissionais.removeWhere((p) => p.tipo == TipoProfissional.socorrista);
+          _profissionais.addAll(condutoresCarregados);
+        }
+      } catch (e) {
+        debugPrint('[AdminDataService] Aviso ao carregar condutores: $e');
+      }
+
+      // 4. Carrega Unidades Móveis
+      try {
+        final resUnidades = await dio.get('/cadastros/unidades');
+        if (resUnidades.statusCode == 200 && resUnidades.data is List) {
+          _unidades.clear();
+          final List<UnidadeMovelModel> unidadesCarregadas = (resUnidades.data as List)
+              .map((item) => UnidadeMovelModel.fromMap(item as Map<String, dynamic>))
+              .toList();
+          _unidades.addAll(unidadesCarregadas);
+        }
+      } catch (e) {
+        debugPrint('[AdminDataService] Aviso ao carregar unidades: $e');
+      }
+
+      if (_profissionais.isEmpty && _unidades.isEmpty) {
+        _carregarPadroesIniciaisSC();
+      }
+    } catch (e) {
+      _errorMessage = 'Falha ao sincronizar cadastros com o servidor.';
+      debugPrint('[AdminDataService] Erro geral ao carregar cadastros: $e');
+      if (_profissionais.isEmpty && _unidades.isEmpty) {
+        _carregarPadroesIniciaisSC();
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void _carregarPadroesIniciaisSC() {
+    _profissionais.clear();
     _profissionais.addAll([
       ProfissionalModel.tecnicoEnfermagem(
-        id: '1',
+        id: '201',
         nome: 'Ana Paula Oliveira',
         cpf: '123.456.789-01',
-        coren: 'COREN-SP 123456',
-        unidade: 'Unidade Norte',
+        coren: 'COREN-SC 123456',
+        unidade: 'SAMU Centro',
         matricula: 'UN-TE-001',
+        cargo: 'Técnica em Enfermagem',
+        status: 'Em plantão',
       ),
       ProfissionalModel.tecnicoEnfermagem(
-        id: '2',
-        nome: 'Carlos Eduardo Lima',
-        cpf: '987.654.321-02',
-        coren: 'COREN-SP 654321',
-        unidade: 'Unidade Leste',
-        matricula: 'UL-TE-002',
+        id: '202',
+        nome: 'Mariana Souza Santos',
+        cpf: '321.654.987-02',
+        coren: 'COREN-SC 234567',
+        unidade: 'SAMU Norte',
+        matricula: 'UN-TE-002',
+        cargo: 'Enfermeira intervencionista',
+        status: 'Disponível',
+      ),
+      ProfissionalModel.tecnicoEnfermagem(
+        id: '203',
+        nome: 'Lucas Rodrigues Lima',
+        cpf: '456.789.123-03',
+        coren: 'COREN-SC 345678',
+        unidade: 'SAMU Sul',
+        matricula: 'UN-TE-003',
+        cargo: 'Técnico em Enfermagem',
+        status: 'Folga',
       ),
       ProfissionalModel.medico(
-        id: '3',
-        nome: 'Dr. Roberto Silveira',
+        id: '101',
+        nome: 'Dr. Roberto Silva',
         cpf: '111.222.333-44',
-        crm: 'CRM-SC 14522',
-        unidade: 'Unidade Norte',
+        crm: 'CRM-SC 12345',
+        unidade: 'SAMU Centro',
         matricula: 'UN-001',
+        cargo: 'Médico regulador',
+        status: 'Em plantão',
       ),
       ProfissionalModel.medico(
-        id: '4',
+        id: '102',
         nome: 'Dra. Juliana Mendes',
         cpf: '555.666.777-88',
-        crm: 'CRM-SC 18933',
-        unidade: 'Unidade Sul',
-        matricula: 'US-002',
+        crm: 'CRM-SC 23456',
+        unidade: 'SAMU Norte',
+        matricula: 'UN-002',
+        cargo: 'Médica intervencionista',
+        status: 'Disponível',
+      ),
+      ProfissionalModel.medico(
+        id: '103',
+        nome: 'Dr. André Costa',
+        cpf: '999.888.777-66',
+        crm: 'CRM-SC 18821',
+        unidade: 'SAMU Sul',
+        matricula: 'UN-003',
+        cargo: 'Médico regulador',
+        status: 'Folga',
       ),
       ProfissionalModel.socorrista(
-        id: '5',
+        id: '301',
         nome: 'Marcos Vinícius Santos',
         cpf: '222.333.444-55',
         cnh: '01234567890 (Cat. D)',
-        unidade: 'Unidade Norte',
+        unidade: 'SAMU Centro',
         matricula: 'UN-SOC-001',
+        cargo: 'Condutor Socorrista',
+        status: 'Em plantão',
       ),
       ProfissionalModel.socorrista(
-        id: '6',
-        nome: 'Fernanda Rocha',
-        cpf: '333.444.555-66',
-        cnh: '98765432100 (Cat. D)',
-        unidade: 'Unidade Leste',
-        matricula: 'UL-SOC-002',
+        id: '302',
+        nome: 'Carlos Eduardo Lima',
+        cpf: '777.888.999-01',
+        cnh: '09876543210 (Cat. E)',
+        unidade: 'SAMU Norte',
+        matricula: 'UN-SOC-002',
+        cargo: 'Condutor Socorrista',
+        status: 'Disponível',
+      ),
+      ProfissionalModel.socorrista(
+        id: '303',
+        nome: 'Rodrigo Martins Vieira',
+        cpf: '888.999.000-11',
+        cnh: '05432167890 (Cat. D)',
+        unidade: 'SAMU Sul',
+        matricula: 'UN-SOC-003',
+        cargo: 'Condutor Socorrista',
+        status: 'Folga',
       ),
     ]);
 
+    _unidades.clear();
     _unidades.addAll([
       const UnidadeMovelModel(
         id: '1',
         codigo: 'USA-01',
         placa: 'BRA-1921',
         tipo: 'USA (Suporte Avançado)',
-        regiao: 'Unidade Norte',
+        regiao: 'SAMU Centro',
         status: 'Operacional',
       ),
       const UnidadeMovelModel(
@@ -96,7 +226,7 @@ class AdminDataService extends ChangeNotifier {
         codigo: 'USB-02',
         placa: 'BRA-1922',
         tipo: 'USB (Suporte Básico)',
-        regiao: 'Unidade Sul',
+        regiao: 'SAMU Norte',
         status: 'Operacional',
       ),
       const UnidadeMovelModel(
@@ -104,38 +234,126 @@ class AdminDataService extends ChangeNotifier {
         codigo: 'USB-03',
         placa: 'BRA-1923',
         tipo: 'USB (Suporte Básico)',
-        regiao: 'Unidade Leste',
-        status: 'Operacional',
-      ),
-      const UnidadeMovelModel(
-        id: '4',
-        codigo: 'USA-02',
-        placa: 'BRA-1924',
-        tipo: 'USA (Suporte Avançado)',
-        regiao: 'Unidade Oeste',
-        status: 'Operacional',
+        regiao: 'SAMU Sul',
+        status: 'Em Manutenção',
       ),
     ]);
   }
 
-  // Operações de Cadastro
-  void adicionarProfissional(ProfissionalModel profissional) {
+  Future<void> adicionarProfissional(ProfissionalModel profissional) async {
     _profissionais.add(profissional);
     notifyListeners();
+
+    try {
+      final dio = ApiClient().dio;
+      final codigoNumerico = int.tryParse(
+        profissional.registroConselho.replaceAll(RegExp(r'[^0-9]'), ''),
+      );
+      final basePayload = <String, dynamic>{
+        'nome': profissional.nome,
+        'cpf': profissional.cpf,
+        'registro_conselho': profissional.registroConselho,
+        'unidade': profissional.unidade,
+        'matricula': profissional.matricula,
+        'cargo': profissional.cargo,
+        'status': profissional.status,
+      };
+
+      if (profissional.tipo == TipoProfissional.medico) {
+        await dio.post(
+          '/cadastros/medicos',
+          data: {
+            ...basePayload,
+            if (codigoNumerico != null) 'codigo_medico': codigoNumerico,
+          },
+        );
+      } else if (profissional.tipo == TipoProfissional.enfermeiro) {
+        await dio.post(
+          '/cadastros/tecnicos',
+          data: {
+            ...basePayload,
+            if (codigoNumerico != null) 'codigo_tecnico': codigoNumerico,
+          },
+        );
+      } else if (profissional.tipo == TipoProfissional.socorrista) {
+        await dio.post(
+          '/cadastros/condutores',
+          data: {
+            ...basePayload,
+            if (codigoNumerico != null) 'codigo_condutor': codigoNumerico,
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('[AdminDataService] Aviso: erro ao persistir profissional na API: $e');
+    }
   }
 
-  void removerProfissional(String id) {
-    _profissionais.removeWhere((p) => p.id == id);
+  Future<void> removerProfissional(String id) async {
+    final index = _profissionais.indexWhere((p) => p.id == id);
+    if (index == -1) return;
+    final tipo = _profissionais[index].tipo;
+    _profissionais.removeAt(index);
     notifyListeners();
+
+    try {
+      final dio = ApiClient().dio;
+      final intId = int.tryParse(id);
+      if (intId != null) {
+        if (tipo == TipoProfissional.medico) {
+          await dio.delete('/cadastros/medicos/$intId');
+        } else if (tipo == TipoProfissional.enfermeiro) {
+          await dio.delete('/cadastros/tecnicos/$intId');
+        } else if (tipo == TipoProfissional.socorrista) {
+          await dio.delete('/cadastros/condutores/$intId');
+        }
+      }
+    } catch (e) {
+      debugPrint('[AdminDataService] Aviso: erro ao deletar profissional na API: $e');
+    }
   }
 
-  void adicionarUnidade(UnidadeMovelModel unidade) {
+  String _mapearStatusUnidadeBackend(String statusUi) {
+    final s = statusUi.trim().toLowerCase();
+    if (s.contains('atendimento')) return 'EM_ATENDIMENTO';
+    if (s.contains('manuten')) return 'MANUTENCAO';
+    if (s.contains('parada')) return 'PARADA';
+    return 'DISPONIVEL';
+  }
+
+  Future<void> adicionarUnidade(UnidadeMovelModel unidade) async {
     _unidades.add(unidade);
     notifyListeners();
+
+    try {
+      final dio = ApiClient().dio;
+      await dio.post(
+        '/cadastros/unidades',
+        data: {
+          'codigo': unidade.codigo,
+          'placa': unidade.placa,
+          'tipo': unidade.tipo,
+          'base_unidade': unidade.regiao,
+          'status': _mapearStatusUnidadeBackend(unidade.status),
+        },
+      );
+    } catch (e) {
+      debugPrint('[AdminDataService] Aviso: erro ao persistir unidade na API: $e');
+    }
   }
 
-  void removerUnidade(String id) {
+  Future<void> removerUnidade(String id) async {
     _unidades.removeWhere((u) => u.id == id);
     notifyListeners();
+
+    try {
+      final dio = ApiClient().dio;
+      final intId = int.tryParse(id);
+      if (intId != null) {
+        await dio.delete('/cadastros/unidades/$intId');
+      }
+    } catch (e) {
+      debugPrint('[AdminDataService] Aviso: erro ao deletar unidade na API: $e');
+    }
   }
 }

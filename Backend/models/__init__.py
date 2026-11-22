@@ -11,6 +11,7 @@ from .log_auditoria import LogAuditoria
 from .medico import Medico
 from .tecnico import Tecnico
 from .condutor import Condutor
+from .token_revogado import TokenRevogado
 
 __all__ = [
     "Base",
@@ -27,4 +28,5 @@ __all__ = [
     "Medico",
     "Tecnico",
     "Condutor",
+    "TokenRevogado",
 ]

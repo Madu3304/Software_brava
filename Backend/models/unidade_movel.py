@@ -6,11 +6,12 @@ class UnidadeMovel(Base):
     __tablename__ = "unidade_movel"
 
     id_unidade = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(30), nullable=True)
     placa = Column(String(10), nullable=True)
+    tipo = Column(String(80), nullable=True)
     base_unidade = Column(String(50), default="DISPONIVEL")
     status = Column(String(30), default="DISPONIVEL") # 'DISPONIVEL', 'EM_ATENDIMENTO', 'PARADA', 'MANUTENCAO'
     motivo_parada = Column(Text, nullable=True)
-    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    # Relacionamentos
     fichas = relationship("FichaAtendimento", back_populates="unidade_movel")

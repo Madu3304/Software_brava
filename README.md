@@ -21,7 +21,32 @@ As tecnologias ainda podem ser ajustadas ao longo do projeto, mas inicialmente e
 - **Frontend/Admin:** Flutter (previsto)
 - **Controle de tarefas:** Trello
 
-## Como rodar
+## Como rodar com Docker (Projeto Completo: Frontend + Backend)
+
+### Opção 1: Imagem Docker Única (Frontend Flutter Web + Backend FastAPI + SQLite)
+
+Na raiz do repositório, construa a imagem unificada e inicie o container:
+
+```bash
+docker build -t software-brava .
+docker run -d --name software-brava -p 8080:8080 -p 8000:8000 -v brava_data:/app/data software-brava
+```
+
+- **Aplicação Web (Painel Administrativo + Ficha APH):** http://localhost:8080
+- **API Backend (Swagger / OpenAPI):** http://localhost:8000/docs (ou http://localhost:8080/docs)
+- **Credenciais iniciais:**
+  - **Administrador (Dashboard Web):** login `admin` | senha `admin123`
+  - **Equipe de Campo (Ficha APH):** login `enfermeiro` | senha `brava123`
+
+### Opção 2: Docker Compose (PostgreSQL + Backend + Frontend)
+
+```bash
+docker compose up --build -d
+```
+
+---
+
+## Como rodar localmente (sem Docker)
 
 ### 1. Criar o banco
 

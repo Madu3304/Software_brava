@@ -1,0 +1,41 @@
+services:
+  software-brava:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        API_URL: SAME_ORIGIN
+    image: software-brava:latest
+    container_name: software-brava
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-brava}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@127.0.0.1:5432/${POSTGRES_DB:-brava}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      EQUIPE_PASSWORD: ${EQUIPE_PASSWORD:-brava123}
+      SEED_TROCAR_SENHA: ${SEED_TROCAR_SENHA:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-chave_secreta_docker_software_brava_samu_2026_joinville_sc}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: 1440
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-20/minute}
+      HOST: 0.0.0.0
+      PORT: 8000
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+      - "8000:8000"
+      - "5432:5432"
+    volumes:
+      - brava_pgdata:/var/lib/postgresql/data
+      - brava_appdata:/app/data
+
+volumes:
+  brava_pgdata:
+  brava_appdata:

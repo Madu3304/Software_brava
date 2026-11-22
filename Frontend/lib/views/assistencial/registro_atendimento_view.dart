@@ -1,14 +1,15 @@
-// ============================================================================
-// VIEW ASSISTENCIAL: REGISTRO DA OCORRÊNCIA / FICHA TÉCNICA (FIGMA IMAGENS 2 & 3)
-// Arquivo: lib/views/assistencial/registro_atendimento_view.dart
-// ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+import '../../core/constants/app_routes.dart';
 import '../../models/ficha_model.dart';
+import '../../providers/ficha_provider.dart';
+import '../../services/admin_data_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
 import 'widgets/samu_app_bar_header.dart';
 import 'widgets/registro_field_card.dart';
-import 'dados_paciente_view.dart';
-import '../../utils/horario_atendimento.dart';
 
 class RegistroAtendimentoView extends StatefulWidget {
   final String? tipoViaturaInicial;
@@ -21,6 +22,21 @@ class RegistroAtendimentoView extends StatefulWidget {
     this.codigoTriagemInicial = 'Vermelho',
     this.dataAtendimentoInicial,
   });
+
+  /// Formata um [DateTime] no padrão HH:mm.
+  static String formatarHorario(DateTime dataHora) {
+    final hora = dataHora.hour.toString().padLeft(2, '0');
+    final minuto = dataHora.minute.toString().padLeft(2, '0');
+    return '$hora:$minuto';
+  }
+
+  /// Calcula o horário de saída adicionando [deslocamento] (padrão 2 minutos) via [DateTime.add].
+  static DateTime calcularHorarioSaida(
+    DateTime abertura, {
+    Duration deslocamento = const Duration(minutes: 2),
+  }) {
+    return abertura.add(deslocamento);
+  }
 
   @override
   State<RegistroAtendimentoView> createState() => _RegistroAtendimentoViewState();
@@ -46,26 +62,39 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     'Base Pirabeiraba',
   ];
 
-  final List<String> _medicosDisponiveis = [
-    'Dr. Carlos Eduardo - CRM 12345/SC',
-    'Dra. Ana Paula Martins - CRM 23456/SC',
-    'Dr. Marcos Vinicius - CRM 34567/SC',
-    'Dra. Beatriz Santos - CRM 45678/SC',
-    'Dr. Roberto Silva - CRM 56789/SC',
-    'Dra. Juliana Mendes - CRM 67890/SC',
-  ];
+  final AdminDataService _adminDataService = AdminDataService();
+
+  List<String> get _medicosDisponiveis {
+    final cadastrados = _adminDataService.medicos
+        .map((m) => m.registroConselho.isNotEmpty ? '${m.nome} - ${m.registroConselho}' : m.nome)
+        .toList();
+    return cadastrados;
+  }
+
+  List<String> get _tecnicosDisponiveis {
+    return _adminDataService.enfermeiros
+        .map((t) => t.registroConselho.isNotEmpty ? '${t.nome} - ${t.registroConselho}' : t.nome)
+        .toList();
+  }
+
+  List<String> get _condutoresDisponiveis {
+    return _adminDataService.socorristas
+        .map((c) => c.registroConselho.isNotEmpty ? '${c.nome} - ${c.registroConselho}' : c.nome)
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
-
+    // Preenche com horário atual formatado para abertura e saída (+2 min via Duration)
     final agora = DateTime.now();
-    final hora = agora.hour.toString().padLeft(2, '0');
-    final minuto = agora.minute.toString().padLeft(2, '0');
+    _horaAberturaController.text = RegistroAtendimentoView.formatarHorario(agora);
+    final saida = RegistroAtendimentoView.calcularHorarioSaida(agora);
+    _horaSaidaController.text = RegistroAtendimentoView.formatarHorario(saida);
 
-    _horaAberturaController.text = '$hora:$minuto';
-
-    _horaSaidaController.text = calcularHorarioSaidaPrevista(agora);
+    if (AuthService().isAuthenticated && _adminDataService.profissionais.isEmpty) {
+      _adminDataService.carregarCadastros();
+    }
   }
 
   @override
@@ -77,6 +106,53 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
     _horaAberturaController.dispose();
     _horaSaidaController.dispose();
     super.dispose();
+  }
+
+  Widget _buildProfissionalAutocomplete({
+    required TextEditingController controller,
+    required List<String> Function() optionsProvider,
+    required String hintText,
+    Color iconColor = const Color(0xFF9E9E9E),
+  }) {
+    return AnimatedBuilder(
+      animation: _adminDataService,
+      builder: (context, _) {
+        final opcoes = optionsProvider();
+        return Autocomplete<String>(
+          initialValue: TextEditingValue(text: controller.text),
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (textEditingValue.text.isEmpty) return opcoes;
+            final q = textEditingValue.text.toLowerCase();
+            return opcoes.where((item) => item.toLowerCase().contains(q));
+          },
+          onSelected: (String selecao) => controller.text = selecao,
+          fieldViewBuilder: (context, fieldTextEditingController, focusNode, onFieldSubmitted) {
+            fieldTextEditingController.addListener(() {
+              controller.text = fieldTextEditingController.text;
+            });
+            return TextFormField(
+              controller: fieldTextEditingController,
+              focusNode: focusNode,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                prefixIcon: Icon(Icons.search_rounded, color: iconColor, size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                  borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                  borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _selecionarHora(TextEditingController controller) async {
@@ -195,23 +271,26 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
 
   void _avancarParaDadosPaciente() {
     final numOcorrencia = _registroController.text.trim().isEmpty
-        ? 'REG-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}'
+        ? 'REG-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}'
         : _registroController.text.trim();
 
     final baseFinal = _baseSelecionada == 'Selecionar Base'
         ? 'Base Central - SAMU Joinville'
         : _baseSelecionada;
 
+    final provider = context.read<FichaEmAndamentoProvider>();
+    final fichaBase = provider.ficha;
+
     final fichaParcial = FichaAtendimentoModel(
-      id: 'fch_${DateTime.now().millisecondsSinceEpoch}',
+      id: fichaBase?.id ?? const Uuid().v4(),
       numeroOcorrencia: numOcorrencia,
-      dataHora: widget.dataAtendimentoInicial ?? DateTime.now(),
-      pacienteNome: 'Paciente Ocorrência $numOcorrencia',
+      dataHora: widget.dataAtendimentoInicial ?? fichaBase?.dataHora ?? DateTime.now(),
+      pacienteNome: fichaBase?.pacienteNome ?? '',
       tipoOcorrencia: 'Atendimento Pré-Hospitalar',
       endereco: baseFinal,
-      unidadeResponsavel: widget.tipoViaturaInicial ?? 'USB',
-      tipoViatura: widget.tipoViaturaInicial ?? 'USB',
-      codigoTriagem: widget.codigoTriagemInicial ?? 'Vermelho',
+      unidadeResponsavel: widget.tipoViaturaInicial ?? fichaBase?.tipoViatura ?? 'USB',
+      tipoViatura: widget.tipoViaturaInicial ?? fichaBase?.tipoViatura ?? 'USB',
+      codigoTriagem: widget.codigoTriagemInicial ?? fichaBase?.codigoTriagem ?? 'Vermelho',
       base: baseFinal,
       medicoResponsavel: _medicoController.text.trim(),
       tecnicoResponsavel: _tecnicoController.text.trim(),
@@ -220,13 +299,13 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
       horaSaidaBase: _horaSaidaController.text.trim(),
     );
 
-    Navigator.push(
+    provider.setFicha(fichaParcial);
+    DatabaseService().inserirFicha(fichaParcial);
+
+    Navigator.pushNamed(
       context,
-      MaterialPageRoute(
-        builder: (context) => DadosPacienteView(
-          fichaParcial: fichaParcial,
-        ),
-      ),
+      AppRoutes.dadosPaciente,
+      arguments: fichaParcial,
     );
   }
 
@@ -382,58 +461,24 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 4: Técnico de enfermagem responsável
+                    // Card 4: Técnico de enfermagem responsável (RN10: profissionais cadastrados)
                     RegistroFieldCard(
                       title: "Técnico de enfermagem responsável:",
-                      child: TextFormField(
+                      child: _buildProfissionalAutocomplete(
                         controller: _tecnicoController,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
-                        decoration: InputDecoration(
-                          hintText: "Buscar técnico de enfermagem",
-                          hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Color(0xFF9E9E9E),
-                            size: 20,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
-                          ),
-                        ),
+                        optionsProvider: () => _tecnicosDisponiveis,
+                        hintText: "Buscar técnico de enfermagem",
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Card 5: Condutor socorrista
+                    // Card 5: Condutor socorrista (RN10: profissionais cadastrados)
                     RegistroFieldCard(
                       title: "Condutor socorrista:",
-                      child: TextFormField(
+                      child: _buildProfissionalAutocomplete(
                         controller: _condutorController,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
-                        decoration: InputDecoration(
-                          hintText: "Buscar condutor socorrista",
-                          hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Color(0xFF9E9E9E),
-                            size: 20,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.2),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: const BorderSide(color: Color(0xFFE50914), width: 1.8),
-                          ),
-                        ),
+                        optionsProvider: () => _condutoresDisponiveis,
+                        hintText: "Buscar condutor socorrista",
                       ),
                     ),
                     const SizedBox(height: 16),

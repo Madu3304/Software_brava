@@ -4,7 +4,7 @@ Este é o módulo de **Frontend** do projeto **Software Brava**, desenvolvido em
 
 ---
 
-## 📋 Pré-requisitos
+## Pré-requisitos
 
 Antes de iniciar, certifique-se de ter instalado em sua máquina:
 
@@ -20,7 +20,7 @@ flutter doctor
 
 ---
 
-## 🚀 Como Executar o Projeto
+## Como Executar o Projeto
 
 Siga o passo a passo abaixo para rodar a aplicação:
 
@@ -62,7 +62,7 @@ flutter devices
 
 ---
 
-## 🔑 Credenciais de Acesso (Perfis de Usuário)
+## Credenciais de Acesso (Perfis de Usuário)
 
 O sistema possui controle de acesso baseado em perfil (RBAC) com redirecionamento automático a partir da **Tela de Login**:
 
@@ -71,13 +71,13 @@ O sistema possui controle de acesso baseado em perfil (RBAC) com redirecionament
 | **Administrador (Web)** | `admin` | `admin123` | **Dashboard Administrativo Web** (`/dashboard`) |
 | **Equipe de Campo (Ficha)** | `enfermeiro` | `brava123` | **Ficha de Atendimento APH** (`/ficha`) |
 
-> 💡 **Nota:** Qualquer login ou senha contendo `adm` direciona para a visão do Administrador. Qualquer outra credencial operacional direciona para a Ficha de Atendimento.
+> **Nota:** Qualquer login ou senha contendo `adm` direciona para a visão do Administrador. Qualquer outra credencial operacional direciona para a Ficha de Atendimento.
 
 ---
 
-## 📱 Telas e Funcionalidades
+## Telas e Funcionalidades
 
-### 1. 🛡️ Painel Administrativo Web (`/dashboard`)
+### 1. Painel Administrativo Web (`/dashboard`)
 * **Dashboard de Indicadores:** Métricas de tempo de resposta, volume de atendimentos e taxa de sobrevivência.
 * **Módulo de Cadastros:**
   * Cadastro de Médicos (com CRM e especialidade).
@@ -85,7 +85,7 @@ O sistema possui controle de acesso baseado em perfil (RBAC) com redirecionament
   * Cadastro de Condutores Socorristas (com CNH e categoria).
   * Cadastro de Unidades Móveis / Ambulâncias (USB e USA).
 
-### 2. 🚑 Ficha de Atendimento APH (`/ficha` e `/registro-ficha`)
+### 2. Ficha de Atendimento APH (`/ficha` e `/registro-ficha`)
 * **Etapa 1 - Triagem e Viatura:**
   * Seleção do tipo de viatura (**USB** / USA).
   * Classificação de Risco pelo Protocolo de Manchester (**Vermelho**, **Amarelo**, **Verde**, **Azul**).
@@ -98,7 +98,7 @@ O sistema possui controle de acesso baseado em perfil (RBAC) com redirecionament
 
 ---
 
-## 🧪 Como Executar os Testes Automatizados
+## Como Executar os Testes Automatizados
 
 O projeto conta com uma suíte de testes unitários e testes de widgets para validação contínua:
 
@@ -112,7 +112,7 @@ flutter test test/views/
 
 ---
 
-## 🏗️ Estrutura de Pastas (`lib/`)
+## Estrutura de Pastas (`lib/`)
 
 O código segue os princípios de Engenharia de Software (Clean Architecture / Separação de Camadas):
 

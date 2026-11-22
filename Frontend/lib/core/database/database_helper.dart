@@ -1,8 +1,4 @@
-// ============================================================================
-// CONFIGURAÇÃO DO BANCO DE DADOS LOCAL (SQLITE)
-// Arquivo: lib/core/database/database_helper.dart
-// ============================================================================
-
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -25,9 +21,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 6,
       onCreate: (db, version) async {
-        // Tabela de Fichas de Atendimento (Offline-first)
+        // Tabela de Fichas de Atendimento (Offline-first com sinais vitais estruturados)
         await db.execute('''
           CREATE TABLE fichas (
             id TEXT PRIMARY KEY,
@@ -43,6 +39,7 @@ class DatabaseHelper {
             telefoneContato TEXT,
             medicamentosUsoContinuo TEXT,
             alergias TEXT,
+            observacoes TEXT,
             tipoOcorrencia TEXT,
             endereco TEXT,
             latitude REAL,
@@ -50,7 +47,32 @@ class DatabaseHelper {
             unidadeResponsavel TEXT,
             queixaPrincipal TEXT,
             condutaMedica TEXT,
-            statusSincronizacao TEXT
+            statusSincronizacao TEXT,
+            tipoViatura TEXT,
+            codigoTriagem TEXT,
+            base TEXT,
+            medicoResponsavel TEXT,
+            tecnicoResponsavel TEXT,
+            condutorSocorrista TEXT,
+            horaAberturaChamado TEXT,
+            horaSaidaBase TEXT,
+            pressaoArterial TEXT,
+            frequenciaCardiaca INTEGER,
+            frequenciaRespiratoria INTEGER,
+            saturacaoO2 INTEGER,
+            glicemia INTEGER,
+            temperatura REAL,
+            escalaGlasgow INTEGER,
+            aberturaOcular INTEGER,
+            respostaVerbal INTEGER,
+            respostaMotora INTEGER,
+            avcSuspeito INTEGER,
+            assimetriaFacial INTEGER,
+            quedaBraco INTEGER,
+            falaAnormal INTEGER,
+            unidadeParada INTEGER,
+            motivoUnidadeParada TEXT,
+            pendenciaLocalizacao INTEGER
           )
         ''');
 
@@ -75,20 +97,69 @@ class DatabaseHelper {
             registroConselho TEXT,
             tipo TEXT,
             unidade TEXT,
-            matricula TEXT
+            matricula TEXT,
+            cargo TEXT,
+            status TEXT
           )
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
+        Future<void> executarAlter(String sql) async {
           try {
-            await db.execute('ALTER TABLE fichas ADD COLUMN pacienteDataNascimento TEXT');
-            await db.execute('ALTER TABLE fichas ADD COLUMN pacienteCpf TEXT');
-            await db.execute('ALTER TABLE fichas ADD COLUMN grauParentesco TEXT');
-            await db.execute('ALTER TABLE fichas ADD COLUMN telefoneContato TEXT');
-            await db.execute('ALTER TABLE fichas ADD COLUMN medicamentosUsoContinuo TEXT');
-            await db.execute('ALTER TABLE fichas ADD COLUMN alergias TEXT');
-          } catch (_) {}
+            await db.execute(sql);
+            debugPrint('[DB MIGRATION SUCESSO] $sql');
+          } catch (e) {
+            debugPrint('[DB MIGRATION AVISO] Falha ao executar "$sql": $e');
+          }
+        }
+
+        if (oldVersion < 2) {
+          await executarAlter('ALTER TABLE fichas ADD COLUMN pacienteDataNascimento TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN pacienteCpf TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN grauParentesco TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN telefoneContato TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN medicamentosUsoContinuo TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN alergias TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN tipoViatura TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN codigoTriagem TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN base TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN medicoResponsavel TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN tecnicoResponsavel TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN condutorSocorrista TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN horaAberturaChamado TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN horaSaidaBase TEXT');
+        }
+
+        if (oldVersion < 3) {
+          await executarAlter('ALTER TABLE fichas ADD COLUMN pressaoArterial TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN frequenciaCardiaca INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN frequenciaRespiratoria INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN saturacaoO2 INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN glicemia INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN temperatura REAL');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN escalaGlasgow INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN aberturaOcular INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN respostaVerbal INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN respostaMotora INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN avcSuspeito INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN assimetriaFacial INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN quedaBraco INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN falaAnormal INTEGER');
+        }
+
+        if (oldVersion < 4) {
+          await executarAlter('ALTER TABLE fichas ADD COLUMN observacoes TEXT');
+        }
+
+        if (oldVersion < 5) {
+          await executarAlter('ALTER TABLE profissionais ADD COLUMN cargo TEXT');
+          await executarAlter('ALTER TABLE profissionais ADD COLUMN status TEXT');
+        }
+
+        if (oldVersion < 6) {
+          await executarAlter('ALTER TABLE fichas ADD COLUMN unidadeParada INTEGER');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN motivoUnidadeParada TEXT');
+          await executarAlter('ALTER TABLE fichas ADD COLUMN pendenciaLocalizacao INTEGER');
         }
       },
     );
