@@ -53,4 +53,8 @@ nginx
 
 echo "[DOCKER] Iniciando Backend FastAPI (Software Brava SAMU) na porta ${PORT:-8000}..."
 cd /app/Backend
-exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers
+if [ "${APP_ENV:-development}" = "development" ]; then
+    exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --reload
+else
+    exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers
+fi

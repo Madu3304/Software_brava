@@ -26,7 +26,7 @@ COPY Frontend/pubspec.yaml Frontend/pubspec.lock ./
 RUN flutter pub get
 
 # Copia o restante do código-fonte do Frontend e compila para Web (Release)
-ARG CACHEBUST=20261117_assinatura_antes_folha_v5
+ARG CACHEBUST=20261122_perfil_ficha_v1
 COPY Frontend/ ./
 ARG API_URL=SAME_ORIGIN
 RUN flutter build web --release --pwa-strategy=none --dart-define=API_URL=${API_URL}

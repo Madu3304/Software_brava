@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_routes.dart';
-import '../../providers/ficha_provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_routes.dart';
+import '../../../providers/ficha_provider.dart';
 
 class PerfilFichaHeaderCard extends StatelessWidget {
   final VoidCallback? onAlterar;

@@ -35,6 +35,19 @@ services:
     volumes:
       - brava_pgdata:/var/lib/postgresql/data
       - brava_appdata:/app/data
+      - ./Backend:/app/Backend
+    develop:
+      watch:
+        - action: sync
+          path: ./Backend
+          target: /app/Backend
+        - action: rebuild
+          path: ./Frontend
+          ignore:
+            - Frontend/build/
+            - Frontend/.dart_tool/
+        - action: rebuild
+          path: ./Dockerfile
 
 volumes:
   brava_pgdata:
