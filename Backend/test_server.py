@@ -99,7 +99,7 @@ with TestClient(app) as client:
     assert res_cors_bloq.headers.get("access-control-allow-origin") is None
 
     # otas protegidas sem token devem retornar 401
-    for rota in ["/api/fichas/", "/api/reports/dashboard", "/api/usuarios/", "/api/logs/", "/api/cadastros/unidades", "/api/docusign/status/teste"]:
+    for rota in ["/api/fichas/", "/api/reports/dashboard", "/api/usuarios/", "/api/logs/", "/api/cadastros/unidades", "/api/docusign/status/teste", "/api/ia/status"]:
         res = client.get(rota)
         print(f"9. Sem token {rota}:", res.status_code)
         assert res.status_code == 401
