@@ -61,6 +61,12 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+coverage.xml
+Frontend/coverage/
+
+# SonarQube
+sonar-project.properties
+.scannerwork/
 
 # Distribuição / build Python
 dist/

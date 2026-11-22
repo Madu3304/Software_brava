@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:software_brava/providers/ficha_provider.dart';
 import 'package:software_brava/views/assistencial/ficha_atendimento_view.dart';
 import 'package:software_brava/views/assistencial/widgets/unidade_tipo_card.dart';
 import 'package:software_brava/views/assistencial/widgets/codigo_triagem_selector.dart';
@@ -9,8 +11,11 @@ void main() {
   testWidgets('FichaAtendimentoView renderiza cabeçalho, USB, seletor de códigos, data e botão Continuar',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: FichaAtendimentoView(),
+      ChangeNotifierProvider(
+        create: (_) => FichaEmAndamentoProvider(),
+        child: const MaterialApp(
+          home: FichaAtendimentoView(),
+        ),
       ),
     );
 

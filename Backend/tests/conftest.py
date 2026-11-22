@@ -1,3 +1,9 @@
+import os
+
+os.environ.setdefault("APP_ENV", "development")
+os.environ.setdefault("CPF_HMAC_KEY", "test_hmac_key_brava_123456")
+os.environ.setdefault("JWT_SECRET_KEY", "test_jwt_secret_key_brava_123456")
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

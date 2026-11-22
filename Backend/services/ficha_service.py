@@ -255,10 +255,17 @@ def buscar_ficha_consolidada_reposicao(db: Session, id_ficha: int) -> Optional[F
         utensilios_gastos=_montar_utensilios_schema(utensilios),
     )
 
-def aplicar_filtros_fichas(query, id_unidade: Optional[int] = None, data: Optional[date] = None):
-    """Aplica os filtros de unidade móvel e de data do atendimento (dia inteiro) na query de fichas (RF08)."""
+def aplicar_filtros_fichas(
+    query,
+    id_unidade: Optional[int] = None,
+    data: Optional[date] = None,
+    id_responsavel: Optional[int] = None,
+):
+    """Aplica os filtros de unidade móvel, data do atendimento e responsável na query de fichas (RF08)."""
     if id_unidade is not None:
         query = query.filter(FichaAtendimento.id_unidade == id_unidade)
+    if id_responsavel is not None:
+        query = query.filter(FichaAtendimento.id_responsavel == id_responsavel)
     if data is not None:
         inicio_dia = datetime.combine(data, time.min)
         query = query.filter(
@@ -267,9 +274,19 @@ def aplicar_filtros_fichas(query, id_unidade: Optional[int] = None, data: Option
         )
     return query
 
-def contar_fichas(db: Session, id_unidade: Optional[int] = None, data: Optional[date] = None) -> int:
+def contar_fichas(
+    db: Session,
+    id_unidade: Optional[int] = None,
+    data: Optional[date] = None,
+    id_responsavel: Optional[int] = None,
+) -> int:
     """Total de fichas com os mesmos filtros da listagem (usado na paginação)."""
-    query = aplicar_filtros_fichas(db.query(func.count(FichaAtendimento.id_ficha)), id_unidade, data)
+    query = aplicar_filtros_fichas(
+        db.query(func.count(FichaAtendimento.id_ficha)),
+        id_unidade=id_unidade,
+        data=data,
+        id_responsavel=id_responsavel,
+    )
     return query.scalar() or 0
 
 def listar_fichas_para_reposicao(
@@ -279,6 +296,7 @@ def listar_fichas_para_reposicao(
     data: Optional[date] = None,
     skip: int = 0,
     limit: Optional[int] = None,
+    id_responsavel: Optional[int] = None,
 ) -> List[FichaDetalhadaReposicaoResponse]:
     """
     Retorna a listagem para a tela de reposição do Técnico de Enfermagem.
@@ -296,7 +314,7 @@ def listar_fichas_para_reposicao(
     if apenas_pendentes:
         query = query.filter((Utensilios.reposto == False) | (Utensilios.id_utensilios == None))
 
-    query = aplicar_filtros_fichas(query, id_unidade, data)
+    query = aplicar_filtros_fichas(query, id_unidade=id_unidade, data=data, id_responsavel=id_responsavel)
     query = query.order_by(FichaAtendimento.data_atendimento.desc(), FichaAtendimento.id_ficha.desc())
     if skip:
         query = query.offset(skip)
