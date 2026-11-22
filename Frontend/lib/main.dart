@@ -13,6 +13,8 @@ import 'services/gps_service.dart';
 import 'services/sync_service.dart';
 import 'views/auth/login_view.dart';
 import 'views/admin/dashboard/dashboard_view.dart';
+import 'views/assistencial/selecao_atendimento_view.dart';
+import 'views/assistencial/ficha_personalizada_view.dart';
 import 'views/assistencial/ficha_atendimento_view.dart';
 import 'views/assistencial/registro_atendimento_view.dart';
 import 'views/assistencial/dados_paciente_view.dart';
@@ -87,13 +89,54 @@ class SoftwareBravaApp extends StatelessWidget {
           if (settings.name == AppRoutes.dashboard) {
             if (currentUser?.perfil != PerfilUsuario.admin) {
               return MaterialPageRoute(
-                settings: const RouteSettings(name: AppRoutes.ficha),
-                builder: (_) => const FichaAtendimentoView(),
+                settings: const RouteSettings(name: AppRoutes.selecaoAtendimento),
+                builder: (_) => const SelecaoAtendimentoView(),
               );
             }
             return MaterialPageRoute(
               settings: settings,
               builder: (_) => const DashboardView(),
+            );
+          }
+
+          if (settings.name == AppRoutes.selecaoAtendimento) {
+            final ficha = settings.arguments as FichaAtendimentoModel?;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => SelecaoAtendimentoView(fichaParcial: ficha),
+            );
+          }
+
+          if (settings.name == AppRoutes.fichaGestante) {
+            final ficha = settings.arguments as FichaAtendimentoModel?;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => FichaPersonalizadaView(
+                perfil: PerfilFichaAtendimento.gestante,
+                fichaParcial: ficha,
+              ),
+            );
+          }
+
+          if (settings.name == AppRoutes.fichaIdoso) {
+            final ficha = settings.arguments as FichaAtendimentoModel?;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => FichaPersonalizadaView(
+                perfil: PerfilFichaAtendimento.idoso,
+                fichaParcial: ficha,
+              ),
+            );
+          }
+
+          if (settings.name == AppRoutes.fichaComum) {
+            final ficha = settings.arguments as FichaAtendimentoModel?;
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => FichaPersonalizadaView(
+                perfil: PerfilFichaAtendimento.comum,
+                fichaParcial: ficha,
+              ),
             );
           }
 

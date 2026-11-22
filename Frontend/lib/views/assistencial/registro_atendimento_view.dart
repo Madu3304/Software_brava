@@ -286,7 +286,7 @@ class _RegistroAtendimentoViewState extends State<RegistroAtendimentoView> {
       numeroOcorrencia: numOcorrencia,
       dataHora: widget.dataAtendimentoInicial ?? fichaBase?.dataHora ?? DateTime.now(),
       pacienteNome: fichaBase?.pacienteNome ?? '',
-      tipoOcorrencia: 'Atendimento Pré-Hospitalar',
+      tipoOcorrencia: fichaBase?.tipoOcorrencia ?? 'Atendimento Pré-Hospitalar',
       endereco: baseFinal,
       unidadeResponsavel: widget.tipoViaturaInicial ?? fichaBase?.tipoViatura ?? 'USB',
       tipoViatura: widget.tipoViaturaInicial ?? fichaBase?.tipoViatura ?? 'USB',

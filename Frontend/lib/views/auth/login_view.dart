@@ -24,13 +24,16 @@ class _LoginViewState extends State<LoginView> {
       return AppRoutes.dashboard;
     }
     if (redir == 'MOBILE' || redir == '/FICHA') {
-      return AppRoutes.ficha;
+      return AppRoutes.selecaoAtendimento;
+    }
+    if (!usuario.isAdmin) {
+      return AppRoutes.selecaoAtendimento;
     }
     if (usuario.redirecionamento != null &&
         usuario.redirecionamento.toString().startsWith('/')) {
       return usuario.redirecionamento.toString();
     }
-    return usuario.isAdmin ? AppRoutes.dashboard : AppRoutes.ficha;
+    return AppRoutes.dashboard;
   }
 
   Future<void> _exibirDialogTrocaSenha(String login, String senhaAtual) async {

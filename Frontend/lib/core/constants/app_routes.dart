@@ -6,6 +6,10 @@
 class AppRoutes {
   static const String login = '/';
   static const String dashboard = '/dashboard';
+  static const String selecaoAtendimento = '/selecao-atendimento';
+  static const String fichaGestante = '/ficha-gestante';
+  static const String fichaIdoso = '/ficha-idoso';
+  static const String fichaComum = '/ficha-comum';
   static const String ficha = '/ficha';
   static const String registroFicha = '/registro-ficha';
   static const String dadosPaciente = '/dados-paciente';

@@ -5,9 +5,34 @@ import '../services/database_service.dart';
 
 class FichaEmAndamentoProvider extends ChangeNotifier {
   FichaAtendimentoModel? _ficha;
+  String _perfilAtendimento = 'comum';
+  final Set<String> _condicoesIdentificadas = {};
 
   FichaAtendimentoModel? get ficha => _ficha;
   bool get hasFicha => _ficha != null;
+  String get perfilAtendimento => _perfilAtendimento;
+  Set<String> get condicoesIdentificadas => Set.unmodifiable(_condicoesIdentificadas);
+
+  void selecionarPerfil(String perfil) {
+    _perfilAtendimento = perfil;
+    _condicoesIdentificadas.clear();
+    notifyListeners();
+  }
+
+  void alternarCondicao(String condicao) {
+    if (_condicoesIdentificadas.contains(condicao)) {
+      _condicoesIdentificadas.remove(condicao);
+    } else {
+      _condicoesIdentificadas.add(condicao);
+    }
+    notifyListeners();
+  }
+
+  String _tipoOcorrenciaPorPerfil() {
+    if (_perfilAtendimento == 'gestante') return 'Obstétrico (Gestante)';
+    if (_perfilAtendimento == 'idoso') return 'Geriátrico (Idoso)';
+    return 'Atendimento Pré-Hospitalar';
+  }
 
   void iniciarFicha({
     String tipoViatura = 'USB',
@@ -33,7 +58,7 @@ class FichaEmAndamentoProvider extends ChangeNotifier {
       numeroOcorrencia: ocorrencia,
       dataHora: now,
       pacienteNome: '',
-      tipoOcorrencia: 'Atendimento Pré-Hospitalar',
+      tipoOcorrencia: _tipoOcorrenciaPorPerfil(),
       endereco: base ?? '',
       unidadeResponsavel: tipoViatura,
       tipoViatura: tipoViatura,

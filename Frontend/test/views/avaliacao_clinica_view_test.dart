@@ -25,29 +25,23 @@ void main() {
       ),
     );
 
-    // Valida cabeçalho
     expect(find.text('Avaliação Clínica'), findsOneWidget);
-
-    // Valida resumo do paciente
     expect(find.text('João da Silva'), findsOneWidget);
     expect(find.textContaining('Ocorrência: REG-999'), findsOneWidget);
     expect(find.text('Acompanhante: Pai'), findsOneWidget);
 
-    // Valida seção de sinais vitais
-    expect(find.text('Sinais Vitais'), findsOneWidget);
-    expect(find.text('Pressão (PA)'), findsOneWidget);
-    expect(find.text('Freq. Cardíaca (FC)'), findsOneWidget);
-    expect(find.text('Saturação O2 (SpO2)'), findsOneWidget);
-    expect(find.text('Freq. Resp. (FR)'), findsOneWidget);
-    expect(find.text('Glicemia (HGT)'), findsOneWidget);
-    expect(find.text('Temperatura'), findsOneWidget);
-    expect(find.text('Glasgow (3-15)'), findsOneWidget);
+    expect(find.text('2. Sinais Vitais e Histórico'), findsOneWidget);
+    expect(find.text('PA (ex: 120/80)'), findsOneWidget);
+    expect(find.text('FC (bpm)'), findsOneWidget);
+    expect(find.text('FR (rpm)'), findsOneWidget);
+    expect(find.text('SpO₂ (%)'), findsOneWidget);
+    expect(find.text('Glicemia (mg/dL)'), findsOneWidget);
+    expect(find.text('Temp (°C)'), findsOneWidget);
+    expect(find.text('Glasgow'), findsOneWidget);
 
-    // Valida campos de queixa e conduta
-    expect(find.text('Queixa Principal / Hipótese Diagnóstica'), findsOneWidget);
-    expect(find.text('Conduta e Procedimentos Realizados'), findsOneWidget);
-
-    // Valida botão de avanço para Assinatura do Paciente
-    expect(find.text('Continuar para Assinatura do Paciente'), findsOneWidget);
+    expect(find.text('Queixa principal'), findsOneWidget);
+    expect(find.text('Conduta Clínica'), findsOneWidget);
+    expect(find.text('Conduta e procedimentos realizados'), findsOneWidget);
+    expect(find.text('Ir para Assinatura →'), findsOneWidget);
   });
 }

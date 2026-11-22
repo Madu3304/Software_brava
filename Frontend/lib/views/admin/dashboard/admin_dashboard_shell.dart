@@ -242,7 +242,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
                   waitDuration: Duration.zero,
                   child: InkWell(
                     onTap: () {
-                      Navigator.pushNamed(context, AppRoutes.ficha);
+                      Navigator.pushNamed(context, AppRoutes.selecaoAtendimento);
                     },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(

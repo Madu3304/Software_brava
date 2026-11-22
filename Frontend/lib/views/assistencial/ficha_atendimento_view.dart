@@ -5,6 +5,7 @@ import '../../core/constants/app_routes.dart';
 import '../../providers/ficha_provider.dart';
 import '../../services/auth_service.dart';
 import 'widgets/samu_app_bar_header.dart';
+import 'widgets/perfil_ficha_header_card.dart';
 import 'widgets/unidade_tipo_card.dart';
 import 'widgets/codigo_triagem_selector.dart';
 import 'widgets/data_atendimento_card.dart';
@@ -80,6 +81,10 @@ class _FichaAtendimentoViewState extends State<FichaAtendimentoView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Quadro do perfil escolhido (Gestante / Idoso / Paciente comum)
+                  const PerfilFichaHeaderCard(),
+                  const SizedBox(height: 20),
+
                   // Card 1: Tipo de Viatura (USB / USA)
                   UnidadeTipoCard(
                     tipoAtual: _tipoViatura,
