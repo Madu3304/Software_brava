@@ -22,7 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY main.py database.py dependencies.py rate_limit.py schemas.py seed.py rotate_passwords.py ./
+COPY controllers/ controllers/
+COPY models/ models/
+COPY services/ services/
 
 # Cria usuário não-privilegiado para executar a aplicação.
 # Rodar como root em container amplia o impacto de qualquer RCE explorada —
