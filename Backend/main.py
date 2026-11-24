@@ -26,6 +26,7 @@ def ajustar_colunas_novas():
     colunas_novas = {
         "usuario": [
             ("trocar_senha", "BOOLEAN NOT NULL DEFAULT TRUE"),
+            ("token_version", "INTEGER NOT NULL DEFAULT 1"),
         ],
         "ficha_atendimento": [
             ("status_envio_prefeitura", "VARCHAR(20) NOT NULL DEFAULT 'PENDENTE'"),
@@ -145,12 +146,14 @@ app.include_router(api_router)
 
 @app.get("/", tags=["Saúde da API"])
 def root():
-    return {
+    payload = {
         "status": "ONLINE",
         "sistema": "Software Brava SAMU",
-        "documentacao": "/docs",
-        "versao": "1.0.0"
+        "versao": "1.0.0",
     }
+    if APP_ENV != "production":
+        payload["documentacao"] = "/docs"
+    return payload
 
 def variavel_booleana(nome: str, padrao: bool = False) -> bool:
     """Lê uma variável de ambiente como booleano (true/1/sim/yes/on)."""

@@ -1,0 +1,2 @@
+FROM sonarqube:community
+COPY sonarqube_plugins/sonar-flutter-plugin-0.5.2.jar /opt/sonarqube/extensions/plugins/sonar-flutter-plugin-0.5.2.jar

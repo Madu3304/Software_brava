@@ -257,6 +257,17 @@ def post_registrar_reposicao(
     usuario: Usuario = Depends(get_usuario_atual),
     db: Session = Depends(get_db),
 ):
+    ficha_obj = db.query(FichaAtendimento).filter(FichaAtendimento.id_ficha == id_ficha).first()
+    if not ficha_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ficha de atendimento #{id_ficha} não encontrada."
+        )
+    if usuario.perfil != "ADMINISTRADOR" and ficha_obj.id_responsavel != usuario.id_usuario:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não tem permissão para alterar a reposição desta ficha.",
+        )
 
     sucesso = registrar_reposicao_utensilios(db, id_ficha, req)
     if not sucesso:
@@ -274,7 +285,11 @@ def post_registrar_reposicao(
     )
     return {"sucesso": True, "mensagem": f"Reposição da ficha #{id_ficha} registrada com sucesso."}
 
-@router.get("/dashboard/metricas", response_model=DashboardReposicaoResumoResponse)
+@router.get(
+    "/dashboard/metricas",
+    response_model=DashboardReposicaoResumoResponse,
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR"))],
+)
 def get_metricas_dashboard(db: Session = Depends(get_db)):
     return obter_metricas_reposicao_dashboard(db)
 

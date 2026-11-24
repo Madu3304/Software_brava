@@ -79,8 +79,13 @@ def autenticar_usuario(login: str, senha: str, request: Request, db: Session) ->
     # Determina o redirecionamento com base no perfil (RBAC)
     redirecionamento = obter_redirecionamento_por_perfil(usuario.perfil)
 
-    # Gera token de acesso JWT
-    token = gerar_token_acesso(usuario.id_usuario, usuario.login, usuario.perfil)
+    # Gera token de acesso JWT com versão da sessão do usuário
+    token = gerar_token_acesso(
+        usuario.id_usuario,
+        usuario.login,
+        usuario.perfil,
+        token_version=getattr(usuario, "token_version", 1) or 1,
+    )
 
     # Registra Log de Auditoria de Login (RNF05 / Modelo C4)
     ip_origem = obter_ip_origem(request)

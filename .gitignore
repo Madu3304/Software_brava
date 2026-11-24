@@ -68,6 +68,9 @@ Frontend/coverage/
 sonar-project.properties
 .scannerwork/
 
+# Documentação local de deploy AWS
+ConexaoAWS.md
+
 # Distribuição / build Python
 dist/
 build/

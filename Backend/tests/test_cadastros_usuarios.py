@@ -158,3 +158,58 @@ def test_crud_cadastros_completo(client, headers_admin, headers_enfermeiro):
         headers=headers_admin,
     ).status_code == 201
     assert client.get("/api/cadastros/pacientes", headers=headers_admin).status_code == 200
+
+
+def test_seguranca_bola_rbac_e_revogacao_token(client, db_session, seed_dados_basicos, headers_admin, headers_enfermeiro, monkeypatch):
+    from controllers import docusign_controller
+    from services.security_service import gerar_token_acesso
+
+    # 1. BOLA em reposição e RBAC em /dashboard/metricas
+    assert client.post(
+        "/api/fichas/reposicao/999999",
+        json={"reposto": True, "observacoes_reposicao": "ok"},
+        headers=headers_admin,
+    ).status_code == 404
+    assert client.get("/api/fichas/dashboard/metricas", headers=headers_enfermeiro).status_code == 403
+
+    # 2. DocuSign: validação de envelope_id e sanitização de erro 500
+    assert client.get("/api/docusign/status/id!invalido", headers=headers_admin).status_code == 400
+    def _boom(**kwargs):
+        raise RuntimeError("detalhe interno")
+    monkeypatch.setattr(docusign_controller.docusign_service, "criar_envelope_termo_aph", _boom)
+    r_ds = client.post(
+        "/api/docusign/envelopes",
+        json={"numero_ocorrencia": "1", "paciente_nome": "Teste"},
+        headers=headers_admin,
+    )
+    assert r_ds.status_code == 500
+    assert "detalhe interno" not in r_ds.text
+
+    # 3. Ollama: modelo fora da allowlist retorna 400
+    r_ia = client.post(
+        "/api/ia/chat",
+        json={"mensagem": "oi", "modelo": "modelo-nao-autorizado"},
+        headers=headers_admin,
+    )
+    assert r_ia.status_code == 400
+
+    # 4. Alterar perfil do usuário revoga JWT antigo
+    enf = seed_dados_basicos["enfermeiro"]
+    token_antigo = gerar_token_acesso(enf.id_usuario, enf.login, enf.perfil, token_version=1)
+    r_upd = client.put(
+        f"/api/usuarios/{enf.id_usuario}",
+        json={"perfil": "TECNICO"},
+        headers=headers_admin,
+    )
+    assert r_upd.status_code == 200
+    r_me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token_antigo}"})
+    assert r_me.status_code == 401
+
+    # 5. Hash legado SHA-256 bloqueado em produção (ALLOW_LEGACY_SHA256=false)
+    import hashlib
+    from services.security_service import verificar_senha
+    sha_legado = hashlib.sha256(b"Senha123").hexdigest()
+    monkeypatch.setenv("ALLOW_LEGACY_SHA256", "false")
+    assert verificar_senha("Senha123", sha_legado) is False
+    monkeypatch.setenv("ALLOW_LEGACY_SHA256", "true")
+    assert verificar_senha("Senha123", sha_legado) is True

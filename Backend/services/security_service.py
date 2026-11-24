@@ -80,15 +80,23 @@ def verificar_senha(senha_fornecida: str, senha_armazenada: str) -> bool:
             return hmac.compare_digest(calculado, hash_esperado)
         except (ValueError, TypeError):
             return False
+    allow_legacy_sha256 = os.getenv(
+        "ALLOW_LEGACY_SHA256",
+        "true" if _APP_ENV != "production" else "false",
+    ).strip().lower() in ("true", "1", "sim", "yes", "on")
+    if not allow_legacy_sha256:
+        logger.warning("[SEGURANÇA] Tentativa de autenticação com hash legado SHA-256 sem sal bloqueada em produção.")
+        return False
+    logger.warning("[SEGURANÇA] Autenticação utilizando hash legado SHA-256 sem sal — migração automática será aplicada.")
     return hmac.compare_digest(
         hashlib.sha256(senha_fornecida.encode("utf-8")).hexdigest(),
         senha_armazenada,
     )
 
-def gerar_token_acesso(id_usuario: int, login: str, perfil: str) -> str:
+def gerar_token_acesso(id_usuario: int, login: str, perfil: str, token_version: int = 1) -> str:
     """
     Gera um JWT assinado com jti (UUID único por emissão), identificação,
-    perfil (RBAC) e expiração.
+    perfil (RBAC), versão de sessão (ver) e expiração.
     O jti permite revogação individual do token no logout via blocklist.
     """
     agora = datetime.now(timezone.utc)
@@ -96,6 +104,7 @@ def gerar_token_acesso(id_usuario: int, login: str, perfil: str) -> str:
         "sub": str(id_usuario),
         "login": login,
         "perfil": (perfil or "").strip().upper(),
+        "ver": int(token_version or 1),
         "jti": secrets.token_urlsafe(32),   # ID único do token — usado na blocklist de logout
         "iat": agora,
         "exp": agora + timedelta(minutes=JWT_EXPIRE_MINUTES),

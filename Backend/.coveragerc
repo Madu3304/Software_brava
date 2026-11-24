@@ -1,0 +1,13 @@
+[run]
+relative_files = True
+source = .
+omit =
+    venv/*
+    .venv/*
+    tests/*
+    alembic/*
+    test_server.py
+    rotate_passwords.py
+    teste_query.py
+    __pycache__/*
+    */__pycache__/*

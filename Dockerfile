@@ -38,16 +38,11 @@ FROM python:3.13-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    APP_ENV=development \
+    APP_ENV=production \
     POSTGRES_USER=postgres \
-    POSTGRES_PASSWORD=postgres \
     POSTGRES_DB=brava \
     PGDATA=/var/lib/postgresql/data \
-    DATABASE_URL=postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/brava \
-    ADMIN_PASSWORD=admin123 \
-    EQUIPE_PASSWORD=brava123 \
-    SEED_TROCAR_SENHA=false \
-    CORS_ORIGINS=http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000 \
+    SEED_TROCAR_SENHA=true \
     LOGIN_RATE_LIMIT=20/minute \
     OLLAMA_BASE_URL=http://host.docker.internal:11434 \
     OLLAMA_MODEL=llama3.2:3b \
@@ -84,7 +79,10 @@ RUN printf "self.addEventListener('install',function(e){self.skipWaiting();});se
 COPY docker/nginx.conf /etc/nginx/conf.d/software_brava.conf
 COPY docker/postgres/init_brava.sql /docker-entrypoint-initdb.d/01_init_brava.sql
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh && mkdir -p /app/data /var/lib/postgresql/data /var/run/postgresql /var/log/postgresql
+RUN groupadd -r brava && useradd -r -g brava -d /app -s /usr/sbin/nologin brava \
+    && sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh \
+    && mkdir -p /app/data /var/lib/postgresql/data /var/run/postgresql /var/log/postgresql \
+    && chown -R brava:brava /app/data /app/Backend
 
 VOLUME ["/var/lib/postgresql/data", "/app/data"]
 

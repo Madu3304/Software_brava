@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_config.dart';
+import 'api_http_adapter_stub.dart'
+    if (dart.library.io) 'api_http_adapter_io.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -10,6 +12,12 @@ class ApiClient {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   ApiClient._internal() {
+    if (!ApiConfig.isSecureTransportAllowed(ApiConfig.baseUrl)) {
+      throw StateError(
+        'Transporte HTTP inseguro bloqueado em produção. Configure API_URL com HTTPS.',
+      );
+    }
+
     dio = Dio(
       BaseOptions(
         baseUrl: ApiConfig.apiBaseUrl,
@@ -20,6 +28,11 @@ class ApiClient {
           'Accept': 'application/json',
         },
       ),
+    );
+
+    configureSecureHttpAdapter(
+      dio,
+      expectedSha256Pin: ApiConfig.certSha256Pin,
     );
 
     dio.interceptors.add(

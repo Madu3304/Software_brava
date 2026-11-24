@@ -212,3 +212,22 @@ def test_validacao_clinica_edge_cases():
     valido, erros = validation_service.validar_regras_clinicas_ficha(ficha_invalida)
     assert valido is False
     assert len(erros) >= 6
+
+
+def test_seed_dados_sinteticos_completos(db_session, monkeypatch):
+    from models import FichaAtendimento, Medico, Tecnico, Condutor
+    from seed import seed_initial_data
+    from services.report_service import calcular_metricas_dashboard
+
+    monkeypatch.setenv("ADMIN_PASSWORD", "AdminTest#123")
+    monkeypatch.setenv("EQUIPE_PASSWORD", "EquipeTest#123")
+    seed_initial_data(db_session)
+
+    assert db_session.query(Medico).count() >= 5
+    assert db_session.query(Tecnico).count() >= 5
+    assert db_session.query(Condutor).count() >= 5
+    assert db_session.query(FichaAtendimento).count() >= 16
+
+    metricas = calcular_metricas_dashboard(db_session)
+    assert metricas.total_atendimentos >= 16
+    assert metricas.atendimentos_hoje >= 1

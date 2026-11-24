@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -5,8 +6,9 @@ from typing import List, Optional
 from database import get_db
 from dependencies import exigir_perfil, get_usuario_atual, obter_ip_origem
 from models import Usuario
+from models.token_revogado import TokenRevogado
 from schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
-from services.security_service import gerar_hash_senha
+from services.security_service import gerar_hash_senha, JWT_EXPIRE_MINUTES
 from services.log_service import registrar_auditoria
 
 # Rotas restritas ao perfil ADMINISTRADOR (token JWT obrigatório)
@@ -116,15 +118,28 @@ def atualizar_usuario(
                     detail=f"E-mail '{dados.email}' já está em uso por outro profissional."
                 )
         usuario.email = dados.email
-    if dados.perfil is not None:
+    revogar_tokens = False
+    if dados.perfil is not None and dados.perfil.upper() != (usuario.perfil or "").upper():
         usuario.perfil = dados.perfil.upper()
+        revogar_tokens = True
     if dados.registro_profissional is not None:
         usuario.registro_profissional = dados.registro_profissional
     if dados.ativo is not None:
+        if dados.ativo is False and usuario.ativo:
+            revogar_tokens = True
         usuario.ativo = dados.ativo
     if dados.senha is not None and dados.senha.strip():
         usuario.senha_hash = gerar_hash_senha(dados.senha)
         usuario.trocar_senha = True # Senha redefinida pelo Administrador: troca obrigatória no próximo login
+        revogar_tokens = True
+
+    if revogar_tokens:
+        usuario.token_version = (getattr(usuario, "token_version", 1) or 1) + 1
+        db.add(TokenRevogado(
+            jti=f"user-rev-{id_usuario}-v{usuario.token_version}",
+            id_usuario=id_usuario,
+            expira_em=datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES),
+        ))
 
     db.commit()
     registrar_auditoria(
@@ -150,6 +165,12 @@ def deletar_usuario(
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
     usuario.ativo = False
+    usuario.token_version = (getattr(usuario, "token_version", 1) or 1) + 1
+    db.add(TokenRevogado(
+        jti=f"user-del-{id_usuario}-v{usuario.token_version}",
+        id_usuario=id_usuario,
+        expira_em=datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES),
+    ))
     db.commit()
     registrar_auditoria(
         db=db,

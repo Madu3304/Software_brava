@@ -61,6 +61,15 @@ def get_usuario_atual(
     if not usuario:
         raise erro_credenciais
 
+    token_ver = payload.get("ver")
+    user_ver = getattr(usuario, "token_version", 1) or 1
+    if token_ver is not None and int(token_ver) != int(user_ver):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão revogada após alteração de perfil ou desativação. Faça login novamente.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if not usuario.ativo:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

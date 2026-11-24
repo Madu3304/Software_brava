@@ -14,6 +14,7 @@ class Usuario(Base):
     registro_profissional = Column(String(50), nullable=True) # CRM, COREN, CNH
     ativo = Column(Boolean, default=True)
     trocar_senha = Column(Boolean, default=False, nullable=False) # True: troca de senha obrigatória no próximo login
+    token_version = Column(Integer, default=1, server_default="1", nullable=False)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relacionamentos

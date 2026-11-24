@@ -17,8 +17,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
       EQUIPE_PASSWORD: ${EQUIPE_PASSWORD:-brava123}
       SEED_TROCAR_SENHA: ${SEED_TROCAR_SENHA:-false}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-chave_secreta_docker_software_brava_samu_2026_joinville_sc}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       JWT_ALGORITHM: HS256
       JWT_EXPIRE_MINUTES: 1440
       LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-20/minute}
@@ -30,8 +30,8 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
-      - "8000:8000"
-      - "5432:5432"
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:5432:5432"
     volumes:
       - brava_pgdata:/var/lib/postgresql/data
       - brava_appdata:/app/data
@@ -49,6 +49,22 @@ services:
         - action: rebuild
           path: ./Dockerfile
 
+  sonarqube:
+    build:
+      context: .
+      dockerfile: Dockerfile.sonarqube
+    image: software-brava-sonarqube:latest
+    container_name: sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - ./sonarqube_plugins:/opt/sonarqube/extensions/plugins
+
 volumes:
   brava_pgdata:
   brava_appdata:
+  sonarqube_data:
+  sonarqube_logs:

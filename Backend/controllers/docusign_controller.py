@@ -1,13 +1,18 @@
+import logging
+import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import Optional
-from dependencies import get_usuario_atual
+from dependencies import exigir_perfil
 from services.docusign_service import DocuSignService
+
+logger = logging.getLogger("DocuSignController")
+_ENVELOPE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,100}$")
 
 router = APIRouter(
     prefix="/docusign",
     tags=["DocuSign eSignature"],
-    dependencies=[Depends(get_usuario_atual)],
+    dependencies=[Depends(exigir_perfil("ADMINISTRADOR", "ENFERMEIRO", "TECNICO"))],
 )
 docusign_service = DocuSignService()
 
@@ -35,14 +40,20 @@ def criar_envelope_docusign(payload: CriarEnvelopeRequest):
             conduta_resumo=payload.conduta_resumo,
         )
         return resultado
-    except Exception as e:
+    except Exception:
+        logger.exception("[DocuSign] Falha ao criar envelope de assinatura.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Falha na comunicação com o serviço DocuSign: {str(e)}"
+            detail="Falha na comunicação com o serviço DocuSign.",
         )
 
 @router.get("/status/{envelope_id}")
 def verificar_status_envelope(envelope_id: str):
     """Verifica o status de assinatura de um envelope no DocuSign."""
+    if not _ENVELOPE_ID_RE.match(envelope_id or ""):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Identificador de envelope inválido.",
+        )
     return docusign_service.consultar_status_envelope(envelope_id)
 

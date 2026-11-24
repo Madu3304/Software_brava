@@ -4,6 +4,7 @@ import '../core/database/database_helper.dart';
 import '../models/ficha_model.dart';
 import '../models/unidade_model.dart';
 import '../models/profissional_model.dart';
+import 'local_crypto_service.dart';
 
 class DatabaseServiceException implements Exception {
   final String message;
@@ -37,14 +38,15 @@ class DatabaseService {
       return 0;
     }
     if (kIsWeb) {
-      _webFichas[ficha.id] = Map<String, dynamic>.from(ficha.toMap());
+      _webFichas[ficha.id] = await LocalCryptoService().protegerMapaFicha(ficha.toMap());
       return 1;
     }
     try {
       final db = await _dbHelper.database;
+      final mapaProtegido = await LocalCryptoService().protegerMapaFicha(ficha.toMap());
       return await db.insert(
         'fichas',
-        ficha.toMap(),
+        mapaProtegido,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {
@@ -59,16 +61,21 @@ class DatabaseService {
   // Retorna todas as fichas gravadas localmente ordenadas por data desc
   Future<List<FichaAtendimentoModel>> listarFichas() async {
     if (kIsWeb) {
-      final list = _webFichas.values
-          .map((m) => FichaAtendimentoModel.fromMap(m))
-          .toList();
+      final list = <FichaAtendimentoModel>[];
+      for (final m in _webFichas.values) {
+        list.add(FichaAtendimentoModel.fromMap(await LocalCryptoService().desprotegerMapaFicha(m)));
+      }
       list.sort((a, b) => b.dataHora.compareTo(a.dataHora));
       return list;
     }
     try {
       final db = await _dbHelper.database;
       final maps = await db.query('fichas', orderBy: 'dataHora DESC');
-      return maps.map((m) => FichaAtendimentoModel.fromMap(m)).toList();
+      final list = <FichaAtendimentoModel>[];
+      for (final m in maps) {
+        list.add(FichaAtendimentoModel.fromMap(await LocalCryptoService().desprotegerMapaFicha(m)));
+      }
+      return list;
     } catch (e) {
       debugPrint('[DatabaseService] Erro ao listar fichas: $e');
       return [];
@@ -77,10 +84,13 @@ class DatabaseService {
 
   Future<List<FichaAtendimentoModel>> listarFichasPendentes() async {
     if (kIsWeb) {
-      final list = _webFichas.values
-          .map((m) => FichaAtendimentoModel.fromMap(m))
-          .where((f) => f.statusSincronizacao != StatusSincronizacao.sincronizado)
-          .toList();
+      final list = <FichaAtendimentoModel>[];
+      for (final m in _webFichas.values) {
+        final f = FichaAtendimentoModel.fromMap(await LocalCryptoService().desprotegerMapaFicha(m));
+        if (f.statusSincronizacao != StatusSincronizacao.sincronizado) {
+          list.add(f);
+        }
+      }
       list.sort((a, b) => a.dataHora.compareTo(b.dataHora));
       return list;
     }
@@ -92,7 +102,11 @@ class DatabaseService {
         whereArgs: [StatusSincronizacao.sincronizado.name],
         orderBy: 'dataHora ASC',
       );
-      return maps.map((m) => FichaAtendimentoModel.fromMap(m)).toList();
+      final list = <FichaAtendimentoModel>[];
+      for (final m in maps) {
+        list.add(FichaAtendimentoModel.fromMap(await LocalCryptoService().desprotegerMapaFicha(m)));
+      }
+      return list;
     } catch (e) {
       debugPrint('[DatabaseService] Erro ao listar fichas pendentes: $e');
       return [];
@@ -126,7 +140,9 @@ class DatabaseService {
   Future<FichaAtendimentoModel?> buscarFichaPorId(String id) async {
     if (kIsWeb) {
       final map = _webFichas[id];
-      return map != null ? FichaAtendimentoModel.fromMap(map) : null;
+      return map != null
+          ? FichaAtendimentoModel.fromMap(await LocalCryptoService().desprotegerMapaFicha(map))
+          : null;
     }
     try {
       final db = await _dbHelper.database;
@@ -137,7 +153,9 @@ class DatabaseService {
         limit: 1,
       );
       if (maps.isNotEmpty) {
-        return FichaAtendimentoModel.fromMap(maps.first);
+        return FichaAtendimentoModel.fromMap(
+          await LocalCryptoService().desprotegerMapaFicha(maps.first),
+        );
       }
     } catch (e) {
       debugPrint('[DatabaseService] Erro ao buscar ficha $id: $e');
