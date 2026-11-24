@@ -67,6 +67,8 @@ Frontend/coverage/
 # SonarQube
 sonar-project.properties
 .scannerwork/
+sonarqube_plugins/tests_backend/
+sonarqube_plugins/tests_frontend/
 
 # Documentação local de deploy AWS
 ConexaoAWS.md
