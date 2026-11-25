@@ -10,6 +10,7 @@ from database import engine, Base, SessionLocal
 from controllers import api_router
 from rate_limit import limiter, tratar_limite_excedido
 from slowapi.errors import RateLimitExceeded
+from prometheus_fastapi_instrumentator import Instrumentator
 from seed import seed_initial_data
 
 logger = logging.getLogger("SoftwareBravaAPI")
@@ -143,6 +144,12 @@ app.add_exception_handler(RateLimitExceeded, tratar_limite_excedido)
 
 # Registra todos os módulos de controllers da aplicação sob o prefixo /api
 app.include_router(api_router)
+
+# Métricas Prometheus em /metrics (restrito à rede interna/localhost; Nginx não expõe)
+Instrumentator(
+    should_group_status_codes=False,
+    excluded_handlers=["/metrics"],
+).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 @app.get("/", tags=["Saúde da API"])
 def root():

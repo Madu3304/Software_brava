@@ -63,8 +63,36 @@ services:
       - sonarqube_logs:/opt/sonarqube/logs
       - ./sonarqube_plugins:/opt/sonarqube/extensions/plugins
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: software-brava-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - software-brava
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: software-brava-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   brava_pgdata:
   brava_appdata:
   sonarqube_data:
   sonarqube_logs:
+  prometheus_data:
+  grafana_data:

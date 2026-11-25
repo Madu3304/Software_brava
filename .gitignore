@@ -72,6 +72,7 @@ sonarqube_plugins/tests_frontend/
 
 # Documentação local de deploy AWS
 ConexaoAWS.md
+prometheus-grafana.md
 
 # Distribuição / build Python
 dist/
