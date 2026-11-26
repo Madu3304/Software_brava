@@ -10,7 +10,8 @@ from database import engine, Base, SessionLocal
 from controllers import api_router
 from rate_limit import limiter, tratar_limite_excedido
 from slowapi.errors import RateLimitExceeded
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import Instrumentator, routing as _pfi_routing
+from starlette.routing import Match, Mount
 from seed import seed_initial_data
 
 logger = logging.getLogger("SoftwareBravaAPI")
@@ -144,6 +145,29 @@ app.add_exception_handler(RateLimitExceeded, tratar_limite_excedido)
 
 # Registra todos os módulos de controllers da aplicação sob o prefixo /api
 app.include_router(api_router)
+
+def _patch_prometheus_included_router() -> None:
+    """Ignora objetos _IncludedRouter sem atributo .path no FastAPI >= 0.137."""
+    def _safe_get_route_name(scope, routes, route_name=None):
+        for route in routes:
+            if getattr(route, "path", None) is None:
+                continue
+            match, child_scope = route.matches(scope)
+            if match == Match.FULL:
+                route_name = route.path
+                child_scope = {**scope, **child_scope}
+                if isinstance(route, Mount) and route.routes:
+                    child = _safe_get_route_name(child_scope, route.routes, route_name)
+                    route_name = None if child is None else route_name + child
+                return route_name
+            if match == Match.PARTIAL and route_name is None:
+                route_name = route.path
+        return None
+
+    _pfi_routing._get_route_name = _safe_get_route_name
+
+
+_patch_prometheus_included_router()
 
 # Métricas Prometheus em /metrics (restrito à rede interna/localhost; Nginx não expõe)
 Instrumentator(
